@@ -3,8 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "pnpm --filter sandbox dev",
-    "build": "pnpm --filter sandbox build",
+    "codegen": "tsx scripts/build.ts",
+    "dev": "pnpm codegen && pnpm --filter sandbox dev",
+    "build": "pnpm codegen && pnpm --filter sandbox build",
     "test": "vitest",
     "typecheck": "tsc --noEmit"
   },
@@ -16,6 +17,7 @@
     "csstype": "^3.2.3",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
+    "tsx": "^4.22.3",
     "typescript": "^6.0.3",
     "vite": "^8.0.14",
     "vitest": "^4.1.7"

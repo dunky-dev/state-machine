@@ -16,11 +16,11 @@
     "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
-      "@render-experiment/behavior-core": ["./packages/behavior/core/src"],
-      "@render-experiment/behavior-react": ["./packages/behavior/react/src"],
-      "@render-experiment/style-react": ["./packages/style/react/src"],
-      "@render-experiment/tooltip-core": ["./packages/components/core/tooltip/src"],
-      "@render-experiment/tooltip-react": ["./packages/components/react/tooltip/src"]
+      "@render-experiment/behavior-core": ["./packages/core/behavior/src"],
+      "@render-experiment/behavior-react": ["./packages/react/behavior/src"],
+      "@render-experiment/style-react": ["./packages/react/style/src"],
+      "@render-experiment/tooltip-core": ["./packages/core/components/tooltip/src"],
+      "@render-experiment/tooltip-react": ["./packages/react/components/tooltip/src"]
     },
     "types": ["@types/node", "vite/client", "vitest/globals"]
   },

@@ -1,7 +1,7 @@
 packages:
-  - 'packages/behavior/core'
-  - 'packages/behavior/react'
-  - 'packages/style/react'
-  - 'packages/components/core/*'
-  - 'packages/components/react/*'
+  - 'packages/core/behavior'
+  - 'packages/core/components/*'
+  - 'packages/react/behavior'
+  - 'packages/react/style'
+  - 'packages/react/components/*'
   - 'sandbox'
