@@ -10,6 +10,8 @@
     "dev:react:vite": "pnpm --filter sandbox-react dev",
     "dev:native": "run-p codegen:watch dev:native:expo",
     "dev:native:expo": "pnpm --filter sandbox-native start",
+    "dev:pixi": "run-p codegen:watch dev:pixi:vite",
+    "dev:pixi:vite": "pnpm --filter sandbox-pixi dev",
     "build": "pnpm codegen && pnpm --filter sandbox-react build",
     "test": "vitest",
     "typecheck": "tsc --noEmit"

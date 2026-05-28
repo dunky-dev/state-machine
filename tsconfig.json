@@ -26,11 +26,15 @@
       "@render-experiment/tooltip-native": ["./packages/native/components/tooltip/src"],
       "@render-experiment/dropdown-menu-core": ["./packages/core/components/dropdown-menu/src"],
       "@render-experiment/dropdown-menu-react": ["./packages/react/components/dropdown-menu/src"],
-      "@render-experiment/dropdown-menu-native": ["./packages/native/components/dropdown-menu/src"]
+      "@render-experiment/dropdown-menu-native": ["./packages/native/components/dropdown-menu/src"],
+      "@render-experiment/machine-pixi": ["./packages/pixi/machine/src"],
+      "@render-experiment/style-engine-pixi": ["./packages/pixi/style-engine/src"],
+      "@render-experiment/tooltip-pixi": ["./packages/pixi/components/tooltip/src"],
+      "@render-experiment/dropdown-menu-pixi": ["./packages/pixi/components/dropdown-menu/src"]
     },
     "types": ["@types/node", "vite/client", "vitest/globals"]
   },
-  "include": ["./packages", "./sandbox/react", "./scripts", "./*.ts"],
+  "include": ["./packages", "./sandbox/react", "./sandbox/pixi", "./scripts", "./*.ts"],
   "exclude": [
     "**/node_modules",
     "**/dist",
