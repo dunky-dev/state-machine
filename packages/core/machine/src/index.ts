@@ -13,8 +13,6 @@ export type { Adapter } from "./adapter";
 export { mergeProps } from "./utils";
 export { connector } from "./connector";
 export type { Connect, MachineSnapshot, Send } from "./connector";
-export { placementToSide } from "./positioning";
-export type { Placement, PositioningOptions } from "./positioning";
 export type {
   Action,
   Machine,

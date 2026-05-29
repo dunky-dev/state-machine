@@ -1,12 +1,10 @@
 /**
  * Substrate-agnostic positioning vocabulary.
  *
- * `Placement` and `PositioningOptions` are the same shape every floating
- * component (tooltip, dropdown, popover, …) consumes; the resolver math
- * in each component's connect / adapter doesn't change across components.
- *
- * Lives in machine-core so we don't duplicate the enum + helper per
- * component. Pure data — no React, no DOM, no Pixi.
+ * Every floating component (tooltip, dropdown, popover, …) consumes
+ * `Placement` + `PositioningOptions` the same way, and the `Side`
+ * resolver math doesn't change across components. Pure data — no
+ * React, no DOM, no Pixi.
  */
 
 export type Placement =
@@ -23,12 +21,15 @@ export type Placement =
   | "right-start"
   | "right-end";
 
+/** The base side a placement resolves to (drops the -start/-end suffix). */
+export type Side = "top" | "bottom" | "left" | "right";
+
 export interface PositioningOptions {
   placement: Placement;
   offset: { main: number; cross: number };
 }
 
-const sideMap: Record<Placement, "top" | "bottom" | "left" | "right"> = {
+const sideMap: Record<Placement, Side> = {
   top: "top",
   "top-start": "top",
   "top-end": "top",
@@ -44,8 +45,6 @@ const sideMap: Record<Placement, "top" | "bottom" | "left" | "right"> = {
 };
 
 /** Convert a logical placement to its base side (the `side` variant key). */
-export function placementToSide(
-  p: Placement,
-): "top" | "bottom" | "left" | "right" {
+export function placementToSide(p: Placement): Side {
   return sideMap[p];
 }

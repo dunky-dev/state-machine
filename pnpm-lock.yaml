@@ -65,6 +65,9 @@ importers:
       '@render-experiment/machine-core':
         specifier: workspace:*
         version: link:../../machine
+      '@render-experiment/utils':
+        specifier: workspace:*
+        version: link:../../../shared/utils
 
   packages/core/components/tooltip:
     dependencies:
@@ -74,6 +77,9 @@ importers:
       '@render-experiment/tooltip-shared':
         specifier: workspace:*
         version: link:../../../shared/components/tooltip
+      '@render-experiment/utils':
+        specifier: workspace:*
+        version: link:../../../shared/utils
 
   packages/core/machine:
     dependencies:
