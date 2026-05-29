@@ -3,7 +3,9 @@ export { createStore } from "./store";
 export type { Store } from "./store";
 export { withAdapter } from "./adapter";
 export type { Adapter } from "./adapter";
-export { mergeProps } from "./merge-props";
+export { mergeProps } from "./utils";
+export { connector } from "./connector";
+export type { Connect, MachineSnapshot, Send } from "./connector";
 export type {
   Action,
   Machine,
