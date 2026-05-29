@@ -248,8 +248,6 @@ importers:
         specifier: '*'
         version: 19.2.6
 
-  packages/shared: {}
-
   packages/shared/components/dropdown-menu:
     dependencies:
       '@render-experiment/machine-core':
@@ -261,6 +259,8 @@ importers:
       '@render-experiment/machine-core':
         specifier: workspace:*
         version: link:../../../core/machine
+
+  packages/shared/utils: {}
 
   sandbox/native:
     dependencies:
