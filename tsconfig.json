@@ -16,6 +16,8 @@
     "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
+      "@render-experiment/store": ["./packages/core/store/src"],
+      "@render-experiment/store-react": ["./packages/react/store/src"],
       "@render-experiment/machine-core": ["./packages/core/machine/src"],
       "@render-experiment/machine-react": ["./packages/react/machine/src"],
       "@render-experiment/machine-native": ["./packages/native/machine/src"],
