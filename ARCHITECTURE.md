@@ -3,52 +3,85 @@
 For _rules_ (do this, never do that), see [`AGENT.md`](./AGENT.md).
 For _packages_ specifics see `SPEC.md` files.
 
+## The map
+
 ```
-   ┌─────────────────────────────────────────────────────────────────┐
-   │                          HOST (core)                            │
-   │                                                                 │
-   │   Pure JS. No React, no DOM, no RN. Substrate-agnostic.         │
-   │                                                                 │
-   │   Provides:                                                     │
-   │     • State-machine engine (createMachine)                      │
-   │     • Reactive store (createStore)                              │
-   │     • Bindings vocabulary (EventBindings, AttrBindings)         │
-   │     • Style spec types (Style, StyleSpec)                       │
-   │     • Per-component agnostic spec (states, transitions,         │
-   │       connect output, element style specs)                      │
-   │                                                                 │
-   └─────────────────────────────────────────────────────────────────┘
-                                  ▲
-                                  │  declares a contract
-                                  │  (effect names, bindings vocab)
-                                  ▼
-   ┌─────────────────────────────────────────────────────────────────┐
-   │                  ADAPTER (per-substrate)                        │
-   │                                                                 │
-   │   Knows one renderer. Implements the host's contract.           │
-   │                                                                 │
-   │   Provides:                                                     │
-   │     • useMachine hook (React lifecycle bridge)                  │
-   │     • normalize (bindings → renderer-native props)              │
-   │     • style-engine (style spec → renderer-native styles)        │
-   │     • mergeProps (consumer + library prop composition)          │
-   │                                                                 │
-   │   Each component in this layer adds:                            │
-   │     • adapter.ts (substrate impls of host effects)              │
-   │     • render.tsx (the actual view)                              │
-   │     • context.ts (adapter-specific React context)               │
-   │                                                                 │
-   └─────────────────────────────────────────────────────────────────┘
-                                  ▲
-                                  │  consumed via generated api.ts
-                                  │  (useXxxApi hook + styled elements)
-                                  ▼
-                              consumer app
-                       (sandbox/react, sandbox/native, …)
+core                                  agnostic logic
+└── machine                           the state-machine + primitives package
+│   ├── createMachine                 builds a running machine from a config
+│   ├── createStore                   reactive value container
+│   ├── bindings                      event + attr vocabulary (onPress, role…)
+│   ├── adapter                       withAdapter() — merges substrate impls
+│   ├── mergeProps                    composes consumer + library props
+│   └── style-spec                    Style / StyleSpec types
+│
+└── components
+    └── <component>                   per-component agnostic description
+        ├── types                     vocabulary (what the component IS)
+        ├── props                     defaults + raw-to-resolved
+        ├── machine                   state graph + transitions
+        ├── connect                   state + ctx → handlers + attrs
+        ├── store                     singleton (when needed)
+        ├── utils                     pure helpers (step, typeahead, …)
+        └── elements                  named parts + per-part style spec
+
+<target>                              one substrate (react, native, pixi, …)
+└── machine                           hooks + props translator for this substrate
+│   ├── useMachine                    React lifecycle bridge
+│   └── normalize                     bindings → renderer-native props
+│
+└── style-engine                      translates StyleSpec → renderer styles
+│
+└── components
+    └── <component>                   per-component substrate implementation
+        ├── render                    the actual view (hand-written)
+        ├── context                   adapter-specific React context
+        ├── adapter                   substrate impls of host effects
+        ├── utils                     adapter-local helpers
+        ├── api                       generated — useXxxApi hook
+        └── elements                  generated — styled wrappers
 ```
 
-The arrows point upward because the lower layer is the _contract_ the
-upper layer fulfills. Core declares names; adapters supply the runtime.
+### How to read it
+
+The repo splits in two halves. **`core/`** is the agnostic side — pure JS,
+no renderer. It says _what_ a component is: its states, its transitions,
+its bindings vocabulary, its style spec. Nothing in `core/` knows that
+React or the DOM exists.
+
+**`<target>/`** is the substrate side — `react`, `native`, `pixi`, and
+any future renderer. Each target is a complete implementation of the
+agnostic spec for one runtime. The view, the lifecycle bridge, the
+event normalization, and the substrate-specific effect impls all live
+here.
+
+Each _component_ appears twice: once in `core/components/<comp>/` as
+the agnostic description, and once in each `<target>/components/<comp>/`
+as the substrate-specific view. The agnostic side declares names; the
+target side fulfills the contract.
+
+### What clicks together
+
+A `Tooltip` in your React app:
+
+1. **You import** `<Tooltip>` from `@render-experiment/tooltip-react`.
+2. **The view** (`react/components/tooltip/render.tsx`) calls
+   `useTooltipApi(props)`. That's the generated hook.
+3. **`useTooltipApi`** wraps `tooltipMachine` (from
+   `core/components/tooltip/machine`) with the substrate adapter (the
+   React adapter's `adapter.ts` provides the DOM-specific `trackEscapeKey`).
+4. **`useMachine`** (from `react/machine`) runs the machine and re-renders
+   on state changes.
+5. **`connect()`** (from `core/components/tooltip/connect`) translates
+   `(state, context, props)` into handler + attr bindings.
+6. **`normalize()`** (from `react/machine`) maps the agnostic bindings
+   (`onPress`, `describedBy`) into real DOM props (`onClick`,
+   `aria-describedby`).
+7. **The view** spreads those onto a styled element generated from
+   `core/components/tooltip/elements/content.ts`.
+
+The same path runs on native or pixi — different normalize, different
+styled element, same machine.
 
 ---
 
@@ -147,21 +180,79 @@ substrate-free without losing the contract.
 
 ## The codegen pipeline
 
-The build script reads each component's core spec and produces two
-adapter files:
+The build script reads each component's core spec and emits per-target
+files. It runs the same way in dev (via the watcher) and in production
+(`pnpm build`) — there's no separate runtime path.
 
 ```
-   core/components/<comp>/src/        (source of truth)
-   ├── index.ts                       reads: machine, connect, types names
-   └── elements/<part>.ts             reads: style specs
+   READS (source of truth in core)
+   ────────────────────────────────────────────────────────────────
+   core/components/<comp>/src/
+   ├── index.ts                     names: <comp>Machine, connect<Comp>
+   ├── types.ts                     types referenced by api.ts
+   ├── machine.ts                   imported by the generated hook
+   ├── connect.ts                   imported by the generated hook
+   └── elements/<part>.ts           per-part style specs
 
-                  ↓  scripts/build.ts
-                  ↓  (translate per target)
+                       ↓  scripts/build.ts
+                       ↓
+                       ↓  For each target:
+                       ↓    - emitApi    (template + names)
+                       ↓    - emitElements (style-engine translates
+                       ↓                    StyleSpec → native styles,
+                       ↓                    inlined as JSON literal)
 
-   <target>/components/<comp>/src/
-   ├── api.ts                         emitted: useXxxApi hook
-   └── elements.ts                    emitted: styled wrappers
+   EMITS (one set per target, overwritten each run)
+   ────────────────────────────────────────────────────────────────
+   react/components/<comp>/src/
+   ├── api.ts          ← useXxxApi hook (imports core + react adapter)
+   └── elements.ts     ← Stitches styled wrappers + inlined CSS
+
+   native/components/<comp>/src/
+   ├── api.ts          ← useXxxApi hook (imports core + native adapter)
+   └── elements.ts     ← TranslatedNativeStyle + resolve helpers
+
+   pixi/components/<comp>/src/
+   ├── api.ts          ← useXxxApi hook
+   └── elements.ts     ← Pixi sprite/container style records
 ```
+
+The watcher (`scripts/watch.ts`) tracks `core/components/*/src/elements/`
+and the per-component sibling files (`machine.ts`, `types.ts`, `props.ts`,
+`utils.ts`). On change, the affected component is regenerated for every
+target; Vite / Metro pick up the new generated files and HMR.
+
+Style translation happens at codegen time, not at runtime — the
+generated `elements.ts` is a static literal that ships to your bundler.
+There's no per-render translation cost. If we ever want a runtime path
+(useful for dev HMR without a watcher round-trip), it's an additive
+change; nothing today depends on translation being build-only.
+
+What codegen does NOT touch: `render.tsx`, `context.ts`, `adapter.ts`,
+`utils.ts`, or `index.ts` in any adapter. Those are the
+hand-written-once files.
+
+## Sandboxes
+
+Each target gets a sandbox under `sandbox/<target>/`. The sandboxes are
+where the components actually run — a real app with the generated
+adapter consumed end-to-end.
+
+```
+sandbox
+├── react        Vite + React DOM        — `pnpm dev:react`
+├── native       Expo + React Native     — `pnpm dev:native`
+└── pixi         Vite + PixiJS           — `pnpm dev:pixi`
+```
+
+Each sandbox depends on its target's `@render-experiment/<comp>-<target>`
+packages via the pnpm workspace. Editing a component in `core/` triggers
+codegen, which rewrites the adapter's `elements.ts` and `api.ts`; the
+sandbox's bundler (Vite or Metro) picks up the change and HMRs.
+
+The sandboxes are not part of the library's published surface. They're
+demos + integration tests by inspection — if a change to core breaks a
+sandbox, you broke the contract somewhere.
 
 The watcher (`scripts/watch.ts`) tracks `core/components/*/src/elements/`
 and the per-component sibling files (`machine.ts`, `types.ts`, `props.ts`,
@@ -190,9 +281,6 @@ hand-written-once files.
 
 ---
 
-## Where to read next
+## Build
 
-- [`AGENT.md`](./AGENT.md) — rules. What to do, what never to do.
-- Each component's `SPEC.md` — behavior, styles, and a11y in human terms.
-- `packages/core/machine/src/` — the agnostic primitives (machine, store, bindings, mergeProps).
-- `scripts/build.ts` — codegen source. Read this if you want to understand exactly what gets emitted.
+## Watcher
