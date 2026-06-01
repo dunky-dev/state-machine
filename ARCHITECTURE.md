@@ -1,4 +1,4 @@
-For _rules_ (do this, never do that), see [`AGENT.md`](./AGENT.md).
+For _rules_ (do this, never do that), see [`AGENTS.md`](./AGENTS.md).
 For _packages_ specifics see `SPEC.md` files.
 
 # Architecture
@@ -40,7 +40,6 @@ core                                  agnostic logic — no React, no DOM, no RN
 │   ├── bindings                      event + attr vocabulary (onPress, role, …)
 │   ├── adapter                       withAdapter() — merges substrate effect impls
 │   ├── style-spec                    Style / StyleSpec types
-│   ├── parts                         parts / variant types shared across components
 │   └── utils                         engine-internal helpers
 │
 ├── store                             reactive singleton state container
@@ -63,7 +62,8 @@ shared                                cross-target, cross-component artifacts
 
 <target>                              one substrate (react, native, pixi, …)
 ├── machine                           runtime, hooks, and props translator for this target
-│   ├── runtime/hooks                 lifecycle bridge (React, native, …)
+│   ├── use-machine / use-api         lifecycle bridge for hook-based targets (react, native)
+│   ├── runtime / create-runtime      lifecycle bridge for runtime-based targets (pixi)
 │   └── normalize                     bindings → target props
 │
 ├── store                             store bridge for the target
@@ -221,6 +221,10 @@ production (`pnpm build`) — there's no separate runtime path.
    native/components/<comp>/src/generated/
    ├── api.ts          ← useXxxApi (imports core + native runtime)
    └── elements.ts     ← styled wrappers
+
+   pixi/components/<comp>/src/generated/
+   ├── api.ts          ← createXxxBridge (imports core + pixi runtime)
+   └── elements.ts     ← styled wrappers
 ```
 
 ## Vocabulary
@@ -247,7 +251,7 @@ adapter consumed end-to-end.
 sandbox
 ├── react        Vite + React DOM        — `pnpm dev:react`
 ├── native       Expo + React Native     — `pnpm dev:native`
-└── <target>      env setup               — `pnpm dev:<target>`
+└── <target>     env setup               — `pnpm dev:<target>`
 ```
 
 Each sandbox depends on its target's packages. Editing a component in `core/`

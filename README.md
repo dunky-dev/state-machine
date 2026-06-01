@@ -1,105 +1,90 @@
-# agnostic-render
+# Agnostic Render
 
-Research project: one definition of how a component _behaves_, reused
-across web (React DOM), mobile (React Native), and future targets.
+**Components as a state machines. Plug it into _any_ JS runtime.**
 
-## Mental model
+A component is a state machine describing how it reacts to interactions. That
+machine is plain TypeScript. It doesn't know where it will be rendered.
+
+Plug the machine into a runtime and you get a component. Same machine, same
+behavior contract, same accessibility intent. Different render.
 
 ```
-   ┌─────────────────────────────────────────────────────────────────┐
-   │                                                                 │
-   │   HOST  ─  the substrate-agnostic core                          │
-   │                                                                 │
-   │     packages/core/machine                                       │
-   │     packages/core/components/<name>                             │
-   │                                                                 │
-   │     - state machine (closed → opening → open → closing)         │
-   │     - bindings vocabulary (onPress, describedBy, role, …)       │
-   │     - style spec (paint-only, agnostic)                         │
-   │     - declares effects by name; some as no-op placeholders      │
-   │                                                                 │
-   │     Knows nothing about React, the DOM, or any renderer.        │
-   │                                                                 │
-   └─────────────────────────────────────────────────────────────────┘
-                                  │
-                                  │  declares contract
-                                  ▼
-   ┌─────────────────────────────────────────────────────────────────┐
-   │                                                                 │
-   │   ADAPTER  ─  the substrate-specific connector                  │
-   │                                                                 │
-   │     packages/react/...           packages/native/...            │
-   │     packages/{surface,...}       (future targets)               │
-   │                                                                 │
-   │     - useMachine hook (React lifecycle bridge)                  │
-   │     - normalize (bindings → renderer-native props)              │
-   │     - style-engine (style spec → renderer-native styles)        │
-   │     - adapter.ts per component (effect impls for this           │
-   │       substrate: DOM listeners on web, BackHandler on RN, …)    │
-   │                                                                 │
-   │     Fulfills the host's contract for one render target.         │
-   │                                                                 │
-   └─────────────────────────────────────────────────────────────────┘
-                                  │
-                                  │  consumed via generated api.ts
-                                  ▼
-   ┌─────────────────────────────────────────────────────────────────┐
-   │                                                                 │
-   │   COMPONENT  ─  the view a consumer imports                     │
-   │                                                                 │
-   │     packages/<target>/components/<name>/                        │
-   │                                                                 │
-   │     - render.tsx — the actual JSX/View                          │
-   │     - elements.ts — generated styled wrappers                   │
-   │     - api.ts — generated useXxxApi hook                         │
-   │                                                                 │
-   │     One per (target × component): Tooltip-React, Tooltip-Native │
-   │                                                                 │
-   └─────────────────────────────────────────────────────────────────┘
-                                  │
-                                  ▼
-                              consumer app
-                       (sandbox/react, sandbox/native, …)
+The host
+┌────────────────────────────────────────────────────────────────────┐
+│  core/                                                             │
+│  No runtime render                                                 │
+│  ┌─────────────────┐  ┌──────────────────────┐  ┌───────────────┐  │
+│  │ **machine**     │  │ **components**       │  │ **store**     │  │
+│  │ state + events  │  │ behavior + intent    │  │ reactive data │  │
+│  └─────────────────┘  └──────────────────────┘  └───────────────┘  │
+└────────────────────────────────────────────────────────────────────┘
+                               │  consumed by every target
+                               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  shared/                                                            │
+│  Cross-target styles + utilities.                                   │
+│  ┌──────────────────────────────────────┐  ┌──────────────────────┐ │
+│  │ **components**                       │  │ **utils**            │ │
+│  │ per-component style specs            │  │ positioning, merge   │ │
+│  └──────────────────────────────────────┘  └──────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
+                               │  translated per target
+                               ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│  <target>/   (react, native, pixi, …)                                │
+│  Runtime-specific render logic.                                      │
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │ runtime glue                                                   │  │
+│  │  • connect to machine                                          │  │
+│  │  • normalize events to the target (e.g. onPress → onClick)     │  │
+│  │  • adapt/implement quirks (e.g. focusTrap logic)               │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │ generated/                                                     │  │
+│  │  • component API out of the machine spec                       │  │
+│  │  • elements out of the machine spec + shared styles            │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────┘
+                               │  imported as a normal package
+                               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  App                                                                │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-## Glossary
+### core
 
-| Term         | Lives in             | What it does                                              |
-| ------------ | -------------------- | --------------------------------------------------------- |
-| **host**     | `packages/core/`     | Defines the contract — state graph, bindings, style spec. |
-| **machine**  | `core/machine`       | The state-machine engine + `createMachine`.               |
-| **bindings** | `core/machine`       | Substrate-agnostic event/attr vocabulary (`onPress`, …).  |
-| **adapter**  | `packages/<target>/` | Supplies substrate-specific effect impls + translators.   |
-| **target**   | `react`, `native`, … | A render environment with its own adapter.                |
-| **codegen**  | `scripts/build.ts`   | Emits `elements.ts` + `api.ts` per (target × component).  |
+Pure TypeScript. No runtime. This is the host.
 
-## The one-sentence claim
+- **machine** — every component is a state machine. States, events,
+  guards, side effects. No idea what's painting it.
+- **components** — per-component behavior: the machine config and the
+  connector function (e.g. `connectTooltip`) that turns state into
+  logical bindings (handlers + attrs).
+- **store** — tiny reactive store used by machines and by app code that
+  needs to subscribe to changes.
 
-> Each adapter provides a typed map of effect implementations to its host
-> machine — and a translator from the host's logical bindings to the
-> renderer's native props.
+### shared
 
-Everything else is plumbing around that claim.
+Cross-target styles and utilities. Runtime agnostic.
 
-## Workflow
+- **components** — per-component style specs, one per component,
+  authored as plain objects (at `shared/components/<comp>/src/styles.ts`).
+  Each target translates them via codegen into styled elements.
+- **utils** — positioning, merge, and other cross-target helpers.
 
-| Command              | What it does                                                   |
-| -------------------- | -------------------------------------------------------------- |
-| `pnpm codegen`       | One-shot: regenerate `elements.ts` + `api.ts` in each adapter. |
-| `pnpm codegen:watch` | Watcher: regenerates per component on changes under `core/`.   |
-| `pnpm dev:react`     | Watcher + Vite dev server for the React sandbox.               |
-| `pnpm dev:native`    | Watcher + Expo for the React Native sandbox.                   |
-| `pnpm dev:pixi`      | Watcher + Vite for the Pixi sandbox.                           |
-| `pnpm typecheck`     | `tsc --noEmit` across the workspace.                           |
-| `pnpm test`          | `vitest`.                                                      |
-| `pnpm build`         | Codegen + production build of the React sandbox.               |
+### \<target\>
 
-Codegen reads each component's `core/components/<comp>/src/elements/` and
-`index.ts`. Editing styles or behavior triggers regeneration via the
-watcher; Vite / Metro pick up the regenerated files and HMR.
+The runtime-specific layer. Two responsibilities.
 
-## Going deeper
+- **runtime glue** — connects to the core machine, normalizes events
+  for the target (`onPress → onClick` on web, `onPress → onPress` on
+  RN), and implements substrate quirks (focus trap, escape listener,
+  back button, …).
+- **generated/** — built by codegen. The component API derives from
+  the machine spec; the elements derive from the machine spec plus
+  shared styles. Never hand-edited.
 
-- [`AGENT.md`](./AGENT.md) — rules for modifying code in this repo.
-- [`ARCHITECTURE.md`](./ARCHITECTURE.md) — the layered model and where things live.
-- Each component has a `SPEC.md` describing its behavior, styles, and accessibility.
+See `ARCHITECTURE.md` for the full layered model, `AGENTS.md` for the
+contributor / agent contract, and `packages/core/components/<comp>/SPEC.md`
+for per-component behavior.
