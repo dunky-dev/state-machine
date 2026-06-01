@@ -26,7 +26,7 @@ These are not preferences. They are invariants. Violating them breaks
 the layered model:
 
 - **Core never imports a substrate.** No React, no React Native, no
-  DOM, no Pixi, no `window`, no `document`. `packages/core/*` is pure
+  DOM, no `window`, no `document`. `packages/core/*` is pure
   TypeScript. If you reach for a substrate API in `core/`, stop — the
   code belongs in a target.
 - **Adapters never reimplement state.** Targets read from the machine
@@ -75,8 +75,8 @@ Before merging, walk this checklist:
 2. **Do tests reflect the spec?** A spec without a matching test is a
    gap; a test without a matching spec entry is a leak. Reconcile both.
 3. **Did `core/` change?** Verify the change is substrate-agnostic. If
-   it depends on a React lifecycle, a DOM API, an RN-only module, or
-   a Pixi runtime, move it to `packages/<target>/machine/` or to
+   it depends on a React lifecycle, a DOM API, or an RN-only module,
+   move it to `packages/<target>/machine/` or to
    `packages/<target>/components/<comp>/adapter.ts`.
 
 ## New files

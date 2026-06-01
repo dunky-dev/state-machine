@@ -35,13 +35,28 @@ export type Guard<TContext, TProps, TEvent extends EventObject = EventObject> = 
   params: Omit<Params<TContext, TProps, TEvent>, 'send' | 'setContext'>,
 ) => boolean
 
+/**
+ * What a transition's `guard` field accepts: a name (resolved against
+ * `implementations.guards`), an inline function, or a combinator (and / or /
+ * not) — itself just a Guard function. Same shape composes arbitrarily.
+ */
+export type GuardArg<
+  TContext = unknown,
+  TProps = unknown,
+  TEvent extends EventObject = EventObject,
+> = string | Guard<TContext, TProps, TEvent>
+
 export type Effect<TContext, TProps, TEvent extends EventObject = EventObject> = (
   params: Omit<Params<TContext, TProps, TEvent>, 'event'>,
 ) => VoidFunction | void
 
 export interface Transition {
   target?: string
-  guard?: string
+  /**
+   * Either a name (resolved against `implementations.guards`) or an
+   * inline function. Compose with `and / or / not`.
+   */
+  guard?: GuardArg
   actions?: string[]
 }
 

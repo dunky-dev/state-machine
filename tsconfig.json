@@ -20,7 +20,6 @@
         "./packages/native/components/*/src",
         "./packages/native/*/src"
       ],
-      "@render-experiment/*-pixi": ["./packages/pixi/components/*/src", "./packages/pixi/*/src"],
       "@render-experiment/*-shared": ["./packages/shared/components/*/src"],
       "@render-experiment/utils": ["./packages/shared/utils/src"],
       "@render-experiment/store": ["./packages/core/store/src"]

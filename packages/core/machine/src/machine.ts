@@ -65,14 +65,16 @@ export function createMachine<
     }
   }
 
-  const checkGuard = (name: string | undefined, event: TEvent): boolean => {
-    if (!name) return true
-    const fn = config.implementations?.guards?.[name]
+  const checkGuard = (guard: Transition['guard'], event: TEvent): boolean => {
+    if (!guard) return true
+    const params = { context, props, event }
+    if (typeof guard === 'function') return guard(params)
+    const fn = config.implementations?.guards?.[guard]
     if (!fn) {
-      console.warn(`[machine] no guard "${name}"`)
+      console.warn(`[machine] no guard "${guard}"`)
       return false
     }
-    return fn({ context, props, event })
+    return fn(params)
   }
 
   const runEffects = (stateName: string) => {

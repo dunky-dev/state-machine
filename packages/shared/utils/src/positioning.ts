@@ -4,7 +4,7 @@
  * Every floating component (tooltip, dropdown, popover, …) consumes
  * `Placement` + `PositioningOptions` the same way, and the `Side`
  * resolver math doesn't change across components. Pure data — no
- * React, no DOM, no Pixi.
+ * React, no DOM.
  */
 
 export type Placement =

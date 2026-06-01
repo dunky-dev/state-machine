@@ -9,11 +9,13 @@ export type { Adapter } from './adapter'
 export { mergeProps } from './utils'
 export { connector } from './connector'
 export type { Connect, MachineSnapshot, Send } from './connector'
+export { and, or, not } from './guards'
 export type {
   Action,
   Effect,
   EventObject,
   Guard,
+  GuardArg,
   Machine,
   MachineConfig,
   Part,

@@ -98,7 +98,7 @@ export interface AttrBindings {
   /**
    * Open slot for substrate-specific attributes the named keys don't
    * cover. Common case: `data-*` and `aria-*` attrs the React adapter
-   * passes through verbatim; native + pixi adapters drop unknown keys.
+   * passes through verbatim; the native adapter drops unknown keys.
    * Keep values primitive (string / number / boolean) so adapters can
    * serialize them.
    */

@@ -60,10 +60,9 @@ shared                                cross-target, cross-component artifacts
     └── <component>                   shared style and logic
         └── styles
 
-<target>                              one substrate (react, native, pixi, …)
+<target>                              one substrate (react, native, …)
 ├── machine                           runtime, hooks, and props translator for this target
 │   ├── use-machine / use-api         lifecycle bridge for hook-based targets (react, native)
-│   ├── runtime / create-runtime      lifecycle bridge for runtime-based targets (pixi)
 │   └── normalize                     bindings → target props
 │
 ├── store                             store bridge for the target
@@ -87,7 +86,7 @@ Four top-level package groups, four jobs:
   more about content than behavior: style specs, generic utilities like
   positioning math.
 - **`<target>/`** — _the substrate side_. One folder per renderer
-  (react, native, pixi). Owns its runtime, its style translator, and its
+  (react, native). Owns its runtime, its style translator, and its
   per-component logic.
 - **`sandbox/<target>/`** — runnable demos consuming the target.
 
@@ -221,10 +220,6 @@ production (`pnpm build`) — there's no separate runtime path.
    native/components/<comp>/src/generated/
    ├── api.ts          ← useXxxApi (imports core + native runtime)
    └── elements.ts     ← styled wrappers
-
-   pixi/components/<comp>/src/generated/
-   ├── api.ts          ← createXxxBridge (imports core + pixi runtime)
-   └── elements.ts     ← styled wrappers
 ```
 
 ## Vocabulary
@@ -233,7 +228,7 @@ production (`pnpm build`) — there's no separate runtime path.
 | ------------ | ---------------------------------------------------------------------- |
 | **host**     | The agnostic core — `packages/core/*`. Declares what a component is.   |
 | **adapter**  | A substrate-specific implementation package — `packages/<target>/*`.   |
-| **target**   | A render environment (`react`, `native`, `pixi`, …).                   |
+| **target**   | A render environment (`react`, `native`, …).                           |
 | **machine**  | A state-graph config consumed by `createMachine`.                      |
 | **connect**  | A function returning the logical surface a view spreads onto elements. |
 | **bindings** | The substrate-agnostic event + attr vocabulary core's connect speaks.  |

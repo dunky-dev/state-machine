@@ -31,7 +31,7 @@ The host
                                │  translated per target
                                ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│  <target>/   (react, native, pixi, …)                                │
+│  <target>/   (react, native, …)                                      │
 │  Runtime-specific render logic.                                      │
 │  ┌────────────────────────────────────────────────────────────────┐  │
 │  │ runtime glue                                                   │  │
