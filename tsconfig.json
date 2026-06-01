@@ -13,39 +13,38 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "strict": true,
-    "ignoreDeprecations": "6.0",
-    "baseUrl": ".",
     "paths": {
+      "@render-experiment/*-core": [
+        "./packages/core/components/*/src",
+        "./packages/core/*/src",
+      ],
+      "@render-experiment/*-react": [
+        "./packages/react/components/*/src",
+        "./packages/react/*/src",
+      ],
+      "@render-experiment/*-native": [
+        "./packages/native/components/*/src",
+        "./packages/native/*/src",
+      ],
+      "@render-experiment/*-pixi": [
+        "./packages/pixi/components/*/src",
+        "./packages/pixi/*/src",
+      ],
+      "@render-experiment/*-shared": ["./packages/shared/components/*/src"],
       "@render-experiment/utils": ["./packages/shared/utils/src"],
-      "@render-experiment/tooltip-shared": ["./packages/shared/components/tooltip/src"],
-      "@render-experiment/dropdown-menu-shared": ["./packages/shared/components/dropdown-menu/src"],
       "@render-experiment/store": ["./packages/core/store/src"],
-      "@render-experiment/store-react": ["./packages/react/store/src"],
-      "@render-experiment/machine-core": ["./packages/core/machine/src"],
-      "@render-experiment/machine-react": ["./packages/react/machine/src"],
-      "@render-experiment/machine-native": ["./packages/native/machine/src"],
-      "@render-experiment/style-engine-react": ["./packages/react/style-engine/src"],
-      "@render-experiment/style-engine-native": ["./packages/native/style-engine/src"],
-      "@render-experiment/tooltip-core": ["./packages/core/components/tooltip/src"],
-      "@render-experiment/tooltip-react": ["./packages/react/components/tooltip/src"],
-      "@render-experiment/tooltip-native": ["./packages/native/components/tooltip/src"],
-      "@render-experiment/dropdown-menu-core": ["./packages/core/components/dropdown-menu/src"],
-      "@render-experiment/dropdown-menu-react": ["./packages/react/components/dropdown-menu/src"],
-      "@render-experiment/dropdown-menu-native": ["./packages/native/components/dropdown-menu/src"],
-      "@render-experiment/machine-pixi": ["./packages/pixi/machine/src"],
-      "@render-experiment/style-engine-pixi": ["./packages/pixi/style-engine/src"],
-      "@render-experiment/tooltip-pixi": ["./packages/pixi/components/tooltip/src"],
-      "@render-experiment/dropdown-menu-pixi": ["./packages/pixi/components/dropdown-menu/src"]
     },
-    "types": ["@types/node", "vite/client", "vitest/globals"]
+    "types": ["@types/node", "vite/client", "vitest/globals"],
   },
-  "include": ["./packages", "./sandbox/react", "./sandbox/pixi", "./scripts", "./*.ts"],
+  "include": ["./*.ts", "./packages", "./sandbox", "./scripts"],
   "exclude": [
     "**/node_modules",
     "**/dist",
-    "./packages/native/machine",
-    "./packages/native/style-engine",
-    "./packages/native/components",
-    "./sandbox/native"
-  ]
+    // Jest tests (jest globals) are type-checked by tsconfig.native-tests.json,
+    // not here — this project provides vitest globals, which collide with jest's.
+    // (TS exclude globs don't support {ts,tsx} brace alternation — list both.)
+    "**/*.native.test.ts",
+    "**/*.native.test.tsx",
+    "./jest.native.ts"
+  ],
 }
