@@ -319,6 +319,32 @@ export type ActionArg<Context, Event, Computed = Record<string, never>> =
   | string
   | OneOf<Context, Event, Computed>
 
+// -----------------------------------------------------------------------------
+// Round 6: effects — state-scoped side-effects WITH cleanup (DECIDED, Zag model)
+// -----------------------------------------------------------------------------
+//
+// An effect is the paired sibling of entry/exit: it runs when a state is
+// entered and may RETURN a cleanup that runs when the state is exited. Setup
+// and teardown share one closure (e.g. addEventListener / removeEventListener),
+// which entry+exit can't do without manually stashing the reference.
+//
+// Sequencing bookends everything (decision A): cleanup is the FIRST thing on
+// exit and start is the LAST thing on enter, so an effect's resource is alive
+// for the whole time the state's actions run. Effects are the seam the adapter
+// swaps per platform (withAdapter, R6+), so they're named OR inline like
+// guards/actions; the adapter overrides the NAMED ones.
+
+/** An inline effect: runs on enter, optionally returns a cleanup run on exit. */
+export type Effect<Context, Event, Computed = Record<string, never>> = (
+  params: ActionParams<Context, Event, Computed>,
+) => void | (() => void)
+
+/** An effect arg: an inline effect (6) or a registered name (resolved against
+ * implementations.effects). Missing name → throw in dev, warn in prod. */
+export type EffectArg<Context, Event, Computed = Record<string, never>> =
+  | Effect<Context, Event, Computed>
+  | string
+
 type TransitionEntry<State extends string, Context, Event, Computed> =
   | Transition<State, Context, Event, Computed>
   | Array<Transition<State, Context, Event, Computed>>
@@ -339,6 +365,8 @@ export interface TransitionConfig<
       entry?: Array<ActionArg<Context, Event, Computed>>
       /** 5d: actions run when this state is exited (before the switch). */
       exit?: Array<ActionArg<Context, Event, Computed>>
+      /** 6: effects started on enter; their cleanups run first on exit. */
+      effects?: Array<EffectArg<Context, Event, Computed>>
     }
   >
   /** Any-state events. Per-state `on` takes precedence over this. */
@@ -349,6 +377,8 @@ export interface TransitionConfig<
     guards?: Record<string, Guard<Context, Event, Computed>>
     /** Reusable named actions (5b). Referenced by name in an `actions` list. */
     actions?: Record<string, Action<Context, Event, Computed>>
+    /** Reusable named effects (6). The adapter (withAdapter) overrides these. */
+    effects?: Record<string, Effect<Context, Event, Computed>>
   }
 }
 
@@ -479,11 +509,18 @@ export function createTransitions<
         const next = t.target ?? cur
         const changed = next !== cur
         // 3c: internal self-transition runs actions only, skips exit/entry.
-        if (changed) runExit(cur, e)
+        // 6 (decision A): effect cleanups bookend the exit — they run FIRST,
+        // before exit actions, so the resource is alive for the whole state.
+        if (changed) {
+          stopEffects(cur)
+          runExit(cur, e)
+        }
         runActions(t.actions, e)
         if (changed) {
           st.set(next)
           runEntry(next, e)
+          // start LAST on enter — the mirror of cleanup-first on exit.
+          startEffects(next, e)
         }
       }
     } finally {
@@ -497,6 +534,32 @@ export function createTransitions<
   // runActions, so names / inline / oneOf all compose.
   const runEntry = (state: State, event: Event) => runActions(config.states[state].entry, event)
   const runExit = (state: State, event: Event) => runActions(config.states[state].exit, event)
+
+  // 6: effects. startEffects runs each effect on enter and stashes any returned
+  // cleanup; stopEffects runs the stashed cleanups (in start order) on exit.
+  // Resolve like actions: inline fn OR named (implementations.effects) — the
+  // latter is what the adapter overrides. Missing name → throw dev / warn prod.
+  const effectRegistry = config.implementations?.effects
+  const activeCleanups: Array<() => void> = []
+  const startEffects = (state: State, event: Event) => {
+    const effects = config.states[state].effects
+    if (!effects) return
+    for (const effect of effects) {
+      const fn = typeof effect === 'function' ? effect : effectRegistry?.[effect]
+      if (!fn) {
+        const msg = `[machine] no effect "${effect as string}"`
+        if (isDev) throw new Error(msg)
+        console.warn(msg)
+        continue
+      }
+      const cleanup = fn({ context, setContext, event, send, computed })
+      if (typeof cleanup === 'function') activeCleanups.push(cleanup)
+    }
+  }
+  const stopEffects = (_state: State) => {
+    for (const cleanup of activeCleanups) cleanup()
+    activeCleanups.length = 0
+  }
 
   return {
     get state() {
