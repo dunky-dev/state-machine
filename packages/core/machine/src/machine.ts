@@ -240,17 +240,35 @@ export interface Transition<
   target?: State
   /** Inline predicate (4a) or a registered guard name (4b). */
   guard?: GuardArg<Context, Event, Computed>
-  /** Inline action list for now; named actions + choose are Round 5. */
-  actions?: Array<(params: TransitionActionParams<Context, Event>) => void>
+  /** Inline action(s) for now; named actions + oneOf are Round 5b/5c. */
+  actions?: Array<Action<Context, Event, Computed>>
 }
 
-/** Params an action receives during a transition. `send` here is queued. */
-export interface TransitionActionParams<Context, Event> {
+// -----------------------------------------------------------------------------
+// Round 5a: actions — params shape + inline actions (DECIDED)
+// -----------------------------------------------------------------------------
+//
+// An action is a side-effect a transition (or entry/exit) runs: mutate
+// context, fire an event, call a callback. FINAL params shape, locked now:
+//   { context, setContext, event, send, computed }
+// `setContext` is the one write entry point (R1); `send` is the queued
+// dispatcher (R3); `computed` is `{}` until Round 7. Actions DO — they do NOT
+// get `guard` (deciding is the guards' job; an action calling a guard is a
+// smell). Named actions (5b), oneOf (5c), entry/exit (5d) build on this type.
+
+/** Everything an action can read/use. `computed` is `{}` until Round 7. */
+export interface ActionParams<Context, Event, Computed = Record<string, never>> {
   context: Context
   setContext: (patch: Partial<Context>) => void
   event: Event
   send: (event: Event) => void
+  computed: Computed
 }
+
+/** An inline action: a side-effect over the params. */
+export type Action<Context, Event, Computed = Record<string, never>> = (
+  params: ActionParams<Context, Event, Computed>,
+) => void
 
 type TransitionEntry<State extends string, Context, Event, Computed> =
   | Transition<State, Context, Event, Computed>
@@ -357,9 +375,12 @@ export function createTransitions<
   const queue: Event[] = []
   let draining = false
 
-  const runActions = (actions: Transition<State, Context, Event>['actions'], event: Event) => {
+  const runActions = (
+    actions: Array<Action<Context, Event, Computed>> | undefined,
+    event: Event,
+  ) => {
     if (!actions) return
-    for (const action of actions) action({ context, setContext, event, send })
+    for (const action of actions) action({ context, setContext, event, send, computed })
   }
 
   const send = (event: Event) => {
