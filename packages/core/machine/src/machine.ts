@@ -333,7 +333,13 @@ export interface TransitionConfig<
   context: Context
   states: Record<
     State,
-    StateNode & { on?: Record<string, TransitionEntry<State, Context, Event, Computed>> }
+    StateNode & {
+      on?: Record<string, TransitionEntry<State, Context, Event, Computed>>
+      /** 5d: actions run when this state is entered (after the switch). */
+      entry?: Array<ActionArg<Context, Event, Computed>>
+      /** 5d: actions run when this state is exited (before the switch). */
+      exit?: Array<ActionArg<Context, Event, Computed>>
+    }
   >
   /** Any-state events. Per-state `on` takes precedence over this. */
   on?: Record<string, TransitionEntry<State, Context, Event, Computed>>
@@ -485,10 +491,12 @@ export function createTransitions<
     }
   }
 
-  // entry/exit action hooks — Round 5 formalizes these (named lists on the
-  // state node). For now they're no-ops; transition `actions` carry behavior.
-  const runEntry = (_state: State, _event: Event) => {}
-  const runExit = (_state: State, _event: Event) => {}
+  // 5d: entry/exit action lists on the state node. Sequenced by send() around
+  // the switch: exit(old) → transition actions → switch → entry(new). Skipped
+  // on an internal self-transition (no state change). Each list reuses
+  // runActions, so names / inline / oneOf all compose.
+  const runEntry = (state: State, event: Event) => runActions(config.states[state].entry, event)
+  const runExit = (state: State, event: Event) => runActions(config.states[state].exit, event)
 
   return {
     get state() {
