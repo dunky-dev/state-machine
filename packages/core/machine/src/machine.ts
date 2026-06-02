@@ -270,14 +270,54 @@ export type Action<Context, Event, Computed = Record<string, never>> = (
   params: ActionParams<Context, Event, Computed>,
 ) => void
 
+// -----------------------------------------------------------------------------
+// Round 5c: oneOf — conditional action branch (DECIDED)
+// -----------------------------------------------------------------------------
+//
+// `oneOf([...])` is the conditional-action analog of fallthrough transitions:
+// the FIRST branch whose guard passes runs its action list; the rest are
+// skipped (short-circuit). It lives inside an `actions` list — used where
+// there's no transition array to fall through (entry/exit lists, or alongside
+// unconditional actions in a transition). For choosing a whole TRANSITION,
+// use the fallthrough array form (R3) instead.
+//
+//   actions: [
+//     'alwaysRun',
+//     oneOf([
+//       { guard: 'isCheckbox', actions: ['toggle'] },
+//       { guard: 'isRadio',    actions: ['select'] },
+//       { actions: ['activate'] },   // guardless = fallback
+//     ]),
+//   ]
+
+/** One branch of a oneOf: optional guard + the actions to run if it wins. */
+export interface OneOfBranch<Context, Event, Computed = Record<string, never>> {
+  guard?: GuardArg<Context, Event, Computed>
+  actions: Array<ActionArg<Context, Event, Computed>>
+}
+
+/** The oneOf sentinel — the runtime detects it in an actions list and expands. */
+export interface OneOf<Context, Event, Computed = Record<string, never>> {
+  readonly __oneOf: true
+  readonly branches: Array<OneOfBranch<Context, Event, Computed>>
+}
+
+/** Build a oneOf: first branch whose guard passes runs; rest skipped. */
+export function oneOf<Context, Event, Computed = Record<string, never>>(
+  branches: Array<OneOfBranch<Context, Event, Computed>>,
+): OneOf<Context, Event, Computed> {
+  return { __oneOf: true, branches }
+}
+
 /**
- * An action arg in an `actions` list (5b): an inline action OR a registered
- * name resolved against `implementations.actions`. Missing name → throw in
- * dev, warn in prod (same policy as named guards). A list runs in order.
+ * An action arg in an `actions` list: an inline action (5a), a registered
+ * name (5b), or a `oneOf(...)` conditional branch (5c). Missing name → throw
+ * in dev, warn in prod. A list runs in order.
  */
 export type ActionArg<Context, Event, Computed = Record<string, never>> =
   | Action<Context, Event, Computed>
   | string
+  | OneOf<Context, Event, Computed>
 
 type TransitionEntry<State extends string, Context, Event, Computed> =
   | Transition<State, Context, Event, Computed>
@@ -386,10 +426,19 @@ export function createTransitions<
   const queue: Event[] = []
   let draining = false
 
-  // 5b: resolve an action arg (inline fn OR registered name) and run it.
-  // Missing name → throw in dev, warn in prod (same policy as guards).
+  // 5b/5c: resolve and run an action arg — inline fn, registered name, or a
+  // oneOf(...) conditional branch. Missing name → throw in dev, warn in prod.
   const actionRegistry = config.implementations?.actions
+  const isOneOf = (a: unknown): a is OneOf<Context, Event, Computed> =>
+    typeof a === 'object' && a !== null && (a as { __oneOf?: boolean }).__oneOf === true
   const runAction = (action: ActionArg<Context, Event, Computed>, event: Event) => {
+    // 5c: oneOf — run the first branch whose guard passes (short-circuit).
+    if (isOneOf(action)) {
+      const params = guardParams(event)
+      const branch = action.branches.find(b => (b.guard ? resolveGuard(b.guard, params) : true))
+      if (branch) runActions(branch.actions, event)
+      return
+    }
     const fn = typeof action === 'function' ? action : actionRegistry?.[action]
     if (!fn) {
       const msg = `[machine] no action "${action as string}"`
