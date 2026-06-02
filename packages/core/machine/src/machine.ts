@@ -17,7 +17,7 @@
  * rounds. The build is intentionally incomplete until then.
  */
 
-import { batch, signal, type Signal } from '@preact/signals-core'
+import { batch, computed as preactComputed, signal, type Signal } from '@preact/signals-core'
 
 // -----------------------------------------------------------------------------
 // Round 1: context layer
@@ -352,6 +352,30 @@ export type EffectArg<Context, Event, Computed = Record<string, never>> =
   | Effect<Context, Event, Computed>
   | string
 
+// -----------------------------------------------------------------------------
+// Round 7: computed — derived state (DECIDED, A/A/A)
+// -----------------------------------------------------------------------------
+//
+// A computed is a pure derivation backed by a preact computed() signal: lazy,
+// memoized, and auto-tracked — it reads context (7a) and other computeds (7b),
+// and recomputes only when one of those inputs changes (O(changed), not on
+// every read). The Computed type is the shape of VALUES ({ isEmpty: boolean });
+// the config holds the DEFINITIONS (functions producing those values). Defs get
+// the same { context } bag style as guards/actions (decision 1=A). The bag is
+// the one the engine threads into guard/action/effect params (was {} until now)
+// and is surfaced on the layer (7c).
+
+/** A single computed definition: derives a value from context (7a). */
+export type ComputedDef<Context, Computed = Record<string, never>, Value = unknown> = (params: {
+  context: Context
+  computed: Computed
+}) => Value
+
+/** The map of computed definitions, keyed to the Computed value shape. */
+export type ComputedDefs<Context, Computed> = {
+  [K in keyof Computed]: ComputedDef<Context, Computed, Computed[K]>
+}
+
 type TransitionEntry<State extends string, Context, Event, Computed> =
   | Transition<State, Context, Event, Computed>
   | Array<Transition<State, Context, Event, Computed>>
@@ -378,6 +402,9 @@ export interface TransitionConfig<
   >
   /** Any-state events. Per-state `on` takes precedence over this. */
   on?: Record<string, TransitionEntry<State, Context, Event, Computed>>
+  /** 7: derived state. Each def becomes a lazy, memoized computed signal read
+   * via the `computed` bag in guard/action/effect params (and on the layer). */
+  computed?: ComputedDefs<Context, Computed>
   /** Named implementations referenced by string in transitions. */
   implementations?: Implementations<Context, Event, Computed>
 }
@@ -465,9 +492,25 @@ export function createTransitions<
   const st = createState<State>(config.initial, config.states)
   const { context, setContext } = createContext<Context>(config.context)
 
-  // `computed` is wired in Round 7; until then it's an empty object so the
-  // guard params shape is already final.
+  // 7: build the `computed` bag. Each def becomes a lazy, memoized preact
+  // computed() — reading it inside an effect/computed auto-subscribes, and it
+  // recomputes only when a context cell (or other computed) it read changes.
+  // The bag is the SAME reference passed into every def, so a def reading
+  // `computed.other` chains correctly (7b); the engine threads this bag into
+  // guard/action/effect params and surfaces it on the layer (7c).
   const computed = {} as Computed
+  if (config.computed) {
+    for (const key in config.computed) {
+      const k = key as keyof Computed
+      const def = config.computed[k]
+      const sig = preactComputed(() => def({ context, computed }))
+      Object.defineProperty(computed, k, {
+        get: () => sig.value,
+        enumerable: true,
+        configurable: false,
+      })
+    }
+  }
 
   // 4b: resolve a guard arg (inline fn OR registered name) against params.
   // Single channel so combinators (4c) reuse it. Missing name → throw in dev,
