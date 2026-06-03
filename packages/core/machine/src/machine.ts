@@ -442,7 +442,7 @@ export interface Implementations<Context, Event, Computed = Record<string, never
 // effects over the config's implementations (decision B: those two are the
 // platform seam; guards stay config-only — pure predicates over context/event,
 // identical on every platform). The agnostic config stays pure; the platform
-// is applied at the edge: createMachine(withAdapter(config, domAdapter)).
+// is applied at the edge: machine(withAdapter(config, domAdapter)).
 
 /**
  * Platform implementations swapped per target. Only actions + effects — the
