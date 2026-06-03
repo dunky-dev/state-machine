@@ -1,5 +1,5 @@
 /**
- * Round 10 — `after`: timed transitions (auto-cancel on exit).
+ * `after` — timed transitions (auto-cancel on exit).
  *
  * Pins: a numeric-delay `after` fires its transition after the delay while in
  * the state; a NAMED delay resolves from implementations.delays (and may read
@@ -8,12 +8,12 @@
  * while stopped. Uses fake timers for determinism.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { machine } from '../src/machine'
+import { machine } from '../src'
 
 beforeEach(() => vi.useFakeTimers())
 afterEach(() => vi.useRealTimers())
 
-describe('R10 — after (timed transitions)', () => {
+describe('after — timed transitions', () => {
   it('fires a numeric-delay transition after the delay', () => {
     const m = machine<'a' | 'b', object, { type: never }>({
       initial: 'a',

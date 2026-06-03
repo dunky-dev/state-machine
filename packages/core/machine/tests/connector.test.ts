@@ -1,5 +1,5 @@
 /**
- * Round 9c — connector: live subscribable snapshot (C/A/A).
+ * Connector — live subscribable snapshot.
  *
  * Pins the three snapshot gotchas + props reactivity:
  *  - snapshot identity is STABLE across reads when nothing changed
@@ -10,7 +10,7 @@
  *  - select is forwarded for per-field (canvas/Lit) consumption.
  */
 import { describe, expect, it, vi } from 'vitest'
-import { connector, machine } from '../src/machine'
+import { connector, machine } from '../src'
 
 type Ctx = { count: number }
 type Ev = { type: 'inc' }
@@ -45,7 +45,7 @@ const setup = (initialProps: Props = { label: 'hi' }) => {
   return { m, c }
 }
 
-describe('R9c — connector', () => {
+describe('connector', () => {
   it('snapshot reflects connect output', () => {
     const { c } = setup()
     expect(c.snapshot.state).toBe('a')

@@ -14,8 +14,9 @@ The host
 │  core/                                                             │
 │  No runtime render                                                 │
 │  ┌─────────────────┐  ┌──────────────────────┐  ┌───────────────┐  │
-│  │ **machine**     │  │ **components**       │  │ **store**     │  │
-│  │ state + events  │  │ behavior + intent    │  │ reactive data │  │
+│  │ **machine**     │  │ **components**       │  │ **style-      │  │
+│  │ signals: state, │  │ behavior + intent    │  │   engine**    │  │
+│  │ events, select  │  │                      │  │ Style specs   │  │
 │  └─────────────────┘  └──────────────────────┘  └───────────────┘  │
 └────────────────────────────────────────────────────────────────────┘
                                │  consumed by every target
@@ -54,15 +55,19 @@ The host
 
 ### core
 
-Pure TypeScript. No runtime. This is the host.
+Pure JS, runs in any JS runtime. No renderer. This is the host.
 
-- **machine** — every component is a state machine. States, events,
-  guards, side effects. No idea what's painting it.
+- **machine** — every component is a state machine, built on a signal
+  kernel: states, events, guards, actions, effects, `computed`, `after`
+  timers, `watch`. Fine-grained `select` so a change wakes only the
+  observers that read the changed field. `compose` runs several machines as
+  one (orthogonal regions). No idea what's painting it. See
+  [`packages/core/machine/README.md`](./packages/core/machine/README.md).
 - **components** — per-component behavior: the machine config and the
   connector function (e.g. `connectTooltip`) that turns state into
   logical bindings (handlers + attrs).
-- **store** — tiny reactive store used by machines and by app code that
-  needs to subscribe to changes.
+- **style-engine** — the agnostic `Style` / `StyleSpec` vocabulary each
+  target translates into styled elements.
 
 ### shared
 

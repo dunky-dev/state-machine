@@ -1,49 +1,57 @@
-// Public surface of the rebuilt engine. Everything lives in ./machine now
-// (the single module assembled across R1–R9 + A1); the old per-concern modules
-// (adapter/connector/guards/setup/types) are retired.
+// Public surface of the engine, re-exported from the per-concern modules.
 
 // The single public factory + its service type.
-export { machine, MACHINE_INIT } from './machine'
-export type { Machine } from './machine'
+export { machine } from './machine'
+export type { Machine } from './types'
 
-// Config: the authoring helper (infers + checks a config literal) + the type.
-export { config } from './machine'
-export type { MachineConfig } from './machine'
+// The synthetic boot event (start()).
+export { MACHINE_INIT } from './constants'
 
-// Config + the layer building blocks (exported for advanced composition/tests).
-export { createContext, createState } from './machine'
-export type { State, StateNode, TransitionConfig, Transition, Implementations } from './machine'
+// Config: the authoring helper (infers + checks a config literal) + the types.
+export { config } from './config'
+export type { MachineConfig, TransitionConfig, Transition, Implementations } from './types'
+
+// Context + state building blocks (for advanced composition / tests).
+export { createContext } from './context'
+export { createState } from './state'
+export type { State, StateNode } from './types'
 
 // Guards: combinators + types.
-export { and, or, not } from './machine'
-export type { Guard, GuardArg, GuardParams } from './machine'
+export { and, or, not } from './guards'
+export type { Guard, GuardArg, GuardParams } from './types'
 
 // Actions: oneOf + types.
-export { oneOf } from './machine'
-export type { Action, ActionArg, ActionParams, OneOf, OneOfBranch } from './machine'
+export { oneOf } from './actions'
+export type { Action, ActionArg, ActionParams, OneOf, OneOfBranch } from './types'
 
-// Effects + the per-target adapter seam.
-export { withAdapter } from './machine'
-export type { Effect, EffectArg, Adapter } from './machine'
+// Effects + types.
+export type { Effect, EffectArg } from './types'
 
-// Timed transitions (10).
-export type { Delay } from './machine'
+// Per-platform adapter seam.
+export { withAdapter } from './adapter'
+export type { Adapter } from './types'
+
+// Timed transitions.
+export type { Delay } from './types'
 
 // Computed.
-export type { ComputedDef, ComputedDefs } from './machine'
+export type { ComputedDef, ComputedDefs } from './types'
 
-// Subscription surface (select/Selection).
-export type { Selection, Select, EqualityFn } from './machine'
+// Subscription surface (select / Selection).
+export type { Selection, Select, EqualityFn } from './types'
 
 // Connector boundary (live snapshot) + connect typing.
-export { connector } from './machine'
-export type { Connect, Connector, ConnectSnapshot } from './machine'
+export { connector } from './connector'
+export type { Connect, Connector, ConnectSnapshot } from './types'
+
+// Composition — run several independent machines as one unit (orthogonal
+// regions): bundled lifecycle + sync (cross-region rules) + combine (one
+// deduped Selection across members).
+export { compose } from './compose'
+export type { Composition } from './compose'
 
 // Bindings vocabulary (agnostic event + attr) connect() speaks.
-export type { AttrBindings, EventBindings, KeyboardPayload, PointerPayload } from './machine'
+export type { AttrBindings, EventBindings, KeyboardPayload, PointerPayload } from './bindings'
 
-// (Style spec moved to @render-experiment/style-engine-core — not the machine
-// engine's concern. Components import it from there directly.)
-//
-// (The old @render-experiment/store re-export is gone — per-machine state is the
-// signal kernel's job now; cross-instance singletons get a small store later.)
+// (Style spec lives in @render-experiment/style-engine-core; components import
+// it from there. Cross-instance singletons will get a small store later.)

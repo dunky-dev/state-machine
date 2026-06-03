@@ -1,5 +1,5 @@
 /**
- * Round 9a — bindings vocabulary (re-exported from the engine surface).
+ * Bindings vocabulary (re-exported from the engine surface).
  *
  * Pins the agnostic event + attr vocabulary a component's connect() emits,
  * BEFORE any target translation. These are types; the test asserts the shape
@@ -8,9 +8,9 @@
  * reachable and structurally what connect() will speak.
  */
 import { describe, expect, it } from 'vitest'
-import type { AttrBindings, EventBindings, KeyboardPayload, PointerPayload } from '../src/machine'
+import type { AttrBindings, EventBindings, KeyboardPayload, PointerPayload } from '../src'
 
-describe('R9a — bindings vocabulary', () => {
+describe('bindings vocabulary', () => {
   it('EventBindings carries the agnostic handler names with payloads', () => {
     const fired: string[] = []
     const ev: EventBindings = {

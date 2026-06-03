@@ -50,29 +50,29 @@ Those libraries are excellent. This one exists for two reasons they
 aren't built around:
 
 1. **No environment assumption.** Zag is framework-agnostic, but it presumes a
-   **DOM** — its machines query nodes by id, attach DOM listeners, and compute
-   positions against a document. That's "agnostic about which framework renders
-   the DOM," not "agnostic about whether a DOM exists". This engine assumes
-   _nothing_ about the environment: it's a plain behavioral kernel with no node
+   **DOM** — its machines query DOM nodes, and attach DOM listeners. That's "agnostic about which framework renders the DOM", not "agnostic about whether a DOM exists". This engine assumes _nothing_ about the environment: it's a plain behavioral kernel with no node
    lookups. Every environment touchpoint is pushed to an adapter, so the same
    machine plugs into any render environment.
 2. **Performance under heavy fan-out** (below).
 
 ### 🏎️ Performance
 
-XState and Zag emit a **coarse snapshot**: any change notifies every subscriber,
-and they lean on the _host framework_ (React's compare, a framework's signals)
-to work out what actually changed. That's a great fit when such a framework
-exists underneath — but it means the machine itself can't tell one consumer that
-only its slice moved.
+The differentiator is **where the fine-grained reactivity lives**.
 
-With **many independent machines running at once**, that coarseness adds up:
-every change fans out to every observer. This engine is built so a change updates
-**only the observers that read the changed field** — `O(changed)`, not
-`O(all)` — and it does so on the machine itself, without depending on a host
-framework to do the narrowing.
+- **Zag** delegates it to the host framework: its `bindable` context, `computed`,
+  and `watch` map `track` onto the framework's own primitive (Vue `computed`,
+  Solid `createMemo`, Svelte `$derived`, React `useMemo`). Fine-grained — but
+  only because a host framework is there to do the tracking.
+- **XState** has deduped selection too — `actor.select(selector)` on the core
+  actor, and `@xstate/store`'s `store.select(selector)`. But they're
+  **manual selectors**: you name the slice, `state => state.context.x`.
+  (And `@xstate/store` is a store, not the statechart.)
 
-That guarantee comes from the **signal architecture**:
+This engine puts the reactivity **in the machine itself, and auto-tracked**: each
+context field is its own signal, and reading one inside a `computed` / `select`
+subscribes to exactly that field — no host framework, no manual selector. So a
+change updates **only the observers that read the changed field** (`O(changed)`,
+not `O(all)`), which matters when **many independent machines run at once**.
 
 > Each piece of context is its own **signal** (a reactive cell). When code reads
 > a cell, it automatically becomes a subscriber to that one cell, nothing else.
@@ -82,29 +82,32 @@ That guarantee comes from the **signal architecture**:
 
 ### How it compares
 
-| Capability                                | Zag                       | XState                 | machine-core               |
-| ----------------------------------------- | ------------------------- | ---------------------- | -------------------------- |
-| States / transitions / guards             | ✅                        | ✅                     | ✅                         |
-| Guard combinators (`and`/`or`/`not`)      | ✅                        | ✅                     | ✅                         |
-| Conditional actions                       | ✅ `choose`               | ✅ `choose`            | ✅ `oneOf`                 |
-| `entry` / `exit`                          | ✅                        | ✅                     | ✅                         |
-| Effects with cleanup                      | ✅                        | ✅ (invoked callbacks) | ✅ `effects`               |
-| Computed / derived                        | ✅                        | ✅                     | ✅                         |
-| Timed transitions (`after`)               | ✅                        | ✅                     | ✅                         |
-| Watch (react to data change)              | ✅ `watch`                | ⚠️ via `always`        | ✅ `watch` (name from Zag) |
-| Per-platform late binding                 | ✅                        | ⚠️ via `.provide()`    | ✅ viw `withAdapter`       |
-| **Fine-grained per-cell reactivity**      | ❌ coarse                 | ❌ coarse              | ✅ signal kernel           |
-| **`select` value-deduped on the machine** | ❌ (in the binding)       | ❌ (in `useSelector`)  | ✅                         |
-| Nested / hierarchical states              | ✅                        | ✅                     | ❌ (flat; compose later)   |
-| Spawned child machines / actors           | ✅                        | ✅                     | ❌                         |
-| Pre-built framework bindings              | ✅ React/Vue/Solid/Svelte | ✅ many                | ❌ (write per target)      |
-| Pre-built components                      | ✅ ~40                    | —                      | ❌ (built on top)          |
+| Capability                                | Zag                            | XState                                                 | machine-core               |
+| ----------------------------------------- | ------------------------------ | ------------------------------------------------------ | -------------------------- |
+| States / transitions / guards             | ✅                             | ✅                                                     | ✅                         |
+| Guard combinators (`and`/`or`/`not`)      | ✅                             | ✅                                                     | ✅                         |
+| Conditional actions                       | ✅ `choose`                    | ✅ `choose`                                            | ✅ `oneOf`                 |
+| `entry` / `exit`                          | ✅                             | ✅                                                     | ✅                         |
+| Effects with cleanup                      | ✅                             | ✅ (invoked callbacks)                                 | ✅ `effects`               |
+| Computed / derived                        | ✅                             | ✅                                                     | ✅                         |
+| Timed transitions (`after`)               | ✅                             | ✅                                                     | ✅                         |
+| Watch (react to data change)              | ✅ `watch`                     | ⚠️ via `always`                                        | ✅ `watch` (name from Zag) |
+| Per-platform late binding                 | ✅                             | ⚠️ via `.provide()`                                    | ✅ via `withAdapter`       |
+| **Where fine-grained reactivity lives**   | ⚠️ delegated to host framework | ⚠️ manual selectors (`actor.select` / `@xstate/store`) | ✅ intrinsic, auto-tracked |
+| **Works with no host framework / no DOM** | ❌ (needs a framework + DOM)   | varies                                                 | ✅                         |
+| Parallel / orthogonal regions             | ✅ (parallel states)           | ✅ (parallel states)                                   | ✅ via `compose` (peer machines) |
+| Nested / hierarchical states              | ✅                             | ✅                                                     | ❌ (flat states)           |
+| Spawned child machines / actors           | ❌                             | ✅ (`invoke` / `spawn`)                                | ❌                         |
+| Pre-built framework bindings              | ✅ React/Vue/Solid/Svelte      | ✅ many                                                | ❌ (write per target)      |
+| Pre-built components                      | ✅ ~40                         | —                                                      | ❌ (built on top)          |
 
-The line that earns building locally is **fine-grained per-cell reactivity**.
-In Zag and XState the machine's own subscription is coarse too — the narrowing is
-added _outside_ the machine (Zag in its framework binding, XState in
-`useSelector` / `@xstate/store`). Here it's on the machine itself, with no manual
-selector.
+The line that earns building locally isn't "they're coarse" — they're not. It's
+**where the reactivity lives and how it's expressed**: Zag delegates fine-graining
+to a host framework that must exist (and presumes a DOM); XState exposes deduped
+selection but via **manual selectors** (and `@xstate/store` is a store, not the
+statechart). Here it's **intrinsic to the machine and auto-tracked** — no host
+framework, no DOM, no named slice. (Zag's `computed`/`watch`, like this engine's,
+are themselves Vue/Lit-inspired — no novelty claimed there.)
 
 ---
 
@@ -115,6 +118,7 @@ selector.
 | `machine(config)`                    | build a service (stopped); `.start()` / `.stop()` / `.send()` / `.state` / `.context` / `.computed` / `.subscribe` / `.select`  |
 | `withAdapter(config, adapter)`       | merge a platform's `actions` + `effects` into a config                                                                          |
 | `connector(service, connect, props)` | live, memoized, subscribable view snapshot                                                                                      |
+| `compose({ a, b })`                  | run several machines as one (orthogonal regions): bundled `start`/`stop` + `.sync()` + `.combine()`                            |
 | `and` / `or` / `not`                 | guard combinators                                                                                                               |
 | `oneOf([...])`                       | conditional action branch                                                                                                       |
 | `MACHINE_INIT`                       | the synthetic event fired when effects/watchers boot on `start()`                                                               |
@@ -516,6 +520,50 @@ read.
 > _bindings_ vocabulary (`onPress`, `role`, `describedBy`) into real props
 > (`onClick`, `aria-describedby`) — so the same `connect` can target the DOM,
 > React Native, or any other surface.
+
+---
+
+## Composing machines
+
+States are flat. When a component has **two independent dimensions of state at
+once** — say a popup that's open/closed _and_ a submenu that's shown/hidden —
+each dimension is its own machine, and `compose` runs them as one unit
+(orthogonal regions, without nested states):
+
+```ts
+import { compose } from '@render-experiment/machine-core'
+
+const popup = machine({ /* closed / open */ })
+const submenu = machine({ /* none / shown */ })
+
+const combobox = compose({ popup, submenu })
+combobox.start() // starts every member; .stop() stops all + disposes the helpers below
+
+// members stay independent — drive and read each on its own:
+popup.send({ type: 'focus' })
+submenu.send({ type: 'open' }) // both regions active simultaneously
+```
+
+`compose` returns a `Composition` with two helpers, both auto-disposed on
+`stop()`:
+
+```ts
+// sync — a cross-region rule: react when any member changes
+combobox.sync(() => {
+  if (popup.matches('closed')) submenu.send({ type: 'close' })
+})
+
+// combine — one value-deduped Selection derived across members; reads
+// auto-track, so it fires only when a read field changes (O(changed))
+const view = combobox.combine(() => ({ open: popup.matches('open'), sub: submenu.state }))
+view.value // { open: true, sub: 'shown' }
+view.subscribe(render)
+```
+
+This is the engine's answer to hierarchy/parallel statecharts: rather than
+nesting states in one machine, compose independent peer machines. Each stays
+individually observable (fine-grained `select` per region), and `compose` adds
+only the lifecycle + coordination glue.
 
 ---
 

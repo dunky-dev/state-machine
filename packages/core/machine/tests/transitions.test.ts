@@ -1,14 +1,14 @@
 /**
- * Round 3 — transitions.
+ * Transitions.
  *
  * Pins: per-state `on` + top-level `on`; guard-fallthrough arrays; internal
  * self-transitions (actions, no exit/entry); and the key decision — QUEUED
  * send (a re-entrant send completes the current transition first).
  */
 import { describe, expect, it } from 'vitest'
-import { machine } from '../src/machine'
+import { machine } from '../src'
 
-describe('machine (R3 layer)', () => {
+describe('transitions', () => {
   it('moves between states on a matching event', () => {
     const m = machine<'closed' | 'open', { n: number }, { type: 'open' | 'close' }>({
       initial: 'closed',

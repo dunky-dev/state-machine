@@ -1,16 +1,13 @@
 /**
- * Assembly A1 — machine() lifecycle: built stopped, start()/stop(), restartable.
- *
- * Pins the lifecycle contract (the R6b revisit): machine(config) returns a
- * BUILT but STOPPED service — no effects run until start(). start() boots the
- * initial-state effects (MACHINE_INIT); stop() runs their cleanups; start again
- * re-boots. send() works regardless of running (state is pure), but transition
- * effects only boot/cleanup while running.
+ * Lifecycle — machine() returns a BUILT but STOPPED service: no effects run
+ * until start(). start() boots the initial-state effects (MACHINE_INIT); stop()
+ * runs their cleanups; start again re-boots. send() works regardless of running
+ * (state is pure), but transition effects only boot/cleanup while running.
  */
 import { describe, expect, it, vi } from 'vitest'
-import { machine } from '../src/machine'
+import { machine } from '../src'
 
-describe('A1 — machine lifecycle', () => {
+describe('lifecycle — start / stop', () => {
   it('is built stopped: no effects until start()', () => {
     const fx = vi.fn()
     const m = machine<'idle', object, { type: 'x' }>({

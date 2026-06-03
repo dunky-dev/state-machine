@@ -1,12 +1,12 @@
 /**
- * Round 1 — context layer.
+ * Context — reactive data cells.
  *
  * Pins the decided shape: plain tracked reads (`context.field`) + one
  * explicit batched write (`setContext({ field })`), signal-backed per cell.
  */
 import { effect } from '@preact/signals-core'
 import { describe, expect, it } from 'vitest'
-import { createContext } from '../src/machine'
+import { createContext } from '../src'
 
 describe('createContext', () => {
   it('reads fields by plain property access', () => {

@@ -6,7 +6,7 @@
  * type-checks the literal at the definition site (a bad `target` errors).
  */
 import { describe, expect, it } from 'vitest'
-import { config, machine } from '../src/machine'
+import { config, machine } from '../src'
 
 describe('config()', () => {
   it('returns the config unchanged and feeds machine() with inferred types', () => {

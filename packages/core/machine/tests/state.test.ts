@@ -1,5 +1,5 @@
 /**
- * Round 2 — state representation.
+ * State representation.
  *
  * Pins: flat tagged states; tracked `state` / `hasTag` / `matches` reads;
  * co-located tags; fine-grained re-run (a tag-group reader does NOT wake when
@@ -7,7 +7,7 @@
  */
 import { effect } from '@preact/signals-core'
 import { describe, expect, it } from 'vitest'
-import { createState } from '../src/machine'
+import { createState } from '../src'
 
 const make = () =>
   createState('closed', {

@@ -1,5 +1,5 @@
 /**
- * Round 11 — `watch`: machine-global data-reactions.
+ * `watch` — machine-global data-reactions.
  *
  * Pins: a watched context/computed field runs its actions when the field
  * CHANGES (not on setup); reacts in any state; reuses the action vocabulary
@@ -7,9 +7,9 @@
  * stop(); a watcher may send events / setContext.
  */
 import { describe, expect, it, vi } from 'vitest'
-import { machine } from '../src/machine'
+import { machine } from '../src'
 
-describe('R11 — watch', () => {
+describe('watch — data-reactions', () => {
   it('runs actions when a watched context field changes — not on start', () => {
     const seen: number[] = []
     const m = machine<'idle', { n: number }, { type: 'bump' }>({

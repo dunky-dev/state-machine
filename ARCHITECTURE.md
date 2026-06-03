@@ -8,6 +8,13 @@ no renderer. It says _what_ a component is: its states, its transitions,
 its bindings vocabulary, its style spec. Nothing in `core/` knows that
 React or the DOM exists.
 
+> **Status.** The `core/machine` engine is rebuilt and stable (signals-based;
+> see [`packages/core/machine/README.md`](./packages/core/machine/README.md)).
+> The components (`core/components/*`) and the target bridges
+> (`<target>/machine`, `<target>/components`) are **mid-migration** to the new
+> engine API and do not yet compile against it — treat their descriptions below
+> as the intended shape, not the current build.
+
 **`<target>/`** is the substrate side — `react`, `native`, etc, and
 any future renderer. Each target is a complete implementation of the
 agnostic spec for one runtime. The view, the lifecycle bridge, the
@@ -23,7 +30,8 @@ target side fulfills the contract.
 
 | File / location                        | What it owns                                        |
 | -------------------------------------- | --------------------------------------------------- |
-| `packages/core/machine/`               | State-machine engine, store, bindings               |
+| `packages/core/machine/`               | State-machine engine (signals) + bindings vocabulary |
+| `packages/core/style-engine/`          | Agnostic style spec (`Style` / `StyleSpec`)         |
 | `packages/shared/utils/`               | mergeProps, composeHandlers, positioning, memo      |
 | `packages/core/components/<comp>/`     | Per-component agnostic spec — see structure below   |
 | `packages/<target>/machine/`           | Hook + normalize per substrate (react, native, ...) |
@@ -35,15 +43,19 @@ target side fulfills the contract.
 
 ```
 core                                  agnostic logic — no React, no DOM, no RN
-├── machine                           state-machine engine + primitives
-│   ├── createMachine                 builds a running machine from a config
-│   ├── connector                     wraps state + connect + adapter into one snapshot
-│   ├── bindings                      event + attr vocabulary (onPress, role, …)
-│   ├── adapter                       withAdapter() — merges substrate effect impls
-│   ├── style-spec                    Style / StyleSpec types
-│   └── utils                         engine-internal helpers
+├── machine                           signals-based state-machine engine (one
+│   │                                 file per concern; public surface in index)
+│   ├── machine()                     builds a stopped service from a config;
+│   │                                 .start()/.stop()/.send()/.state/.select
+│   ├── context / state               reactive context cells + flat states
+│   ├── guards / actions              and/or/not combinators · oneOf
+│   ├── adapter                       withAdapter() — merges substrate impls
+│   ├── connector                     connect() → live, subscribable snapshot
+│   ├── compose                       run several machines as one (orthogonal
+│   │                                 regions): start/stop + sync + combine
+│   └── bindings                      event + attr vocabulary (onPress, role, …)
 │
-├── store                             reactive singleton state container
+├── style-engine                      agnostic Style / StyleSpec types
 │
 └── components
     └── <component>                   per-component agnostic description
@@ -51,7 +63,6 @@ core                                  agnostic logic — no React, no DOM, no RN
         ├── props                     defaults + raw-to-resolved
         ├── machine                   state graph + transitions
         ├── connect                   state + ctx → handlers + attrs
-        ├── store                     singleton (when needed)
         └── parts                     anatomy: parts list + variant types
 
 shared                                cross-target, cross-component artifacts
@@ -65,8 +76,6 @@ shared                                cross-target, cross-component artifacts
 ├── machine                           runtime, hooks, and props translator for this target
 │   ├── use-machine / use-api         lifecycle bridge for hook-based targets (react, native)
 │   └── normalize                     bindings → target props
-│
-├── store                             store bridge for the target
 │
 └── components
     └── <component>                   per-component substrate implementation
@@ -173,9 +182,10 @@ changes when behavior changes.
 into the surface a view consumes (handlers + attrs per part). It changes
 when the API surface changes.
 
-`store.ts` holds the singleton when a component has one (e.g. "only one
-tooltip open at a time"). It changes rarely; lifting it out makes the
-coupling visible at the import line.
+Cross-instance singletons (e.g. "only one tooltip open at a time") were
+previously a `core/store` package; that's been removed. Per-machine state is
+the engine's own signal-based context, and a small shared store for the few
+genuine singletons is still to be (re)introduced.
 
 ### Host declares effects consumers implement them
 
@@ -230,10 +240,10 @@ production (`pnpm build`) — there's no separate runtime path.
 | **host**     | The agnostic core — `packages/core/*`. Declares what a component is.   |
 | **adapter**  | A substrate-specific implementation package — `packages/<target>/*`.   |
 | **target**   | A render environment (`react`, `native`, …).                           |
-| **machine**  | A state-graph config consumed by `createMachine`.                      |
+| **machine**  | A state-graph config consumed by `machine()`; returns a startable service. |
 | **connect**  | A function returning the logical surface a view spreads onto elements. |
 | **bindings** | The substrate-agnostic event + attr vocabulary core's connect speaks.  |
-| **store**    | A reactive container (shared singleton, per-instance, or both).        |
+| **compose**  | Run several machines as one unit (orthogonal regions): bundled `start`/`stop` + `sync` + `combine`. |
 | **element**  | A named part of a component (content, trigger, item, …) with a style.  |
 | **codegen**  | The build-time emission of `elements.ts` and `api.ts` per target.      |
 
