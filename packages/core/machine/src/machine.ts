@@ -812,6 +812,123 @@ export function createTransitions<
 }
 
 // -----------------------------------------------------------------------------
+// Round 9c: connector — live subscribable snapshot (DECIDED, C/A/A)
+// -----------------------------------------------------------------------------
+//
+// connect() is a pure mapping (snapshot → view-facing api). The connector is
+// the reactive plumbing that keeps that mapping live: it memoizes connect's
+// output so its identity is stable until inputs change (no useSyncExternalStore
+// infinite loop), reads machine state through live getters (no tearing), makes
+// consumer `props` a reactive input (a props change recomputes the snapshot and
+// wakes subscribers), and is PASSIVE — it forwards subscribe/select but never
+// self-subscribes; the bridge owns lifecycle (decision A, matches XState/Zag).
+//
+//   React/Ink:  useSyncExternalStore(c.subscribe, () => c.snapshot)
+//   Pixi/Lit:   c.select.context('x').subscribe(dirtyMark)   // per-field
+
+/** What a component's connect() receives. Machine reads are live getters. */
+export interface ConnectSnapshot<
+  State extends string,
+  Context,
+  Event extends { type: string },
+  Props,
+  Computed = Record<string, never>,
+> {
+  readonly state: State
+  readonly context: Context
+  readonly computed: Computed
+  readonly props: Props
+  send: (event: Event) => void
+}
+
+/** A pure connect(): snapshot → view-facing api. */
+export type Connect<
+  State extends string,
+  Context,
+  Event extends { type: string },
+  Props,
+  Api,
+  Computed = Record<string, never>,
+> = (snapshot: ConnectSnapshot<State, Context, Event, Props, Computed>) => Api
+
+/** The live, subscribable connector (decision C: snapshot + subscribe + select). */
+export interface Connector<
+  State extends string,
+  Context,
+  Api,
+  Props,
+  Computed = Record<string, never>,
+> {
+  /** Memoized connect() output. Stable identity until state/context/computed/
+   * props change — safe as a useSyncExternalStore getSnapshot. */
+  readonly snapshot: Api
+  /** Coarse: wake on any change (also fires when props change). */
+  subscribe: (listener: () => void) => () => void
+  /** Per-field selection forwarded from the machine (for canvas/Lit bridges). */
+  select: Select<State, Context, Computed>
+  /** Update consumer props (a reactive input) — recomputes snapshot + wakes. */
+  setProps: (props: Props) => void
+}
+
+/**
+ * Wrap a machine + its pure connect() into a live snapshot. `props` is a
+ * reactive input: pass the initial value, push changes via setProps().
+ */
+export function connector<
+  State extends string,
+  Context extends object,
+  Event extends { type: string },
+  Props,
+  Api,
+  Computed = Record<string, never>,
+>(
+  machine: TransitionLayer<State, Context, Event, Computed>,
+  connect: Connect<State, Context, Event, Props, Api, Computed>,
+  initialProps: Props,
+): Connector<State, Context, Api, Props, Computed> {
+  // props as a signal → a props change invalidates the memoized snapshot and
+  // trips the coarse subscribe, same as a context/state change.
+  const propsSig = signal(initialProps)
+
+  // The snapshot is a memoized Selection over connect's output: its identity is
+  // stable until connect's inputs (state/context/computed/props) change.
+  const snap = machine.select(() =>
+    connect({
+      get state() {
+        return machine.state
+      },
+      get context() {
+        return machine.context
+      },
+      get computed() {
+        return machine.computed
+      },
+      get props() {
+        return propsSig.value
+      },
+      send: machine.send,
+    }),
+  )
+
+  return {
+    get snapshot() {
+      return snap.value
+    },
+    // Coarse: wake whenever the snapshot recomputes — i.e. on any state/
+    // context/computed/props change (connect returns a fresh object each time,
+    // so the Selection's Object.is dedup never suppresses a real change). The
+    // value arg is dropped; coarse listeners take none.
+    subscribe(listener) {
+      return snap.subscribe(() => listener())
+    },
+    select: machine.select,
+    setProps(props) {
+      propsSig.value = props
+    },
+  }
+}
+
+// -----------------------------------------------------------------------------
 // STUBS — to be designed in later rounds. Not wired, not final.
 // -----------------------------------------------------------------------------
 //
