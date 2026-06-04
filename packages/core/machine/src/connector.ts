@@ -56,9 +56,9 @@ export function connector<
   // without the bridge threading any teardown. Symmetric with effects/watchers.
   let reactionOffs: Array<() => void> = []
   service.onStart(() => {
-    reactionOffs = (connect.reactions ?? []).map(r => {
-      const sel = service.select(() => r.selector(service))
-      return sel.subscribe(value => r.callback(value, propsSig.value))
+    reactionOffs = (connect.reactions ?? []).map(([selector, callback]) => {
+      const sel = service.select(() => selector(service))
+      return sel.subscribe(value => callback(value, propsSig.value))
     })
   })
   service.onStop(() => {

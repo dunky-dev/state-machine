@@ -339,24 +339,28 @@ export interface ConnectSnapshot<
 }
 
 /**
- * A substrate-agnostic reaction: when the value `selector` derives from the
- * machine changes, the connector calls `callback(value, props)`. This is how a
- * component declares "machine-state change → consumer callback" ONCE (e.g.
- * `onOpenChange`), fired identically on every target — the machine never reads
- * props or fires callbacks itself. (Platform-specific reactions like a DOM
- * Escape listener stay in the per-target adapter.)
+ * A substrate-agnostic reaction: `[selector, callback]`. When the value
+ * `selector` derives from the machine changes, the connector calls
+ * `callback(value, props)`. This is how a component declares "machine-state
+ * change → consumer callback" ONCE (e.g. `onOpenChange`), fired identically on
+ * every target — the machine never reads props or fires callbacks itself.
+ * (Platform-specific reactions like a DOM Escape listener stay in the
+ * per-target effects.)
+ *
+ * Tuple shape mirrors a React `ComponentEffect` (`[fn, deps]`) so the two read
+ * the same — declare each as a named const, collect them in a list.
  */
-export interface Reaction<
+export type Reaction<
   State extends string,
   Context,
   Event extends { type: string },
   Props,
   Computed = Record<string, never>,
   Value = unknown,
-> {
-  selector: (machine: Machine<State, Context, Event, Computed>) => Value
-  callback: (value: Value, props: Props) => void
-}
+> = [
+  selector: (machine: Machine<State, Context, Event, Computed>) => Value,
+  callback: (value: Value, props: Props) => void,
+]
 
 /**
  * A pure connect(): snapshot → view-facing api. It MAY carry a static

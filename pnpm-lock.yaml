@@ -38,6 +38,12 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^6.0.2
         version: 6.0.2(babel-plugin-react-compiler@1.0.0)(vite@8.0.14(@types/node@22.19.19)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))
+      '@xstate/store':
+        specifier: ^4.1.0
+        version: 4.1.0
+      '@zag-js/core':
+        specifier: ^1.41.1
+        version: 1.41.1
       alien-signals:
         specifier: ^3.2.1
         version: 3.2.1
@@ -95,6 +101,9 @@ importers:
       vitest:
         specifier: ^4.1.7
         version: 4.1.7(@types/node@22.19.19)(jsdom@29.1.1)(vite@8.0.14(@types/node@22.19.19)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))
+      xstate:
+        specifier: ^5.32.0
+        version: 5.32.0
 
   packages/core/components/dropdown-menu:
     dependencies:
@@ -2168,6 +2177,21 @@ packages:
   '@xmldom/xmldom@0.9.10':
     resolution: {integrity: sha512-A9gOqLdi6cV4ibazAjcQufGj0B1y/vDqYrcuP6d/6x8P27gRS8643Dj9o1dEKtB6O7fwxb2FgBmJS2mX7gpvdw==}
     engines: {node: '>=14.6'}
+
+  '@xstate/store@4.1.0':
+    resolution: {integrity: sha512-r6wDC2Tk1VIe99gVb8VgmV3ZoIMfFpJ0HK8hVYDUIPfCQqfYbsz7vscakE9NWWb/oVpvXNNMH35ioITTplCTDw==}
+
+  '@zag-js/core@1.41.1':
+    resolution: {integrity: sha512-np7Tlf1EUK2ITojiX3aQy79LWIZhu4xxrS6pE8V/wD0h9JeQmhyNtyC147jqIE/AYjSunhMShsWp/+W1b5skjQ==}
+
+  '@zag-js/dom-query@1.41.1':
+    resolution: {integrity: sha512-f6hBV6fPc9Ok/Re/tsxqJ8NcgQzsASQ6YoulUKSQnZMGb7tr0Ks1IH3Hjy3+ARXvCaSjgDhPPXt5+bkieur4eg==}
+
+  '@zag-js/types@1.41.1':
+    resolution: {integrity: sha512-xhKEX61yvNa/6yofkNe7IihKyt3JLe4/k5JxaH0hj46V4S2Kac2cNAXPgnWHbl1gXGBcfLr+qLFzo4oLl+VdwA==}
+
+  '@zag-js/utils@1.41.1':
+    resolution: {integrity: sha512-IZGqDpQYvgCQlGcLTVCzWG5DEz318ZLVJhp8TtT9HPDNd+RJTcVHRja7z+vqQ0Su+wKZkuLlIh5gtraxQ+YX9Q==}
 
   abab@2.0.6:
     resolution: {integrity: sha512-j2afSsaIENvHZN2B8GOpF566vZ5WVk5opAiMTvWgaQT8DkbOqsTfvNAvHoRGU2zzP8cPoqys+xHTRDWW8L+/BA==}
@@ -5183,6 +5207,9 @@ packages:
   xmlchars@2.2.0:
     resolution: {integrity: sha512-JZnDKK8B0RCDw84FNdDAIpZK+JuJw+s7Lz8nksI7SIuU3UXJJslUthsi+uWBUYOwPFwW7W7PRLRfUKpxjtjFCw==}
 
+  xstate@5.32.0:
+    resolution: {integrity: sha512-zsk73aWGmxn9z34P0kbiod5JwTvdYRW3+IDxITq8sd9+VWwMyW7BUzpplnYy9mIEXa6V8IMDv7Hy4m0mhT5+2Q==}
+
   y18n@5.0.8:
     resolution: {integrity: sha512-0pfFzegeDWJHJIAmTLRP2DwHjdF5s7jo9tuztdQxAhINCdvS+3nGINqPd00AphqJR/0LhANUS6/+7SCb98YOfA==}
     engines: {node: '>=10'}
@@ -6236,7 +6263,7 @@ snapshots:
       postcss: 8.5.15
       resolve-from: 5.0.0
     optionalDependencies:
-      expo: 56.0.8(@babel/core@7.29.7)(@expo/dom-webview@56.0.5)(react-dom@19.2.6(react@19.2.0))(react-native@0.85.0(@babel/core@7.29.7)(@react-native/jest-preset@0.85.3(@babel/core@7.29.7)(react@19.2.6))(@types/react@19.2.15)(react@19.2.0))(react@19.2.0)(typescript@6.0.3)
+      expo: 56.0.8(@babel/core@7.29.7)(@expo/dom-webview@56.0.5)(react-dom@19.2.6(react@19.2.6))(react-native@0.85.0(@babel/core@7.29.7)(@react-native/jest-preset@0.85.3(@babel/core@7.29.7)(react@19.2.6))(@types/react@19.2.15)(react@19.2.6))(react@19.2.6)(typescript@6.0.3)
     transitivePeerDependencies:
       - bufferutil
       - supports-color
@@ -7298,6 +7325,23 @@ snapshots:
 
   '@xmldom/xmldom@0.9.10': {}
 
+  '@xstate/store@4.1.0': {}
+
+  '@zag-js/core@1.41.1':
+    dependencies:
+      '@zag-js/dom-query': 1.41.1
+      '@zag-js/utils': 1.41.1
+
+  '@zag-js/dom-query@1.41.1':
+    dependencies:
+      '@zag-js/types': 1.41.1
+
+  '@zag-js/types@1.41.1':
+    dependencies:
+      csstype: 3.2.3
+
+  '@zag-js/utils@1.41.1': {}
+
   abab@2.0.6: {}
 
   abort-controller@3.0.0:
@@ -7548,7 +7592,7 @@ snapshots:
       react-refresh: 0.14.2
     optionalDependencies:
       '@babel/runtime': 7.29.7
-      expo: 56.0.8(@babel/core@7.29.7)(@expo/dom-webview@56.0.5)(react-dom@19.2.6(react@19.2.0))(react-native@0.85.0(@babel/core@7.29.7)(@react-native/jest-preset@0.85.3(@babel/core@7.29.7)(react@19.2.6))(@types/react@19.2.15)(react@19.2.0))(react@19.2.0)(typescript@6.0.3)
+      expo: 56.0.8(@babel/core@7.29.7)(@expo/dom-webview@56.0.5)(react-dom@19.2.6(react@19.2.6))(react-native@0.85.0(@babel/core@7.29.7)(@react-native/jest-preset@0.85.3(@babel/core@7.29.7)(react@19.2.6))(@types/react@19.2.15)(react@19.2.6))(react@19.2.6)(typescript@6.0.3)
     transitivePeerDependencies:
       - '@babel/core'
       - supports-color
@@ -11016,6 +11060,8 @@ snapshots:
   xmlbuilder@15.1.1: {}
 
   xmlchars@2.2.0: {}
+
+  xstate@5.32.0: {}
 
   y18n@5.0.8: {}
 

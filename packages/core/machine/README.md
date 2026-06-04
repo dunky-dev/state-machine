@@ -627,25 +627,29 @@ read.
 Because [the machine never sees props](#the-machine-never-sees-props),
 a callback like `onOpenChange` can't fire from inside it. A **reaction** is how
 the connector bridges that gap from the _outside_: a declared
-`{ selector, callback }` pair that watches a value derived from machine state
-and, when it changes, calls the matching prop.
+`[selector, callback]` tuple that watches a value derived from machine state
+and, when it changes, calls the matching prop. (Same tuple shape as a React
+`ComponentEffect` — declare each as a named const, collect them in a list.)
 
 ```ts
 // declared on connect (agnostic — no DOM, no framework):
-connectTooltip.reactions = [
-  {
-    selector: m => m.matches('open') || m.matches('closing'), // a fact about state
-    callback: (open, props) => props.onOpenChange?.({ open }), // → the consumer's callback
-  },
+type TooltipReaction<V> = Reaction<TooltipState, TooltipContext, TooltipEvent, TooltipProps, never, V>
+
+const onOpenChange: TooltipReaction<boolean> = [
+  m => m.matches('open') || m.matches('closing'), // selector: a fact about state
+  (open, props) => props.onOpenChange?.({ open }), // callback: → the consumer's callback
 ]
+
+connectTooltip.reactions = [onOpenChange]
 ```
 
 The machine just transitions `closed → open`; it has no idea `onOpenChange`
-exists. The connector runs `selector` as a value-deduped `select(...)`, and when
-the result flips it calls `callback` with the **current** props (so a swapped
-callback is always the one that fires). This is the inversion from Zag for exmaple, which
-fires the same callback as an `invokeOnOpen` _action inside_ the machine — here
-the firing is pulled out to the edge, which is what keeps the machine pure.
+exists. The connector runs the selector (tuple position 0) as a value-deduped
+`select(...)`, and when the result flips it calls the callback (position 1) with
+the **current** props (so a swapped callback is always the one that fires). This
+is the inversion from Zag, for example, which fires the same callback as an
+`invokeOnOpen` _action inside_ the machine — here the firing is pulled out to the
+edge, which is what keeps the machine pure.
 
 `selector` is always a **function** (no state-name shorthand): it reads whatever
 it needs off the machine — `m.matches('open')` for a state-based reaction, or

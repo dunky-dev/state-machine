@@ -42,7 +42,7 @@ export type { Selection, Select, EqualityFn } from './types'
 
 // Connector boundary (live snapshot) + connect typing.
 export { connector } from './connector'
-export type { Connect, Connector, ConnectSnapshot } from './types'
+export type { Connect, Connector, ConnectSnapshot, Reaction } from './types'
 
 // Composition — run several independent machines as one unit (orthogonal
 // regions): bundled lifecycle + sync (cross-region rules) + combine (one

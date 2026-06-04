@@ -10,7 +10,7 @@
  *  - select is forwarded for per-field (canvas/Lit) consumption.
  */
 import { describe, expect, it, vi } from 'vitest'
-import { connector, machine } from '../src'
+import { connector, machine, type Reaction } from '../src'
 
 type Ctx = { count: number }
 type Ev = { type: 'inc' }
@@ -134,17 +134,19 @@ describe('connector', () => {
 describe('connector reactions', () => {
   // A connect with a declared reaction: when state reaches 'b', call props.onB.
   type RProps = { onB?: (v: boolean) => void }
+  // The test machines below all share this event union, so the one connect's
+  // reaction types against it cleanly.
+  type REvent = { type: 'toB' | 'toA' }
+  const reaction: Reaction<'a' | 'b', object, REvent, RProps, Record<string, never>, boolean> = [
+    m => m.matches('b'),
+    (inB, props) => props.onB?.(inB),
+  ]
   const connect = Object.assign((s: { state: 'a' | 'b' }) => ({ state: s.state }), {
-    reactions: [
-      {
-        selector: (m: { matches: (n: 'a' | 'b') => boolean }) => m.matches('b'),
-        callback: (inB: boolean, props: RProps) => props.onB?.(inB),
-      },
-    ],
+    reactions: [reaction],
   })
 
   it('fires a reaction on the selected value change once the machine starts', () => {
-    const m = machine<'a' | 'b', object, { type: 'toB' }>({
+    const m = machine<'a' | 'b', object, { type: 'toB' | 'toA' }>({
       initial: 'a',
       context: {},
       states: { a: { on: { toB: { target: 'b' } } }, b: {} },
@@ -158,7 +160,7 @@ describe('connector reactions', () => {
   })
 
   it('reactions stay inert until the machine starts', () => {
-    const m = machine<'a' | 'b', object, { type: 'toB' }>({
+    const m = machine<'a' | 'b', object, { type: 'toB' | 'toA' }>({
       initial: 'a',
       context: {},
       states: { a: { on: { toB: { target: 'b' } } }, b: {} },
@@ -194,7 +196,7 @@ describe('connector reactions', () => {
   })
 
   it('reads the latest props via setProps when the reaction fires', () => {
-    const m = machine<'a' | 'b', object, { type: 'toB' }>({
+    const m = machine<'a' | 'b', object, { type: 'toB' | 'toA' }>({
       initial: 'a',
       context: {},
       states: { a: { on: { toB: { target: 'b' } } }, b: {} },
