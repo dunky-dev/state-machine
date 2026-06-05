@@ -3,17 +3,64 @@ For _packages_ specifics see `SPEC.md` files.
 
 # Architecture
 
+## The big picture
+
+A component is a **state machine** describing how it reacts to interactions —
+plain TypeScript that knows nothing about where it renders. A thin per-target
+layer plugs that machine into a runtime and you get a real component: same
+machine, same behavior, same accessibility intent, different render.
+
+```
+The host
+┌────────────────────────────────────────────────────────────────────┐
+│  core/                                                               │
+│  No runtime render — pure JS, runs anywhere                          │
+│  ┌─────────────────┐  ┌──────────────────────┐  ┌───────────────┐   │
+│  │ **machine**     │  │ **components**       │  │ **style-      │   │
+│  │ states, events, │  │ behavior + intent    │  │   engine**    │   │
+│  │ select          │  │                      │  │ Style specs   │   │
+│  └─────────────────┘  └──────────────────────┘  └───────────────┘   │
+└────────────────────────────────────────────────────────────────────┘
+                               │  consumed by every target
+                               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  shared/                                                              │
+│  Cross-target styles + utilities                                      │
+│  ┌──────────────────────────────────────┐  ┌──────────────────────┐  │
+│  │ **components** (per-component styles) │  │ **utils** (position, │  │
+│  │                                       │  │  merge, …)           │  │
+│  └──────────────────────────────────────┘  └──────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+                               │  translated per target
+                               ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│  <target>/   (react, native, …)                                       │
+│  Runtime-specific render logic                                        │
+│  • connect the machine  • normalize events (onPress → onClick)        │
+│  • adapt substrate quirks (focus trap, escape listener)               │
+│  • generated/ — component API + styled elements (from the spec)       │
+└──────────────────────────────────────────────────────────────────────┘
+                               │  imported as a normal package
+                               ▼
+                            Consumer app
+```
+
+The rest of this document drills into each layer.
+
+## Two halves
+
 The repo splits in two halves. **`core/`** is the agnostic side — pure JS,
 no renderer. It says _what_ a component is: its states, its transitions,
 its bindings vocabulary, its style spec. Nothing in `core/` knows that
 React or the DOM exists.
 
-> **Status.** The `core/machine` engine is rebuilt and stable (signals-based;
-> see [`packages/core/machine/README.md`](./packages/core/machine/README.md)).
-> The components (`core/components/*`) and the target bridges
-> (`<target>/machine`, `<target>/components`) are **mid-migration** to the new
-> engine API and do not yet compile against it — treat their descriptions below
-> as the intended shape, not the current build.
+> **Status.** The `core/machine` engine is rebuilt and stable (a plain-mutation
+> kernel — no signals; see
+> [`packages/core/machine/README.md`](./packages/core/machine/README.md)). The
+> components (`core/components/*`) and the target bridges (`<target>/machine`,
+> `<target>/components`) are **mid-migration** to the new engine API and do not
+> yet compile against it — treat their descriptions below as the intended shape,
+> not the current build.
 
 **`<target>/`** is the substrate side — `react`, `native`, etc, and
 any future renderer. Each target is a complete implementation of the
@@ -51,7 +98,7 @@ Zag, whose machines read props directly.)
 
 | File / location                        | What it owns                                        |
 | -------------------------------------- | --------------------------------------------------- |
-| `packages/core/machine/`               | State-machine engine (signals) + bindings vocabulary |
+| `packages/core/machine/`               | State-machine engine (plain-mutation kernel) + bindings vocabulary |
 | `packages/core/style-engine/`          | Agnostic style spec (`Style` / `StyleSpec`)         |
 | `packages/shared/utils/`               | mergeProps, composeHandlers, positioning, memo      |
 | `packages/core/components/<comp>/`     | Per-component agnostic spec — see structure below   |
@@ -64,7 +111,7 @@ Zag, whose machines read props directly.)
 
 ```
 core                                  agnostic logic — no React, no DOM, no RN
-├── machine                           signals-based state-machine engine (one
+├── machine                           plain-mutation state-machine engine (one
 │   │                                 file per concern; public surface in index)
 │   ├── machine()                     builds a stopped service from a config;
 │   │                                 .start()/.stop()/.send()/.state/.select
@@ -207,10 +254,11 @@ into the surface a view consumes (handlers + attrs per part). This is the
 layer that reads props (see "the machine never sees props" above) and fires
 the consumer's callbacks. It changes when the API surface changes.
 
-Cross-instance singletons (e.g. "only one tooltip open at a time") were
-previously a `core/store` package; that's been removed. Per-machine state is
-the engine's own signal-based context, and a small shared store for the few
-genuine singletons is still to be (re)introduced.
+Cross-instance singletons (e.g. "only one tooltip open at a time") use
+`createStore` from `machine-core` — a tiny reactive cell (plain value +
+listeners) living outside any one machine. Per-machine state is the engine's own
+plain-object context. (The old standalone `core/store` package is gone; the
+store now ships from the engine itself.)
 
 ### Two kinds of substrate effect
 
