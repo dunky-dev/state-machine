@@ -47,6 +47,9 @@ export type { Selection, Select, EqualityFn } from './types'
 export { connector } from './connector'
 export type { Connect, Connector, ConnectSnapshot, Reaction } from './types'
 
+// Reaction authoring helper: infers the selector→callback value link.
+export { makeReaction } from './reaction'
+
 // Composition — run several independent machines as one unit (orthogonal
 // regions): bundled lifecycle + sync (cross-region rules) + combine (one
 // deduped Selection across members).

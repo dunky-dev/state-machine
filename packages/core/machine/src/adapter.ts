@@ -13,7 +13,7 @@ import type { Adapter, TransitionConfig } from './types'
  */
 export function withAdapter<
   State extends string,
-  Context,
+  Context extends object,
   Event extends { type: string },
   Computed = Record<string, never>,
 >(

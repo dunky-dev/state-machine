@@ -32,7 +32,7 @@ export interface State<T extends string> {
 // -----------------------------------------------------------------------------
 
 /** Everything a guard can read. */
-export interface GuardParams<Context, Event, Computed = Record<string, never>> {
+export interface GuardParams<Context extends object, Event, Computed = Record<string, never>> {
   context: Context
   event: Event
   computed: Computed
@@ -45,14 +45,14 @@ export interface GuardParams<Context, Event, Computed = Record<string, never>> {
 }
 
 /** An inline guard: a predicate over the params. */
-export type Guard<Context, Event, Computed = Record<string, never>> = (
+export type Guard<Context extends object, Event, Computed = Record<string, never>> = (
   params: GuardParams<Context, Event, Computed>,
 ) => boolean
 
 /** A guard arg in a transition: an inline predicate or a registered name
  * (resolved against implementations.guards). Missing name → throw in dev,
  * warn + false in prod. */
-export type GuardArg<Context, Event, Computed = Record<string, never>> =
+export type GuardArg<Context extends object, Event, Computed = Record<string, never>> =
   | Guard<Context, Event, Computed>
   | string
 
@@ -63,7 +63,7 @@ export type GuardArg<Context, Event, Computed = Record<string, never>> =
 /** A single transition: optional target, optional guard, optional actions. */
 export interface Transition<
   State extends string,
-  Context,
+  Context extends object,
   Event,
   Computed = Record<string, never>,
 > {
@@ -76,7 +76,7 @@ export interface Transition<
   actions?: Array<ActionArg<Context, Event, Computed>>
 }
 
-export type TransitionEntry<State extends string, Context, Event, Computed> =
+export type TransitionEntry<State extends string, Context extends object, Event, Computed> =
   | Transition<State, Context, Event, Computed>
   | Array<Transition<State, Context, Event, Computed>>
 
@@ -85,7 +85,7 @@ export type TransitionEntry<State extends string, Context, Event, Computed> =
 // -----------------------------------------------------------------------------
 
 /** Everything an action can read/use. */
-export interface ActionParams<Context, Event, Computed = Record<string, never>> {
+export interface ActionParams<Context extends object, Event, Computed = Record<string, never>> {
   context: Context
   setContext: (patch: Partial<Context>) => void
   event: Event
@@ -94,18 +94,18 @@ export interface ActionParams<Context, Event, Computed = Record<string, never>> 
 }
 
 /** An inline action: a side-effect over the params. */
-export type Action<Context, Event, Computed = Record<string, never>> = (
+export type Action<Context extends object, Event, Computed = Record<string, never>> = (
   params: ActionParams<Context, Event, Computed>,
 ) => void
 
 /** One branch of a oneOf: optional guard + the actions to run if it wins. */
-export interface OneOfBranch<Context, Event, Computed = Record<string, never>> {
+export interface OneOfBranch<Context extends object, Event, Computed = Record<string, never>> {
   guard?: GuardArg<Context, Event, Computed>
   actions: Array<ActionArg<Context, Event, Computed>>
 }
 
 /** The oneOf sentinel — the runtime detects it in an actions list and expands. */
-export interface OneOf<Context, Event, Computed = Record<string, never>> {
+export interface OneOf<Context extends object, Event, Computed = Record<string, never>> {
   readonly __oneOf: true
   readonly branches: Array<OneOfBranch<Context, Event, Computed>>
 }
@@ -115,7 +115,7 @@ export interface OneOf<Context, Event, Computed = Record<string, never>> {
  * (resolved against implementations.actions), or a `oneOf(...)` conditional
  * branch. Missing name → throw in dev, warn in prod. A list runs in order.
  */
-export type ActionArg<Context, Event, Computed = Record<string, never>> =
+export type ActionArg<Context extends object, Event, Computed = Record<string, never>> =
   | Action<Context, Event, Computed>
   | string
   | OneOf<Context, Event, Computed>
@@ -125,13 +125,13 @@ export type ActionArg<Context, Event, Computed = Record<string, never>> =
 // -----------------------------------------------------------------------------
 
 /** An inline effect: runs on enter, optionally returns a cleanup run on exit. */
-export type Effect<Context, Event, Computed = Record<string, never>> = (
+export type Effect<Context extends object, Event, Computed = Record<string, never>> = (
   params: ActionParams<Context, Event, Computed>,
 ) => void | (() => void)
 
 /** An effect arg: an inline effect or a registered name (resolved against
  * implementations.effects). Missing name → throw in dev, warn in prod. */
-export type EffectArg<Context, Event, Computed = Record<string, never>> =
+export type EffectArg<Context extends object, Event, Computed = Record<string, never>> =
   | Effect<Context, Event, Computed>
   | string
 
@@ -156,7 +156,7 @@ export type ComputedDefs<Context, Computed> = {
 
 /** A named delay: resolves to a number of ms, may read context/computed so a
  * prop-driven delay is dynamic. Referenced by name in a state's `after`. */
-export type Delay<Context, Event, Computed = Record<string, never>> = (
+export type Delay<Context extends object, Event, Computed = Record<string, never>> = (
   params: GuardParams<Context, Event, Computed>,
 ) => number
 
@@ -165,7 +165,7 @@ export type Delay<Context, Event, Computed = Record<string, never>> = (
 // -----------------------------------------------------------------------------
 
 /** The named-implementation registries a config (and an adapter) supply. */
-export interface Implementations<Context, Event, Computed = Record<string, never>> {
+export interface Implementations<Context extends object, Event, Computed = Record<string, never>> {
   /** Reusable named guards. Referenced by name in a transition `guard`. */
   guards?: Record<string, Guard<Context, Event, Computed>>
   /** Reusable named actions. Referenced by name in an `actions` list. */
@@ -178,7 +178,7 @@ export interface Implementations<Context, Event, Computed = Record<string, never
 
 export interface TransitionConfig<
   State extends string,
-  Context,
+  Context extends object,
   Event extends { type: string },
   Computed = Record<string, never>,
 > {
@@ -228,7 +228,7 @@ export interface TransitionConfig<
  */
 export type MachineConfig<
   State extends string,
-  Context,
+  Context extends object,
   Event extends { type: string },
   Computed = Record<string, never>,
 > = TransitionConfig<State, Context, Event, Computed>
@@ -238,7 +238,7 @@ export type MachineConfig<
  * things that touch the platform. On a name collision the adapter wins: the
  * config's named impl is the default, the platform overrides.
  */
-export type Adapter<Context, Event, Computed = Record<string, never>> = Pick<
+export type Adapter<Context extends object, Event, Computed = Record<string, never>> = Pick<
   Implementations<Context, Event, Computed>,
   'actions' | 'effects'
 >
@@ -286,7 +286,7 @@ export interface Select<State extends string, Context, Computed> {
  */
 export interface Machine<
   State extends string,
-  Context,
+  Context extends object,
   Event extends { type: string },
   Computed = Record<string, never>,
 > {
@@ -325,7 +325,7 @@ export interface Machine<
 /** What a component's connect() receives. Machine reads are live getters. */
 export interface ConnectSnapshot<
   State extends string,
-  Context,
+  Context extends object,
   Event extends { type: string },
   Props,
   Computed = Record<string, never>,
@@ -351,7 +351,7 @@ export interface ConnectSnapshot<
  */
 export type Reaction<
   State extends string,
-  Context,
+  Context extends object,
   Event extends { type: string },
   Props,
   Computed = Record<string, never>,
@@ -368,7 +368,7 @@ export type Reaction<
  */
 export type Connect<
   State extends string,
-  Context,
+  Context extends object,
   Event extends { type: string },
   Props,
   Api,
@@ -381,7 +381,7 @@ export type Connect<
 /** The live, subscribable connector: snapshot + subscribe + select + setProps. */
 export interface Connector<
   State extends string,
-  Context,
+  Context extends object,
   Api,
   Props,
   Computed = Record<string, never>,

@@ -15,7 +15,7 @@ import type { ActionArg, OneOf, OneOfBranch } from './types'
  *     ]),
  *   ]
  */
-export function oneOf<Context, Event, Computed = Record<string, never>>(
+export function oneOf<Context extends object, Event, Computed = Record<string, never>>(
   branches: Array<OneOfBranch<Context, Event, Computed>>,
 ): OneOf<Context, Event, Computed> {
   return { __oneOf: true, branches }
@@ -30,7 +30,7 @@ export function oneOf<Context, Event, Computed = Record<string, never>>(
  * Computed as the value passed in (rather than defaulting to `unknown`), keeping
  * `branch.actions` correctly typed at the call site.
  */
-export function isOneOf<Context, Event, Computed>(
+export function isOneOf<Context extends object, Event, Computed>(
   action: ActionArg<Context, Event, Computed>,
 ): action is OneOf<Context, Event, Computed> {
   return (
