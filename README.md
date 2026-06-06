@@ -24,33 +24,15 @@ component-as-a-headless-machine approach. Zag is agnostic about _which framework
 renders the DOM, but it still assumes a DOM exists. Agnostic Render takes that one step
 further: it assumes _nothing_ about the environment. The machine is a pure
 behavioral kernel with no environment touchpoints, every place behavior meets the
-platform — a keydown listener, a timer, a focus call — is pushed to a per-target
-adapter. So the _same_ machine runs unchanged on the DOM, React Native, or a WebGL
-with no framework at all.
+platform — a keydown listener, a timer, a focus — is pushed to a per-target
+adapter. So the _same_ machine runs unchanged on the DOM, React Native, or any other JS runtime.
 
 ### Fast at scale
 
-State is mutated in place over a tiny notifier — a transition
-is roughly a function call and a property write, with no immutable-snapshot
-allocation per event. Memory per machine is flat regardless of how much context it
-holds. That matters when you have **many machines reacting to an event stream
-inside one frame budget**: a trading terminal with live tickers, a monitoring wall,
-a canvas board, a game HUD.
-
-| (5 000 machines, single clean run) | Agnostic Render   | XState        | Zag       |
-| ---------------------------------- | ----------------- | ------------- | --------- |
-| Memory / machine (4 → 64 fields)   | **2.8 KB** (flat) | 3.6 KB (flat) | 13→136 KB |
-| Create + start, 5 000 machines     | **13 ms**         | 19 ms         | 81 ms     |
-| Apply 200k events to completion    | **53 ms**         | 199 ms        | 204 ms    |
-| Bundle (min + gzip)                | **2.7 KB**        | 14.5 KB       | 2.2 KB    |
-
-See [`packages/core/machine/README.md`](./packages/core/machine/README.md) for the
-methodology, the honest trade-offs, and how each number was measured.
-
-**Single behavior byte-for-byte, everywhere**
-The machine never reads props, the props live only at the edge (the connector + adapter).
-That's what lets a single behavior contract stay identical across every target, instead of drifting
-into N per-framework reimplementations.
+The hard case is **many machines reacting to many events inside
+one frame budget** — things like a trading terminal with live tickers, a monitoring wall, a
+canvas board, a game HUD. There the cost of each transition and the memory per
+machine, multiplied by thousands, is what decides whether you hold the frame.
 
 ## The trade-off
 
@@ -67,27 +49,26 @@ serialize? You're not paying for capabilities you don't use.
 ## Solution
 
 ```ts
-import { machine } from '@render-experiment/machine-core'
+import { machine, act } from '@render-experiment/machine-core'
 
-const toggle = machine({
-  initial: 'off',
+const toggle = machine<'inactive' | 'active', { count: number }, { type: 'flip' }>({
+  initial: 'inactive',
   context: { count: 0 },
   states: {
-    off: {
+    inactive: {
       on: {
-        flip: {
-          target: 'on',
-          actions: [({ context, setContext }) => setContext({ count: context.count + 1 })],
-        },
+        flip: act('active', x => ({ count: x.context.count + 1 })),
       },
     },
-    on: { on: { flip: { target: 'off' } } },
+    active: {
+      on: { flip: { target: 'inactive' } },
+    },
   },
 })
 
 toggle.start()
 toggle.send({ type: 'flip' })
-toggle.state // 'on'
+toggle.state // 'active'
 toggle.context.count // 1
 ```
 
@@ -99,16 +80,40 @@ and **the machine itself never changes**:
 2. **`normalize`** translates those to real props per platform — `onClick` +
    `aria-*` on web, `Pressable` props on React Native.
 
+### Benchmark
+
+|                                 | **Agnostic Render** |  XState |      Zag |
+| ------------------------------- | ------------------: | ------: | -------: |
+| **Events per second**           |         **3.3 M/s** | 810 K/s |    n/a ¹ |
+| **Spin up 10 000 machines**     |           **15 ms** |   44 ms |    n/a ¹ |
+| **Memory at 64 fields/machine** |          **6.5 KB** |  9.3 KB |    n/a ¹ |
+| **Bundle** (min + gzip)         |          **2.2 KB** | 15.8 KB | 0.5 KB ² |
+| **Bundle** + React adapter      |          **3.0 KB** | 18.6 KB |   3.6 KB |
+| **Render 1 000 rows** (mount)   |          **6.4 ms** |  8.4 ms |   8.2 ms |
+| **Re-render after a change** ³  |          **4.4 ms** |  8.2 ms |  14.4 ms |
+
+<sub>¹ Zag's headless is async (microtask-batched), so it can't share a synchronous throughput / construct / memory loop — Zag is compared where it's built to run, the React render path, not forced into a sync benchmark.
+² Zag's `@zag-js/core` is config-only (the machine runtime lives in the framework adapter), so its 0.5 KB engine row isn't runnable on its own — the `+ React adapter` row (`@zag-js/react`) is the fair comparison.
+³ Each library using its idiomatic fine-grained path (Agnostic Render & Zag: per-instance machine + `React.memo`; XState: shared actor + `@xstate/react`'s `useSelector`).
+
 ## How it's built
 
-Four layers — agnostic core, cross-target shared assets, per-target render glue,
-and the consumer app. The full layered model, the codegen pipeline, and the "the
+4 layers
+
+- **agnostic core** — the state machine engine
+- **connector** — turns machine state into logical bindings (e.g. `onPress`, `role`,
+  `describedBy`) and keeps that view in sync with the machine state
+- **adapter** — the per-target layer that supplies platform effects (e.g. a DOM keydown
+  listener, an RN `BackHandler`) and `normalize`s the logical bindings into real props
+  (`onPress` → `onClick` / `Pressable`)
+- **render glue** — the per-target view that spreads those normalized props onto the
+  actual elements
+
+The full layered model, the codegen pipeline, and the "the
 machine never sees props" rule are in:
 
 - **[`ARCHITECTURE.md`](./ARCHITECTURE.md)** — the big-picture map and the layered model.
-- **[`packages/core/machine/README.md`](./packages/core/machine/README.md)** — the
-  engine: states, guards, actions, effects, `computed`, `after`, `watch`, `select`,
-  `compose`, the connector, and the full performance comparison.
+- **[`packages/core/machine/README.md`](./packages/core/machine/README.md)** — the state machine and full benchmark results.
 - **[`AGENTS.md`](./AGENTS.md)** — the contributor / agent contract.
 - `packages/core/components/<comp>/SPEC.md` — per-component behavior specs.
 
@@ -125,5 +130,4 @@ Agnostic Render stands on the shoulders of the amazing libs:
 The engine here is an independent implementation — its own kernel, its own
 state-machine runtime — built around one bet those libraries aren't: that behavior
 should run with **no environment assumption at all**, fast enough to drive
-thousands of machines at once. Where this engine differs and why is laid out,
-honestly, in the [engine README](./packages/core/machine/README.md).
+thousands of machines at once.

@@ -1,7 +1,7 @@
 /**
- * `act(patch)` — the terse spelling of a context-writing action. A static patch
- * or a function of the action params; returns a normal Action, so it composes
- * with targets, guards, and other actions, and works bare in an `on` entry.
+ * `act(...)` — terse sugar. Write-only form `act(...patches)` → an Action that
+ * applies each patch in order; target form `act('state', ...patches)` → a
+ * Transition. A leading string is the target; otherwise every arg is a patch.
  */
 import { act, machine } from '../src'
 import { describe, expect, it } from 'vitest'

@@ -55,51 +55,6 @@ aren't built around:
    machine plugs into any render environment.
 2. **Performance under heavy fan-out** (below).
 
-### 🏎️ Performance
-
-State is mutated **in place** and changes propagate through a tiny notifier — so a
-transition is essentially a function call and a property write. There's no
-immutable-snapshot allocation per event, and a machine carries only its own data.
-That makes the engine cheap on the two axes that matter at scale: **memory per
-machine** (flat, regardless of how many context fields or states it has) and
-**event throughput**.
-
-| Metric (single clean run, shared config) | machine-core | XState   | Zag      |
-| ---------------------------------------- | ------------ | -------- | -------- |
-| Memory / machine (4 fields)              | **~2.8 KB**  | 3.6 KB   | ~13 KB   |
-| Memory / machine (64 fields)             | **~2.8 KB**  | 3.6 KB   | ~136 KB³ |
-| Construct + start, 5 000 machines        | **~13 ms**   | ~19 ms   | ~81 ms   |
-| Apply 200 000 events to completion¹      | **~53 ms**   | ~199 ms  | ~204 ms  |
-| Bundle (min + gzip)                      | **~2.7 KB**  | ~14.5 KB | ~2.2 KB² |
-
-<sub>¹ Wall-clock to drain N events — comparable across synchronous (machine-core,
-XState) and microtask-batched (Zag) engines. ² Zag's `@zag-js/core`; a real Zag
-component also pulls `@zag-js/dom-query` + the component machine. ³ machine-core
-and XState hold context as one plain object → memory is flat in field count; Zag's
-`bindable` context allocates a reactive cell per field per instance, so its
-per-machine memory grows with the field count (~13 → ~36 → ~136 KB at 4 / 16 / 64
-fields). Measured via `@zag-js/vanilla`.</sub>
-
-**When throughput actually matters.** It starts to matter in one shape: **many
-machines reacting to a high-frequency event stream inside one frame/latency budget.**
-
-Some real cases:
-
-- **Trading / market-data terminals** — 2 000 ticker rows, each a machine, driven
-  by a price firehose at sub-frame latency.
-- **Canvas boards** — drag-select 3 000 shapes; `pointermove`
-  fans out to every selected element's machine, ~270 k transitions/sec inside 16 ms.
-- **Live monitoring walls** — 1 000+ hosts, each a timed
-  machine (healthy → degraded → alerting) fed by a metrics stream.
-- **Multiplayer editors** — every remote user's cursor/selection/edit replayed into
-  local entity-machines; active collaborators multiply the stream.
-- **Game HUDs** — hundreds of agents, an FSM per entity, ticked every frame.
-
-The pattern is **density × frequency**. Where machine work fights the frame budget,
-~3–4× throughput is the difference between smooth and dropped frames; pair it with
-the surgical re-renders below (one field changes → only its observers wake) and you're
-fast on both the state and the render side.
-
 ### How it compares
 
 **Shared baseline — all three have these.** The everyday statechart toolkit is
@@ -147,7 +102,112 @@ A few cells deserve their footnote so the table survives scrutiny:
   re-runs every live selector + compares (cheap, bounded per machine), rather than
   waking only the selectors that read the changed field.
 
+### 🏎️ Performance
+
+State is mutated **in place** and changes propagate through a tiny notifier — so a
+transition is essentially a function call and a property write. There's no
+immutable-snapshot allocation per event, and a machine carries only its own data.
+That makes the engine cheap on the two axes that matter at scale: **memory per
+machine** (flat, regardless of how many context fields or states it has) and
+**event throughput**.
+
+All numbers below are from `pnpm benchmark` (Node 24, single clean run). They're
+**disposable first-look** figures — reproduce them yourself; don't quote them as
+gospel. Contenders: `machine-core` and XState (both synchronous statecharts, so
+they share a fair ops/sec loop). Zag is excluded from the synchronous loops — its
+headless `send` is async/microtask-batched — and is measured instead in the React
+render arena it's built for (below).
+
+**Throughput — events/sec (higher is better)**
+
+| Scenario                           | machine-core | XState | core ×   |
+| ---------------------------------- | -----------: | -----: | -------- |
+| Single machine, one event          |       3.32 M | 0.81 M | **4.1×** |
+| Propagate 1 of 1 000 machines      |       2.59 M | 0.53 M | **4.9×** |
+| Propagate 1 of 5 000 machines      |       1.65 M | 0.48 M | **3.5×** |
+| Fine-grain (unobserved) 1 of 5 000 |       1.66 M | 0.45 M | **3.7×** |
+
+Throughput stays in the millions even at 5 000 machines; cost grows sub-linearly,
+not per-machine.
+
+**Construction — µs / machine (lower is better)**
+
+| Count        | machine-core | XState | core × |
+| ------------ | -----------: | -----: | ------ |
+| 1 000 built  |     **1.45** |   8.05 | 5.5×   |
+| 10 000 built |     **1.51** |   4.35 | 2.9×   |
+
+**Memory — KB / machine, 5 000 live machines (lower is better)**
+
+| Context width   | machine-core | XState |
+| --------------- | -----------: | -----: |
+| thin (2 fields) |     **3.45** |   6.24 |
+| fat (64 fields) |     **6.54** |   9.28 |
+
+Going from 2 → 64 fields adds only ~3 KB per machine — context is one plain
+object (copy-on-write), so memory grows with the data you actually store, not with
+a per-field reactive cell. It is **not** perfectly flat, it grows with field count,
+just slowly and linearly.
+
+**React rendering — list of 1 000 rows, 50 highlight moves**
+
+| Strategy                      | rows re-rendered / move | re-render wall (ms) |
+| ----------------------------- | ----------------------: | ------------------: |
+| `core` per-instance + memo    |                   **2** |             **3.9** |
+| `core` shared + `useSelector` |                   **2** |                 8.1 |
+| `zag` per-instance + memo     |                   **2** |                10.5 |
+| naive (whole-snapshot read)   |                     980 |                56.6 |
+
+The headline isn't "fewer re-renders than Zag" — properly memoized, **both** wake
+only the 2 rows that changed (vs. 980 for a naive whole-snapshot subscription).
+The difference is per-render _cost_: core's selector path is ~2.5× cheaper on the
+wall-clock here. XState isn't in this table — its headless subscription is coarse
+(whole-snapshot); its fine-grained path is `@xstate/react`'s `useSelector`, a
+separate React-only comparison.
+
+**When throughput actually matters.** It starts to matter in one shape: **many
+machines reacting to a high-frequency event stream inside one frame/latency budget.**
+
+Some real cases:
+
+- **Trading / market-data terminals** — 2 000 ticker rows, each a machine, driven
+  by a price firehose at sub-frame latency.
+- **Canvas boards** — drag-select 3 000 shapes; `pointermove`
+  fans out to every selected element's machine, ~270 k transitions/sec inside 16 ms.
+- **Live monitoring walls** — 1 000+ hosts, each a timed
+  machine (healthy → degraded → alerting) fed by a metrics stream.
+- **Multiplayer editors** — every remote user's cursor/selection/edit replayed into
+  local entity-machines; active collaborators multiply the stream.
+- **Game HUDs** — hundreds of agents, an FSM per entity, ticked every frame.
+
+The pattern is **density × frequency**. Where machine work fights the frame budget,
+~3–4× throughput is the difference between smooth and dropped frames; pair it with
+the surgical re-renders below (one field changes → only its observers wake) and you're
+fast on both the state and the render side.
+
 ### Why it's faster
+
+The single decision underneath the perf numbers is **how each engine holds and
+updates a machine's data**.
+
+| Engine           | Data model                                             | Cost per update                                | Buys you                          |
+| ---------------- | ------------------------------------------------------ | ---------------------------------------------- | --------------------------------- |
+| **machine-core** | **one plain object, mutated in place (copy-on-write)** | a property write + a notifier call             | flat memory, high throughput      |
+| XState           | immutable snapshot                                     | allocate a fresh snapshot, fan out to all subs | serialize / persist / time-travel |
+| Zag              | one reactive cell per context field                    | mutate that field's cell → wake its listeners  | framework-portable DOM components |
+
+**Mutate in place** means `setContext` writes new values onto the machine's own
+context object and rings a small notifier — no fresh snapshot per event. So a
+transition is essentially _a function call and a property write_, and per-machine
+memory is **flat in field and state count**: that's both wins in the table. It's
+copy-on-write, not blind mutation — writes go through one batched entry point, so
+they're atomic to subscribers and a no-op write doesn't notify.
+
+The trade is **no serializable snapshot** — nothing to persist, rewind, or hand a
+visual debugger. machine-core picks the mutable, snapshot-free model on purpose,
+paying in capabilities rather than in speed; `select` (value-deduped slices) and
+`computed` (memoized derivations) still give precise change observation without
+ever materializing whole-state snapshots.
 
 **XState** is built around the **actor model**: a machine's state is a single
 immutable _snapshot_ you can serialize, persist, replay, and inspect in Stately's
@@ -165,38 +225,12 @@ in a debugger, XState is the right tool and worth every byte. If you're driving
 thousands of lightweight UI machines you never serialize, you're paying for capabilities
 you don't use.
 
-**Zag** sits on a different axis: it's lean too, but it delegates reactivity to the
-host framework (React/Vue/...) and presumes a DOM. This engine owns its
-reactivity internally, so the _same_ machine runs byte-for-byte identically on the
-DOM, React Native, or a bare canvas with no framework underneath.
-
-`machine-core` gives up persistence/visualization (XState) and framework-delegated
-rendering (Zag) to be the small, fast engine for **one behavior that runs unchanged on every render target.**
-
-### Data strategy — mutation vs immutability
-
-The single decision underneath the perf numbers is **how each engine holds and
-updates a machine's data**. It's the axis the whole "why it's faster" argument
-turns on, so it's worth stating plainly:
-
-| Engine           | Data model                                             | Cost per update                                | Buys you                          |
-| ---------------- | ------------------------------------------------------ | ---------------------------------------------- | --------------------------------- |
-| **machine-core** | **one plain object, mutated in place (copy-on-write)** | a property write + a notifier call             | flat memory, high throughput      |
-| XState           | immutable snapshot                                     | allocate a fresh snapshot, fan out to all subs | serialize / persist / time-travel |
-| Zag              | a reactive cell per context field                      | a per-field reactive set                       | framework-delegated fine-graining |
-
-**Mutate in place** means `setContext` writes new values onto the machine's own
-context object and rings a small notifier — no fresh snapshot per event. So a
-transition is essentially _a function call and a property write_, and per-machine
-memory is **flat in field and state count**: that's both wins in the table. It's
-copy-on-write, not blind mutation — writes go through one batched entry point, so
-they're atomic to subscribers and a no-op write doesn't notify.
-
-The trade is **no serializable snapshot** — nothing to persist, rewind, or hand a
-visual debugger. machine-core picks the mutable, snapshot-free model on purpose,
-paying in capabilities rather than in speed; `select` (value-deduped slices) and
-`computed` (memoized derivations) still give precise change observation without
-ever materializing whole-state snapshots.
+**Zag** is the direct inspiration for this engine. It already runs framework-free
+(React, Vue, Solid, Svelte, _and_ a no-framework "vanilla" build), so this isn't
+"we did what Zag couldn't." It's the opposite: **machine-core keeps everything
+Zag gives you and extends the same idea one step further** — onto surfaces that
+have no DOM at all (canvas, WebGL, a terminal UI, React Native, Miro's board).
+The one design choice that makes that step possible is **who owns the reactivity**.
 
 ### The machine never sees props
 
