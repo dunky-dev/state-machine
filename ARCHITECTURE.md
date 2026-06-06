@@ -13,32 +13,32 @@ machine, same behavior, same accessibility intent, different render.
 ```
 The host
 ┌────────────────────────────────────────────────────────────────────┐
-│  core/                                                               │
-│  No runtime render — pure JS, runs anywhere                          │
-│  ┌─────────────────┐  ┌──────────────────────┐  ┌───────────────┐   │
-│  │ **machine**     │  │ **components**       │  │ **style-      │   │
-│  │ states, events, │  │ behavior + intent    │  │   engine**    │   │
-│  │ select          │  │                      │  │ Style specs   │   │
-│  └─────────────────┘  └──────────────────────┘  └───────────────┘   │
+│  core/                                                             │
+│  No runtime render — pure JS, runs anywhere                        │
+│  ┌─────────────────┐  ┌──────────────────────┐  ┌───────────────┐  │
+│  │ **machine**     │  │ **components**       │  │ **style-      │  │
+│  │ states, events, │  │ behavior + intent    │  │   engine**    │  │
+│  │ select          │  │                      │  │ Style specs   │  │
+│  └─────────────────┘  └──────────────────────┘  └───────────────┘  │
 └────────────────────────────────────────────────────────────────────┘
                                │  consumed by every target
                                ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│  shared/                                                              │
-│  Cross-target styles + utilities                                      │
-│  ┌──────────────────────────────────────┐  ┌──────────────────────┐  │
-│  │ **components** (per-component styles) │  │ **utils** (position, │  │
-│  │                                       │  │  merge, …)           │  │
-│  └──────────────────────────────────────┘  └──────────────────────┘  │
+│  shared/                                                            │
+│  Cross-target styles + utilities                                    │
+│  ┌──────────────────────────────────────┐  ┌──────────────────────┐ │
+│  │ **components** (per-component styles)│  │ **utils** (position, │ │
+│  │                                      │  │  merge, …)           │ │
+│  └──────────────────────────────────────┘  └──────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────┘
                                │  translated per target
                                ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│  <target>/   (react, native, …)                                       │
-│  Runtime-specific render logic                                        │
-│  • connect the machine  • normalize events (onPress → onClick)        │
-│  • adapt substrate quirks (focus trap, escape listener)               │
-│  • generated/ — component API + styled elements (from the spec)       │
+│  <target>/   (react, native, …)                                      │
+│  Runtime-specific render logic                                       │
+│  • connect the machine  • normalize events (onPress → onClick)       │
+│  • adapt substrate quirks (focus trap, escape listener)              │
+│  • generated/ — component API + styled elements (from the spec)      │
 └──────────────────────────────────────────────────────────────────────┘
                                │  imported as a normal package
                                ▼
@@ -96,16 +96,16 @@ Zag, whose machines read props directly.)
 
 ## Project structure
 
-| File / location                        | What it owns                                        |
-| -------------------------------------- | --------------------------------------------------- |
+| File / location                        | What it owns                                                       |
+| -------------------------------------- | ------------------------------------------------------------------ |
 | `packages/core/machine/`               | State-machine engine (plain-mutation kernel) + bindings vocabulary |
-| `packages/core/style-engine/`          | Agnostic style spec (`Style` / `StyleSpec`)         |
-| `packages/shared/utils/`               | mergeProps, composeHandlers, positioning, memo      |
-| `packages/core/components/<comp>/`     | Per-component agnostic spec — see structure below   |
-| `packages/<target>/machine/`           | Hook + normalize per substrate (react, native, ...) |
-| `packages/<target>/components/<comp>/` | View, context, adapter, generated elements + api    |
-| `scripts/build.ts`, `scripts/watch.ts` | Codegen (one-shot + watcher)                        |
-| `sandbox/<target>/`                    | Runnable dev env                                    |
+| `packages/core/style-engine/`          | Agnostic style spec (`Style` / `StyleSpec`)                        |
+| `packages/shared/utils/`               | mergeProps, composeHandlers, positioning, memo                     |
+| `packages/core/components/<comp>/`     | Per-component agnostic spec — see structure below                  |
+| `packages/<target>/machine/`           | Hook + normalize per substrate (react, native, ...)                |
+| `packages/<target>/components/<comp>/` | View, context, adapter, generated elements + api                   |
+| `scripts/build.ts`, `scripts/watch.ts` | Codegen (one-shot + watcher)                                       |
+| `sandbox/<target>/`                    | Runnable dev env                                                   |
 
 ## The map
 
@@ -115,7 +115,8 @@ core                                  agnostic logic — no React, no DOM, no RN
 │   │                                 file per concern; public surface in index)
 │   ├── machine()                     builds a stopped service from a config;
 │   │                                 .start()/.stop()/.send()/.state/.select
-│   ├── context / state               reactive context cells + flat states
+│   ├── context / state               one plain-object context (mutated in
+│   │                                 place, copy-on-write) + flat states
 │   ├── guards / actions              and/or/not combinators · oneOf
 │   ├── adapter                       withAdapter() — merges substrate impls
 │   ├── connector                     connect() → live, subscribable snapshot
@@ -321,17 +322,17 @@ production (`pnpm build`) — there's no separate runtime path.
 
 ## Vocabulary
 
-| Term         | What it is                                                             |
-| ------------ | ---------------------------------------------------------------------- |
-| **host**     | The agnostic core — `packages/core/*`. Declares what a component is.   |
-| **adapter**  | A substrate-specific implementation package — `packages/<target>/*`.   |
-| **target**   | A render environment (`react`, `native`, …).                           |
-| **machine**  | A state-graph config consumed by `machine()`; returns a startable service. |
-| **connect**  | A function returning the logical surface a view spreads onto elements. |
-| **bindings** | The substrate-agnostic event + attr vocabulary core's connect speaks.  |
+| Term         | What it is                                                                                          |
+| ------------ | --------------------------------------------------------------------------------------------------- |
+| **host**     | The agnostic core — `packages/core/*`. Declares what a component is.                                |
+| **adapter**  | A substrate-specific implementation package — `packages/<target>/*`.                                |
+| **target**   | A render environment (`react`, `native`, …).                                                        |
+| **machine**  | A state-graph config consumed by `machine()`; returns a startable service.                          |
+| **connect**  | A function returning the logical surface a view spreads onto elements.                              |
+| **bindings** | The substrate-agnostic event + attr vocabulary core's connect speaks.                               |
 | **compose**  | Run several machines as one unit (orthogonal regions): bundled `start`/`stop` + `sync` + `combine`. |
-| **element**  | A named part of a component (content, trigger, item, …) with a style.  |
-| **codegen**  | The build-time emission of `elements.ts` and `api.ts` per target.      |
+| **element**  | A named part of a component (content, trigger, item, …) with a style.                               |
+| **codegen**  | The build-time emission of `elements.ts` and `api.ts` per target.                                   |
 
 ## Sandboxes
 

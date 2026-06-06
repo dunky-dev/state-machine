@@ -173,6 +173,31 @@ DOM, React Native, or a bare canvas with no framework underneath.
 `machine-core` gives up persistence/visualization (XState) and framework-delegated
 rendering (Zag) to be the small, fast engine for **one behavior that runs unchanged on every render target.**
 
+### Data strategy — mutation vs immutability
+
+The single decision underneath the perf numbers is **how each engine holds and
+updates a machine's data**. It's the axis the whole "why it's faster" argument
+turns on, so it's worth stating plainly:
+
+| Engine           | Data model                                             | Cost per update                                | Buys you                          |
+| ---------------- | ------------------------------------------------------ | ---------------------------------------------- | --------------------------------- |
+| **machine-core** | **one plain object, mutated in place (copy-on-write)** | a property write + a notifier call             | flat memory, high throughput      |
+| XState           | immutable snapshot                                     | allocate a fresh snapshot, fan out to all subs | serialize / persist / time-travel |
+| Zag              | a reactive cell per context field                      | a per-field reactive set                       | framework-delegated fine-graining |
+
+**Mutate in place** means `setContext` writes new values onto the machine's own
+context object and rings a small notifier — no fresh snapshot per event. So a
+transition is essentially _a function call and a property write_, and per-machine
+memory is **flat in field and state count**: that's both wins in the table. It's
+copy-on-write, not blind mutation — writes go through one batched entry point, so
+they're atomic to subscribers and a no-op write doesn't notify.
+
+The trade is **no serializable snapshot** — nothing to persist, rewind, or hand a
+visual debugger. machine-core picks the mutable, snapshot-free model on purpose,
+paying in capabilities rather than in speed; `select` (value-deduped slices) and
+`computed` (memoized derivations) still give precise change observation without
+ever materializing whole-state snapshots.
+
 ### The machine never sees props
 
 This is the single most important thing to understand about `machine-core`, and
@@ -214,17 +239,17 @@ The core stays pure throughout.
 
 ## API at a glance
 
-| Export                               | What it is                                                                                                                                                |
-| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `machine(config)`                    | build a service (stopped); `.start()` / `.stop()` / `.send()` / `.state` / `.context` / `.computed` / `.subscribe` / `.select` / `.onStart` / `.onStop`   |
-| `config({ ... })`                    | author a config const with full inference + checking, no manual generics                                                                                  |
-| `withAdapter(config, adapter)`       | layer a platform's `actions` + `effects` over a config (other impls — `guards`, `delays` — carry through untouched)                                       |
-| `connector(service, connect, props)` | live, memoized, subscribable view snapshot: `.snapshot` / `.subscribe` / `.select` / `.setProps` (prop-callbacks wire automatically)                      |
-| `compose({ a, b })`                  | run several machines as one (orthogonal regions): bundled `start`/`stop` + `.sync()` + `.combine()`                                                       |
-| `createStore(initial, build?)`       | a tiny reactive store (plain value + listeners) for cross-instance singleton state (outside any one machine)                                              |
-| `and` / `or` / `not`                 | guard combinators                                                                                                                                         |
-| `oneOf([...])`                       | conditional action branch                                                                                                                                 |
-| `MACHINE_INIT`                       | the synthetic event fired when effects/watchers boot on `start()`                                                                                         |
+| Export                               | What it is                                                                                                                                                             |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `machine(config)`                    | build a service (stopped); `.start()` / `.stop()` / `.send()` / `.state` / `.context` / `.computed` / `.subscribe` / `.select` / `.onStart` / `.onStop`                |
+| `config({ ... })`                    | author a config const with full inference + checking, no manual generics                                                                                               |
+| `withAdapter(config, adapter)`       | layer a platform's `actions` + `effects` over a config (other impls — `guards`, `delays` — carry through untouched)                                                    |
+| `connector(service, connect, props)` | live, memoized, subscribable view snapshot: `.snapshot` / `.subscribe` / `.select` / `.setProps` (prop-callbacks wire automatically)                                   |
+| `compose({ a, b })`                  | run several machines as one (orthogonal regions): bundled `start`/`stop` + `.sync()` + `.combine()`                                                                    |
+| `createStore(initial, build?)`       | a tiny reactive store (plain value + listeners) for cross-instance singleton state (outside any one machine)                                                           |
+| `and` / `or` / `not`                 | guard combinators                                                                                                                                                      |
+| `oneOf([...])`                       | conditional action branch                                                                                                                                              |
+| `MACHINE_INIT`                       | the synthetic event fired when effects/watchers boot on `start()`                                                                                                      |
 | Types                                | `Machine`, `MachineConfig`, `TransitionConfig`, `Guard`, `Action`, `Effect`, `Delay`, `Selection`, `Connect`, `Store`, `StateNode`, `EventBindings`, `AttrBindings`, … |
 
 ---

@@ -38,10 +38,19 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^6.0.2
         version: 6.0.2(babel-plugin-react-compiler@1.0.0)(vite@8.0.14(@types/node@22.19.19)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))
+      '@xstate/react':
+        specifier: ^6.1.0
+        version: 6.1.0(@types/react@19.2.15)(react@19.2.6)(xstate@5.32.0)
       '@xstate/store':
         specifier: ^4.1.0
         version: 4.1.0
       '@zag-js/core':
+        specifier: ^1.41.1
+        version: 1.41.1
+      '@zag-js/react':
+        specifier: ^1.41.1
+        version: 1.41.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@zag-js/vanilla':
         specifier: ^1.41.1
         version: 1.41.1
       alien-signals:
@@ -2178,6 +2187,15 @@ packages:
     resolution: {integrity: sha512-A9gOqLdi6cV4ibazAjcQufGj0B1y/vDqYrcuP6d/6x8P27gRS8643Dj9o1dEKtB6O7fwxb2FgBmJS2mX7gpvdw==}
     engines: {node: '>=14.6'}
 
+  '@xstate/react@6.1.0':
+    resolution: {integrity: sha512-ep9F0jGTI63B/jE8GHdMpUqtuz7yRebNaKv8EMUaiSi29NOglywc2X2YSOV/ygbIK+LtmgZ0q9anoEA2iBSEOw==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      xstate: ^5.28.0
+    peerDependenciesMeta:
+      xstate:
+        optional: true
+
   '@xstate/store@4.1.0':
     resolution: {integrity: sha512-r6wDC2Tk1VIe99gVb8VgmV3ZoIMfFpJ0HK8hVYDUIPfCQqfYbsz7vscakE9NWWb/oVpvXNNMH35ioITTplCTDw==}
 
@@ -2187,11 +2205,23 @@ packages:
   '@zag-js/dom-query@1.41.1':
     resolution: {integrity: sha512-f6hBV6fPc9Ok/Re/tsxqJ8NcgQzsASQ6YoulUKSQnZMGb7tr0Ks1IH3Hjy3+ARXvCaSjgDhPPXt5+bkieur4eg==}
 
+  '@zag-js/react@1.41.1':
+    resolution: {integrity: sha512-lphduGB974XvtYUVXhX53C+TzKmcvGjK5H/h9+Q4M+1AwQOq37wKjH3Kt8gV0g5SQ6nW+3RM54mhWdcQvsFQiw==}
+    peerDependencies:
+      react: '>=18.0.0'
+      react-dom: '>=18.0.0'
+
+  '@zag-js/store@1.41.1':
+    resolution: {integrity: sha512-1b6Kv/wvDwRLGjUI7cXvsW5KAB3TPux7FZ5W1264Qf2vaudd9HFoyMAftpI8VnKpcDF+z1t7skzr+4b0ZmFBsQ==}
+
   '@zag-js/types@1.41.1':
     resolution: {integrity: sha512-xhKEX61yvNa/6yofkNe7IihKyt3JLe4/k5JxaH0hj46V4S2Kac2cNAXPgnWHbl1gXGBcfLr+qLFzo4oLl+VdwA==}
 
   '@zag-js/utils@1.41.1':
     resolution: {integrity: sha512-IZGqDpQYvgCQlGcLTVCzWG5DEz318ZLVJhp8TtT9HPDNd+RJTcVHRja7z+vqQ0Su+wKZkuLlIh5gtraxQ+YX9Q==}
+
+  '@zag-js/vanilla@1.41.1':
+    resolution: {integrity: sha512-ZqdO/BN6zHKcyaSK0jmwW4qtgS+/63rVDXDfPYIcdT3Sx2Myto5vUCXd7htrRtkSDTPvT6183zzU5dUB+RuUrw==}
 
   abab@2.0.6:
     resolution: {integrity: sha512-j2afSsaIENvHZN2B8GOpF566vZ5WVk5opAiMTvWgaQT8DkbOqsTfvNAvHoRGU2zzP8cPoqys+xHTRDWW8L+/BA==}
@@ -4266,6 +4296,9 @@ packages:
     resolution: {integrity: sha512-NxNv/kLguCA7p3jE8oL2aEBsrJWgAakBpgmgK6lpPWV+WuOmY6r2/zbAVnP+T8bQlA0nzHXSJSJW0Hq7ylaD2Q==}
     engines: {node: '>= 6'}
 
+  proxy-compare@3.0.1:
+    resolution: {integrity: sha512-V9plBAt3qjMlS1+nC8771KNf6oJ12gExvaxnNzN/9yVRLdTv/lc+oJlnSzrdYDAvBfTStPCoiaCOTmTs0adv7Q==}
+
   psl@1.15.0:
     resolution: {integrity: sha512-JZd3gMVBAVQkSs6HdNZo9Sdo0LNcQeMNP3CozBJb3JYC/QUYZTnKxP+f8oWRX4rHP5EurWxqAHTSwUCjlNKa1w==}
 
@@ -4939,6 +4972,20 @@ packages:
 
   url-parse@1.5.10:
     resolution: {integrity: sha512-WypcfiRhfeUP9vvF0j6rw0J3hrWrw6iZv3+22h6iRMJ/8z1Tj6XfLP4DsUix5MhMPnXpiHDoKyoZ/bdCkwBCiQ==}
+
+  use-isomorphic-layout-effect@1.2.1:
+    resolution: {integrity: sha512-tpZZ+EX0gaghDAiFR37hj5MgY6ZN55kLiPkJsKxBMZ6GZdOSPJXiOzPM984oPYZ5AnehYx5WQp1+ME8I/P/pRA==}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+
+  use-sync-external-store@1.6.0:
+    resolution: {integrity: sha512-Pp6GSwGP/NrPIrxVFAIkOQeyw8lFenOHijQWkUTrDvrF4ALqylP2C/KCkeS9dpUM3KvYRQhna5vt7IL95+ZQ9w==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
   utils-merge@1.0.1:
     resolution: {integrity: sha512-pMZTvIkT1d+TFGvDOqodOclx0QWkkgi6Tdoa8gC8ffGAAqz9pzPTZWAybbsHHoED/ztMtkv/VoYTYyShUn81hA==}
@@ -7325,6 +7372,16 @@ snapshots:
 
   '@xmldom/xmldom@0.9.10': {}
 
+  '@xstate/react@6.1.0(@types/react@19.2.15)(react@19.2.6)(xstate@5.32.0)':
+    dependencies:
+      react: 19.2.6
+      use-isomorphic-layout-effect: 1.2.1(@types/react@19.2.15)(react@19.2.6)
+      use-sync-external-store: 1.6.0(react@19.2.6)
+    optionalDependencies:
+      xstate: 5.32.0
+    transitivePeerDependencies:
+      - '@types/react'
+
   '@xstate/store@4.1.0': {}
 
   '@zag-js/core@1.41.1':
@@ -7336,11 +7393,31 @@ snapshots:
     dependencies:
       '@zag-js/types': 1.41.1
 
+  '@zag-js/react@1.41.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6)':
+    dependencies:
+      '@zag-js/core': 1.41.1
+      '@zag-js/store': 1.41.1
+      '@zag-js/types': 1.41.1
+      '@zag-js/utils': 1.41.1
+      react: 19.2.6
+      react-dom: 19.2.6(react@19.2.6)
+
+  '@zag-js/store@1.41.1':
+    dependencies:
+      proxy-compare: 3.0.1
+
   '@zag-js/types@1.41.1':
     dependencies:
       csstype: 3.2.3
 
   '@zag-js/utils@1.41.1': {}
+
+  '@zag-js/vanilla@1.41.1':
+    dependencies:
+      '@zag-js/core': 1.41.1
+      '@zag-js/store': 1.41.1
+      '@zag-js/types': 1.41.1
+      '@zag-js/utils': 1.41.1
 
   abab@2.0.6: {}
 
@@ -10049,6 +10126,8 @@ snapshots:
       kleur: 3.0.3
       sisteransi: 1.0.5
 
+  proxy-compare@3.0.1: {}
+
   psl@1.15.0:
     dependencies:
       punycode: 2.3.1
@@ -10842,6 +10921,16 @@ snapshots:
     dependencies:
       querystringify: 2.2.0
       requires-port: 1.0.0
+
+  use-isomorphic-layout-effect@1.2.1(@types/react@19.2.15)(react@19.2.6):
+    dependencies:
+      react: 19.2.6
+    optionalDependencies:
+      '@types/react': 19.2.15
+
+  use-sync-external-store@1.6.0(react@19.2.6):
+    dependencies:
+      react: 19.2.6
 
   utils-merge@1.0.1: {}
 
