@@ -129,11 +129,11 @@ describe('oneOf — conditional action branch', () => {
           on: {
             go: {
               actions: [
-                oneOf([
-                  { guard: ({ context }) => context.kind === 'a', actions: [() => hit.push('a')] },
-                  { guard: ({ context }) => context.kind === 'b', actions: [() => hit.push('b')] },
-                  { actions: [() => hit.push('fallback')] },
-                ]),
+                oneOf(
+                  { guard: $ => $.context.kind === 'a', actions: () => hit.push('a') },
+                  { guard: $ => $.context.kind === 'b', actions: () => hit.push('b') },
+                  { actions: () => hit.push('fallback') },
+                ),
               ],
             },
           },
@@ -154,10 +154,10 @@ describe('oneOf — conditional action branch', () => {
           on: {
             go: {
               actions: [
-                oneOf([
-                  { guard: ({ context }) => context.n > 0, actions: [() => hit.push('positive')] },
-                  { actions: [() => hit.push('fallback')] },
-                ]),
+                oneOf(
+                  { guard: $ => $.context.n > 0, actions: () => hit.push('positive') },
+                  { actions: () => hit.push('fallback') },
+                ),
               ],
             },
           },
@@ -177,9 +177,7 @@ describe('oneOf — conditional action branch', () => {
         idle: {
           on: {
             go: {
-              actions: [
-                oneOf([{ guard: ({ context }) => context.n > 0, actions: [() => hit.push('x')] }]),
-              ],
+              actions: [oneOf({ guard: $ => $.context.n > 0, actions: () => hit.push('x') })],
             },
           },
         },
@@ -200,7 +198,7 @@ describe('oneOf — conditional action branch', () => {
             open: {
               actions: [
                 () => order.push('always-before'),
-                oneOf([{ guard: 'isMobile', actions: ['lockScroll'] }]),
+                oneOf({ guard: 'isMobile', actions: 'lockScroll' }),
                 () => order.push('always-after'),
               ],
             },
@@ -225,9 +223,7 @@ describe('oneOf — conditional action branch', () => {
         idle: {
           on: {
             go: {
-              actions: [
-                oneOf([{ guard: 'isAdmin', actions: ['adminPath'] }, { actions: ['userPath'] }]),
-              ],
+              actions: [oneOf({ guard: 'isAdmin', actions: 'adminPath' }, { actions: 'userPath' })],
             },
           },
         },
@@ -317,7 +313,7 @@ describe('entry / exit', () => {
         a: { exit: ['logExit'], on: { toB: { target: 'b' } } },
         b: {
           entry: [
-            oneOf([{ guard: 'isMobile', actions: ['mobileSetup'] }, { actions: ['desktopSetup'] }]),
+            oneOf({ guard: 'isMobile', actions: 'mobileSetup' }, { actions: 'desktopSetup' }),
           ],
         },
       },

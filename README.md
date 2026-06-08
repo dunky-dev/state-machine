@@ -57,7 +57,7 @@ const toggle = machine<'inactive' | 'active', { count: number }, { type: 'flip' 
   states: {
     inactive: {
       on: {
-        flip: act('active', x => ({ count: x.context.count + 1 })),
+        flip: { target: 'active', actions: act($ => ({ count: $.context.count + 1 })) },
       },
     },
     active: {

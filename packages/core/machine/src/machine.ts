@@ -12,6 +12,7 @@ import { MACHINE_INIT } from './constants'
 import { tagsForNodes } from './state'
 import type {
   ActionArg,
+  Actions,
   GuardArg,
   GuardParams,
   Machine,
@@ -334,12 +335,11 @@ class MachineClass<
       computed: this.computed,
     })
   }
-  private runActions(
-    actions: Array<ActionArg<Context, Event, Computed>> | undefined,
-    event: Event,
-  ): void {
+  private runActions(actions: Actions<Context, Event, Computed> | undefined, event: Event): void {
     if (!actions) return
-    for (const action of actions) this.runAction(action, event)
+    // An `actions` / `entry` / `exit` slot may be a single action or a list.
+    const list = Array.isArray(actions) ? actions : [actions]
+    for (const action of list) this.runAction(action, event)
   }
 
   // ---- transition: exit (cleanup effects + exit actions) → transition actions →

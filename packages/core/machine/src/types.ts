@@ -75,8 +75,8 @@ export interface Transition<
   // the target and autocompletes the declared states, instead of widening State.
   target?: NoInfer<State>
   guard?: GuardArg<Context, Event, Computed>
-  /** Actions to run, in order. */
-  actions?: Array<ActionArg<Context, Event, Computed, Send>>
+  /** Actions to run, in order. A single action or a list. */
+  actions?: Actions<Context, Event, Computed, Send>
 }
 
 /**
@@ -137,7 +137,8 @@ export type Action<
   Send = Event,
 > = (params: ActionParams<Context, Event, Computed, Send>) => void
 
-/** One branch of a oneOf: optional guard + the actions to run if it wins. */
+/** One branch of a oneOf: an optional guard + the actions to run if it wins
+ * (a single action or a list — the runtime normalizes when it runs them). */
 export interface OneOfBranch<
   Context extends object,
   Event,
@@ -145,7 +146,7 @@ export interface OneOfBranch<
   Send = Event,
 > {
   guard?: GuardArg<Context, Event, Computed>
-  actions: Array<ActionArg<Context, Event, Computed, Send>>
+  actions: Actions<Context, Event, Computed, Send>
 }
 
 /** The oneOf sentinel — the runtime detects it in an actions list and expands. */
@@ -170,6 +171,16 @@ export type ActionArg<
   Computed = Record<string, never>,
   Send = Event,
 > = Action<Context, Event, Computed, Send> | string | OneOf<Context, Event, Computed, Send>
+
+/** What an `actions` / `entry` / `exit` slot accepts: a single action or a list.
+ * The runtime normalizes a single value to a one-element list, so `actions: act(...)`
+ * and `actions: [act(...), 'log']` are both valid. */
+export type Actions<
+  Context extends object,
+  Event,
+  Computed = Record<string, never>,
+  Send = Event,
+> = ActionArg<Context, Event, Computed, Send> | Array<ActionArg<Context, Event, Computed, Send>>
 
 // -----------------------------------------------------------------------------
 // Effects
@@ -277,10 +288,10 @@ export interface TransitionConfig<
     State,
     StateNode & {
       on?: EventMap<State, Context, Event, Computed>
-      /** Actions run when this state is entered (after the switch). */
-      entry?: Array<ActionArg<Context, Event, Computed>>
-      /** Actions run when this state is exited (before the switch). */
-      exit?: Array<ActionArg<Context, Event, Computed>>
+      /** Actions run when this state is entered (after the switch). One or a list. */
+      entry?: Actions<Context, Event, Computed>
+      /** Actions run when this state is exited (before the switch). One or a list. */
+      exit?: Actions<Context, Event, Computed>
       /** Effects started on enter; their cleanups run first on exit. */
       effects?: Array<EffectArg<Context, Event, Computed>>
       /** Timed transitions. Each key is a delay — a number of ms (e.g. 200) or

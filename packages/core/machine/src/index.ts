@@ -23,9 +23,11 @@ export type { StateNode } from './types'
 export { and, or, not } from './guards'
 export type { Guard, GuardArg, GuardParams } from './types'
 
-// Actions: oneOf + act (context-write shorthand) + types.
-export { oneOf, act } from './actions'
-export type { Action, ActionArg, ActionParams, OneOf, OneOfBranch } from './types'
+// Action helpers, used inside an `actions` / `entry` / `exit` list: `act` (terse
+// context-write sugar) + `oneOf` (variadic conditional — first passing branch
+// wins). Structure (`target` / `guard`) stays on the plain transition object.
+export { act, oneOf } from './actions'
+export type { Action, ActionArg, ActionParams, OneOf } from './types'
 
 // Effects + types.
 export type { Effect, EffectArg } from './types'

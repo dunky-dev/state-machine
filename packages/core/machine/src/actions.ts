@@ -1,30 +1,87 @@
-import type { Action, ActionArg, ActionParams, OneOf, OneOfBranch, Transition } from './types'
+import type { Action, ActionArg, ActionParams, OneOf, OneOfBranch } from './types'
 
 /**
- * `oneOf([...])` is the conditional-action analog of fallthrough transitions:
- * the first branch whose guard passes runs its action list; the rest are
- * skipped. It lives inside an `actions` list — used where there's no transition
- * array to fall through (entry/exit lists, or alongside unconditional actions).
+ * `act` + `oneOf` — the two authoring helpers that live inside an `actions`
+ * (or `entry` / `exit`) list. Everything structural (`target`, `guard`) stays on
+ * the plain transition object; these two only ever describe what an action *does*.
+ */
+
+/** A context patch, or a function of the action params that returns one. */
+export type Patch<Context extends object, Event, Computed = Record<string, never>, Send = Event> =
+  | Partial<Context>
+  | ((params: ActionParams<Context, Event, Computed, Send>) => Partial<Context>)
+
+/**
+ * `act(...patches)` — write-sugar for the most common action: setting context.
+ * It drops the `$ => $.setContext(...)` wrapper, so a patch reads as data:
+ *
+ *   actions: act({ pressed: true, ripple: true })            // one or many fields
+ *   actions: act($ => ({ n: $.context.n + 1 }))              // derived from params
+ *   actions: act({ touched: true }, $ => ({ n: $.context.n + 1 }))  // sequential
+ *
+ * Each arg is a static patch or a `$ => patch` fn. Multiple patches are applied
+ * **in order**, each via its own `setContext` — so a later patch fn sees the
+ * writes of the earlier ones. `act` returns a normal `Action`, so it slots
+ * anywhere an action does: a transition's `actions`, an `entry`/`exit` list, or a
+ * `oneOf` branch's `actions`. It only ever WRITES — `target`/`guard` live on the
+ * surrounding transition, never on `act`.
+ *
+ * TYPES NOTE — a single `act({...})` or `act($ => ({...}))` infers `Context` from
+ * its slot, but a MIXED multi-patch call (`act({...}, $ => ({...}))`) infers
+ * `Context` from the FIRST arg only, so the later fn's `$` loses fields. Annotate
+ * such a call — `act<Context, Event>({...}, $ => ({...}))` — or split it into two
+ * `act`s in the list. (The same limitation as XState's `assign` outside `setup`.)
+ */
+export function act<Context extends object, Event, Computed = Record<string, never>, Send = Event>(
+  ...patches: Array<Patch<Context, Event, Computed, Send>>
+): Action<Context, Event, Computed, Send> {
+  return params => {
+    // `params.context` is the snapshot captured when this action started, and the
+    // engine swaps in a fresh context object on each setContext (copy-on-write) —
+    // so a later patch fn reading the captured reference would miss earlier writes.
+    // Track the running context locally and hand each fn a params view of it, so
+    // patches are truly sequential (a later one sees the earlier ones).
+    let context = params.context
+    for (const patch of patches) {
+      const next = typeof patch === 'function' ? patch({ ...params, context }) : patch
+      params.setContext(next)
+      context = { ...context, ...next }
+    }
+  }
+}
+
+/**
+ * `oneOf(...branches)` — the conditional-action analog of a fallthrough
+ * transition: the first branch whose guard passes runs its actions; the rest are
+ * skipped. It lives inside an `actions` list (a transition's, or an `entry` /
+ * `exit`) where there's no transition array to fall through.
+ *
+ * Each branch is a plain `{ guard?, actions }` object — the same shape as a
+ * transition, minus `target` (a conditional WRITE never moves state; state
+ * choice is the surrounding transition's job). A guardless branch always matches,
+ * so put it last as the fallback. `actions` takes the usual vocabulary —
+ * `act(...)`, a raw fn, a named action, or a nested `oneOf` — as a single value or
+ * a list (the runtime normalizes when it runs them).
  *
  *   actions: [
- *     'alwaysRun',
- *     oneOf([
- *       { guard: 'isCheckbox', actions: ['toggle'] },
- *       { guard: 'isRadio',    actions: ['select'] },
- *       { actions: ['activate'] },   // guardless = fallback
- *     ]),
+ *     act({ ariaPressed: true }),
+ *     oneOf(
+ *       { guard: $ => $.context.variant === 'primary', actions: act({ shadow: 'lg' }) },
+ *       { guard: $ => $.context.variant === 'ghost',   actions: act({ shadow: 'none' }) },
+ *       { actions: act({ shadow: 'md' }) },   // guardless = fallback
+ *     ),
  *   ]
  */
 export function oneOf<Context extends object, Event, Computed = Record<string, never>>(
-  branches: Array<OneOfBranch<Context, Event, Computed>>,
+  ...branches: Array<OneOfBranch<Context, Event, Computed>>
 ): OneOf<Context, Event, Computed> {
   return { __oneOf: true, branches }
 }
 
 /**
- * Recognize a `oneOf(...)` sentinel in an actions list. Lives next to `oneOf`
- * (the only place that stamps `__oneOf`) so the marker has a single source of
- * truth. The runtime uses this to expand a oneOf into its winning branch.
+ * Recognize a `oneOf(...)` sentinel in an actions list. The runtime uses this to
+ * expand a oneOf into its winning branch. Lives next to `oneOf` (the only place
+ * that stamps `__oneOf`) so the marker has a single source of truth.
  *
  * Generic over the action-arg union so it narrows to the SAME Context/Event/
  * Computed as the value passed in (rather than defaulting to `unknown`), keeping
@@ -38,82 +95,4 @@ export function isOneOf<Context extends object, Event, Computed>(
     action !== null &&
     (action as { __oneOf?: boolean }).__oneOf === true
   )
-}
-
-/** A context patch, or a function of the action params that returns one. */
-export type Patch<Context extends object, Event, Computed = Record<string, never>> =
-  | Partial<Context>
-  | ((params: ActionParams<Context, Event, Computed>) => Partial<Context>)
-
-/**
- * `act(...)` — terse sugar for the two most common transition shapes: write some
- * context, optionally while moving to a target state.
- *
- * Each argument is a `Patch`: a static `Partial<Context>` or a function of the
- * action params (so it can read `event` / `context` / `computed`). Multiple
- * patches run in order.
- *
- *   // WRITE-ONLY → an Action (nests in `actions: [...]`, or stands alone as a
- *   // bare transition entry):
- *   focus:  act({ focused: true })
- *   set:    act(({ event }) => ({ value: event.value }))
- *   bump:   act({ touched: true }, ({ context }) => ({ n: context.n + 1 }))  // both, in order
- *
- *   // GO + DO → a Transition (a leading STATE-NAME string is the target):
- *   flip:   act('active', ({ context }) => ({ count: context.count + 1 }))
- *   submit: act('loading', { error: null })
- *
- * Disambiguation: if the first argument is a string it's the `target`, and the
- * rest are patches; otherwise every argument is a patch. (A patch is an object
- * or a function — never a string — so there's no ambiguity.) The write-only form
- * returns an `Action` so it composes inside `actions`; the target form returns a
- * `Transition`, which belongs in an `on` entry, not an `actions` list.
- *
- * TYPES NOTE — the RUNTIME of every form is correct, but TypeScript can't always
- * infer `Context` from a standalone `act(...)` call:
- *   - `act({ ...obj })`            ✅ Context inferred from the object literal.
- *   - `act(fn)` bare in `on.X`     ✅ Context flows from the entry's contextual type.
- *   - `act({...}, fn)` multi-patch ⚠️ Context inferred from the FIRST arg only.
- *   - `act('target', fn)`          ⚠️ Context binds to `string` (the arg TS sees),
- *                                     so `({ context }) => ...` loses its type.
- * This is the same limitation that makes XState's `assign` work only *inside* a
- * typed machine. The proper fix is a `setup<State, Context, Event>()` factory
- * that binds the types once and returns a Context-bound `act` (and guards/etc.);
- * then every form — including `act('active', fn)` — infers cleanly. Until that
- * exists, the fully-inferred forms are `act({...})` and a single bare `act(fn)`;
- * for the rest, annotate or use the explicit `{ target, actions: [...] }` shape.
- */
-export function act<Context extends object, Event, Computed = Record<string, never>>(
-  ...patches: Array<Patch<Context, Event, Computed>>
-): Action<Context, Event, Computed>
-export function act<
-  State extends string,
-  Context extends object,
-  Event,
-  Computed = Record<string, never>,
->(
-  target: State,
-  ...patches: Array<Patch<Context, Event, Computed>>
-): Transition<State, Context, Event, Computed>
-export function act<
-  State extends string,
-  Context extends object,
-  Event,
-  Computed = Record<string, never>,
->(
-  ...args:
-    | [State, ...Array<Patch<Context, Event, Computed>>]
-    | Array<Patch<Context, Event, Computed>>
-): Action<Context, Event, Computed> | Transition<State, Context, Event, Computed> {
-  const hasTarget = typeof args[0] === 'string'
-  const target = hasTarget ? (args[0] as State) : undefined
-  const patches = (hasTarget ? args.slice(1) : args) as Array<Patch<Context, Event, Computed>>
-
-  const action: Action<Context, Event, Computed> = params => {
-    for (const patch of patches) {
-      params.setContext(typeof patch === 'function' ? patch(params) : patch)
-    }
-  }
-
-  return hasTarget ? { target, actions: [action] } : action
 }
