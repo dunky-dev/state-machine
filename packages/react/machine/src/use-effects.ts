@@ -39,8 +39,8 @@ export type ComponentEffects<Machine, Props> = ComponentEffect<Machine, Props>[]
  * never touch `useEffect`.
  */
 export function useEffects<Machine, Props>(
-  effects: ComponentEffects<Machine, Props>,
   machine: Machine,
+  effects: ComponentEffects<Machine, Props>,
   props: Props,
 ): void {
   // Safe to loop hooks: `effects` is a stable module constant (see the type
