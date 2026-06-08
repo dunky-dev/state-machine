@@ -1,24 +1,3 @@
-/**
- * Memoize a pure function on its argument identity.
- *
- *   const slow = (a, b) => expensiveJoin(a, b);
- *   const fast = memo(slow);
- *
- *   fast(x, y)  // computes, caches
- *   fast(x, y)  // returns cached result
- *   fast(x, z)  // computes for (x, z), keeps (x, y) cache
- *
- * Implementation: a chain of WeakMaps keyed on each argument. Primitives
- * (strings, numbers, booleans, null, undefined) get interned into stable
- * token objects so the same WeakMap chain works for them too.
- *
- * Cache lifetime: WeakMap entries are collected when the keys are
- * collected; primitive intern tokens survive forever (so memo is best
- * suited to bounded primitive domains).
- *
- * Borrowed from Miro's canvas-design-system/xwidget/utils.ts.
- */
-
 const MEMO: unique symbol = Symbol('memo')
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

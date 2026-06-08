@@ -1,29 +1,3 @@
-/**
- * Merge `handlers` into `props`, composing any overlapping `on*` keys.
- *
- *   const props = { onClick: consumer.onClick, className: "x" };
- *   composeHandlers({ onClick: library.onClick, onFocus: library.onFocus }, props);
- *   // props.onClick is now a function that calls library.onClick then
- *   // consumer.onClick, returning consumer's result preferentially.
- *   // props.onFocus is now library.onFocus.
- *
- * Semantics:
- *   - For each key in `handlers`: if `props[key]` is also a function,
- *     wrap them so both fire. The library handler runs first, then the
- *     consumer handler. The composed function returns `consumer ?? library`
- *     so consumers can intentionally return a value (e.g., a Promise) and
- *     have it surface.
- *   - Otherwise (no consumer handler), overwrite `props[key]` with the
- *     library handler.
- *   - Mutates `props` in place — call site is responsible for fresh
- *     objects if it needs immutability.
- *
- * Cache: composed wrappers are interned by (internal, external) identity
- * so stable handler pairs don't allocate new functions on every render.
- *
- * Borrowed from Miro's canvas-design-system/xwidget/utils.ts.
- */
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyFn = (...args: any[]) => any
 
