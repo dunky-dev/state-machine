@@ -532,11 +532,11 @@ Does the effect touch the platform (DOM / native API)?
                   (e.g. Escape gated by a `closeOnEscape` prop)
 ```
 
-| Home                          | Owns the lifecycle | Touches platform | Reads props |
-| ----------------------------- | ------------------ | ---------------- | ----------- |
-| config `effects: { … }`       | machine            | no               | no          |
-| **adapter** (`withAdapter`)   | machine            | yes              | no          |
-| `ComponentEffect` (target)    | the view           | yes              | yes         |
+| Home                        | Owns the lifecycle | Touches platform | Reads props |
+| --------------------------- | ------------------ | ---------------- | ----------- |
+| config `effects: { … }`     | machine            | no               | no          |
+| **adapter** (`withAdapter`) | machine            | yes              | no          |
+| `ComponentEffect` (target)  | the view           | yes              | yes         |
 
 The middle row is the adapter's whole reason to exist: an effect the **machine**
 schedules (scoped to a state, started on enter / cleaned up on exit) whose **body
@@ -1074,94 +1074,94 @@ its full section.
 
 ### Building blocks
 
-| Term            | Meaning                                                                                                |
-| --------------- | ------------------------------------------------------------------------------------------------------ |
-| **machine**     | The built service from `machine(config)` — exposes `start`/`stop`/`send`/`state`/`context`/`select`. [→](#lifecycle) |
-| **config**      | The plain object describing behavior (states, context, transitions). Author it with `config()` for in-place type-checking. [→](#lifecycle) |
-| **state**       | One of the flat, named situations the machine can be in (it's in exactly one at a time). [→](#states--transitions) |
-| **transition**  | An `on` entry: where an event takes the machine — optional `target`, `guard`, `actions`. [→](#states--transitions) |
-| **event**       | The `{ type, … }` object you `send()` to drive a transition. [→](#states--transitions)                 |
-| **context**     | The machine's data: one plain object, read directly (`m.context.x`), written via `setContext`. [→](#context--reactive-data) |
-| **setContext**  | The single, batched entry point for writing context (shallow-equal deduped). [→](#context--reactive-data) |
-| **send**        | Dispatch an event to the machine; events run to completion (see below). [→](#states--transitions)      |
+| Term           | Meaning                                                                                                                                    |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| **machine**    | The built service from `machine(config)` — exposes `start`/`stop`/`send`/`state`/`context`/`select`. [→](#lifecycle)                       |
+| **config**     | The plain object describing behavior (states, context, transitions). Author it with `config()` for in-place type-checking. [→](#lifecycle) |
+| **state**      | One of the flat, named situations the machine can be in (it's in exactly one at a time). [→](#states--transitions)                         |
+| **transition** | An `on` entry: where an event takes the machine — optional `target`, `guard`, `actions`. [→](#states--transitions)                         |
+| **event**      | The `{ type, … }` object you `send()` to drive a transition. [→](#states--transitions)                                                     |
+| **context**    | The machine's data: one plain object, read directly (`m.context.x`), written via `setContext`. [→](#context--reactive-data)                |
+| **setContext** | The single, batched entry point for writing context (shallow-equal deduped). [→](#context--reactive-data)                                  |
+| **send**       | Dispatch an event to the machine; events run to completion (see below). [→](#states--transitions)                                          |
 
 ### Transitions & actions
 
-| Term            | Meaning                                                                                                |
-| --------------- | ------------------------------------------------------------------------------------------------------ |
-| **guard**       | A predicate that gates a transition — return `false` and it doesn't fire. [→](#guards--gating-a-transition) |
-| **and/or/not**  | Guard combinators for composing named guards. [→](#guards--gating-a-transition)                        |
-| **fallthrough** | An array of transitions for one event; the first whose guard passes wins. [→](#guards--gating-a-transition) |
-| **action**      | A fire-and-forget side-effect run on a transition, in order — gets `{context,setContext,event,send,computed}`. [→](#actions--fire-and-forget-side-effects) |
-| **act**         | Write-sugar returning a context-writing action — `act({ field: value })` instead of the `setContext` wrapper. [→](#actions--fire-and-forget-side-effects) |
-| **oneOf**       | Conditional action: variadic `{ guard?, actions }` branches, first passing wins (the action analog of fallthrough). [→](#actions--fire-and-forget-side-effects) |
-| **entry / exit** | Actions run when a state is entered / left (any path in or out). [→](#actions--fire-and-forget-side-effects) |
-| **run-to-completion** | Events queue: an event `send()`-ed from inside an action waits until the current transition finishes — no re-entrancy. [→](#states--transitions) |
+| Term                  | Meaning                                                                                                                                                         |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **guard**             | A predicate that gates a transition — return `false` and it doesn't fire. [→](#guards--gating-a-transition)                                                     |
+| **and/or/not**        | Guard combinators for composing named guards. [→](#guards--gating-a-transition)                                                                                 |
+| **fallthrough**       | An array of transitions for one event; the first whose guard passes wins. [→](#guards--gating-a-transition)                                                     |
+| **action**            | A fire-and-forget side-effect run on a transition, in order — gets `{context,setContext,event,send,computed}`. [→](#actions--fire-and-forget-side-effects)      |
+| **act**               | Write-sugar returning a context-writing action — `act({ field: value })` instead of the `setContext` wrapper. [→](#actions--fire-and-forget-side-effects)       |
+| **oneOf**             | Conditional action: variadic `{ guard?, actions }` branches, first passing wins (the action analog of fallthrough). [→](#actions--fire-and-forget-side-effects) |
+| **entry / exit**      | Actions run when a state is entered / left (any path in or out). [→](#actions--fire-and-forget-side-effects)                                                    |
+| **run-to-completion** | Events queue: an event `send()`-ed from inside an action waits until the current transition finishes — no re-entrancy. [→](#states--transitions)                |
 
 ### Time, data & derivation
 
-| Term         | Meaning                                                                                                   |
-| ------------ | --------------------------------------------------------------------------------------------------------- |
-| **after**    | A timed transition — fire after a delay while in a state; auto-cancelled on exit. [→](#after--timed-transitions) |
-| **delay**    | An `after` key: a number of ms, or a named delay from `implementations.delays` (can read context). [→](#after--timed-transitions) |
-| **watch**    | Run actions whenever a context/computed field changes — in any state, for the machine's lifetime. [→](#watch--react-to-data-changes) |
+| Term         | Meaning                                                                                                                                   |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **after**    | A timed transition — fire after a delay while in a state; auto-cancelled on exit. [→](#after--timed-transitions)                          |
+| **delay**    | An `after` key: a number of ms, or a named delay from `implementations.delays` (can read context). [→](#after--timed-transitions)         |
+| **watch**    | Run actions whenever a context/computed field changes — in any state, for the machine's lifetime. [→](#watch--react-to-data-changes)      |
 | **computed** | A lazy, memoized value derived from context (or other computeds); recomputes only when a read input changes. [→](#computed--derived-data) |
 
 ### Effects & the platform seam
 
-| Term                 | Meaning                                                                                              |
-| -------------------- | ---------------------------------------------------------------------------------------------------- |
-| **effect**           | A side-effect with cleanup, scoped to a state: runs on enter, its returned cleanup runs on exit. [→](#effects--side-effects-with-cleanup) |
-| **adapter**          | A per-target binding that supplies the body of a named, platform-touching, prop-free effect. [→](#the-adapter--naming-an-effect-binding-it-per-platform) |
-| **implementations**  | The named registry on a config — `guards` / `actions` / `effects` / `delays` referenced by string. [→](#guards--gating-a-transition) |
+| Term                | Meaning                                                                                                                                                  |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **effect**          | A side-effect with cleanup, scoped to a state: runs on enter, its returned cleanup runs on exit. [→](#effects--side-effects-with-cleanup)                |
+| **adapter**         | A per-target binding that supplies the body of a named, platform-touching, prop-free effect. [→](#the-adapter--naming-an-effect-binding-it-per-platform) |
+| **implementations** | The named registry on a config — `guards` / `actions` / `effects` / `delays` referenced by string. [→](#guards--gating-a-transition)                     |
 
 ### The view boundary
 
-| Term            | Meaning                                                                                              |
-| --------------- | ---------------------------------------------------------------------------------------------------- |
-| **connect**     | A pure function mapping a machine snapshot → the view-facing api (handlers + attributes). [→](#connector--the-view-boundary) |
-| **connector**   | Keeps `connect` live: memoizes the snapshot, makes props a reactive input, wires reactions. [→](#connector--the-view-boundary) |
-| **snapshot**    | The memoized view api the connector serves — stable identity until the machine or props change. [→](#connector--the-view-boundary) |
-| **setProps**    | Push new props into the connector (a reactive input; shallow-dedup'd). [→](#connector--the-view-boundary) |
-| **reaction**    | A `[selector, callback]` tuple that fires a prop-callback from _outside_ the machine on a value change. [→](#reactions--firing-prop-callbacks-without-the-machine-knowing) |
-| **makeReaction** | Inference helper for a reaction tuple — recovers the selector→callback `Value` type. [→](#reactions--firing-prop-callbacks-without-the-machine-knowing) |
-| **bindings**    | The agnostic event/attr vocabulary `connect` speaks — `onPress`, `role`, `describedBy`. [→](#connector--the-view-boundary) |
-| **normalize**   | The per-target step translating bindings → real props (`onPress` → `onClick`; `aria-*` on web). [→](#connector--the-view-boundary) |
+| Term             | Meaning                                                                                                                                                                    |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **connect**      | A pure function mapping a machine snapshot → the view-facing api (handlers + attributes). [→](#connector--the-view-boundary)                                               |
+| **connector**    | Keeps `connect` live: memoizes the snapshot, makes props a reactive input, wires reactions. [→](#connector--the-view-boundary)                                             |
+| **snapshot**     | The memoized view api the connector serves — stable identity until the machine or props change. [→](#connector--the-view-boundary)                                         |
+| **setProps**     | Push new props into the connector (a reactive input; shallow-dedup'd). [→](#connector--the-view-boundary)                                                                  |
+| **reaction**     | A `[selector, callback]` tuple that fires a prop-callback from _outside_ the machine on a value change. [→](#reactions--firing-prop-callbacks-without-the-machine-knowing) |
+| **makeReaction** | Inference helper for a reaction tuple — recovers the selector→callback `Value` type. [→](#reactions--firing-prop-callbacks-without-the-machine-knowing)                    |
+| **bindings**     | The agnostic event/attr vocabulary `connect` speaks — `onPress`, `role`, `describedBy`. [→](#connector--the-view-boundary)                                                 |
+| **normalize**    | The per-target step translating bindings → real props (`onPress` → `onClick`; `aria-*` on web). [→](#connector--the-view-boundary)                                         |
 
 ### Observing changes
 
-| Term          | Meaning                                                                                                |
-| ------------- | ------------------------------------------------------------------------------------------------------ |
+| Term          | Meaning                                                                                                                                      |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | **subscribe** | Coarse observation — fires on _any_ state/context change (what a `useSyncExternalStore` bridge uses). [→](#subscriptions--observing-changes) |
-| **select**    | Fine-grained observation — narrows to a slice, fires only when _that value_ changes. [→](#subscriptions--observing-changes) |
-| **selection** | What `select(...)` returns: a value-deduped view with `.value` + `.subscribe`. [→](#subscriptions--observing-changes) |
+| **select**    | Fine-grained observation — narrows to a slice, fires only when _that value_ changes. [→](#subscriptions--observing-changes)                  |
+| **selection** | What `select(...)` returns: a value-deduped view with `.value` + `.subscribe`. [→](#subscriptions--observing-changes)                        |
 
 ### Composition & scale
 
-| Term            | Meaning                                                                                              |
-| --------------- | ---------------------------------------------------------------------------------------------------- |
-| **compose**     | Run several peer machines as one unit (orthogonal regions) — the answer to "nested/parallel" without nesting. [→](#composing-machines) |
-| **composition** | What `compose(...)` returns: bundled `start`/`stop` plus `sync` + `combine`. [→](#composing-machines) |
-| **sync**        | A coarse cross-region rule on a composition — runs when any member changes. [→](#composing-machines)  |
-| **combine**     | A value-deduped selection derived across composition members. [→](#composing-machines)               |
-| **tags**        | Labels on states so consumers query a _category_ (`hasTag('visible')`) instead of a name. [→](#states--transitions) |
-| **hasTag**      | Check whether the current state carries a tag. [→](#states--transitions)                              |
-| **matches**     | Exact-state check — `m.matches('open')`. [→](#states--transitions)                                    |
-| **createStore** | A tiny reactive cell (value + listeners) for singleton state _outside_ any one machine. [→](#createstore--cross-instance-singleton-state) |
+| Term            | Meaning                                                                                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| **compose**     | Run several peer machines as one unit (orthogonal regions) — the answer to "nested/parallel" without nesting. [→](#composing-machines)      |
+| **composition** | What `compose(...)` returns: bundled `start`/`stop` plus `sync` + `combine`. [→](#composing-machines)                                       |
+| **sync**        | A coarse cross-region rule on a composition — runs when any member changes. [→](#composing-machines)                                        |
+| **combine**     | A value-deduped selection derived across composition members. [→](#composing-machines)                                                      |
+| **tags**        | Labels on states so consumers query a _category_ (`hasTag('visible')`) instead of a name. [→](#states--transitions)                         |
+| **hasTag**      | Check whether the current state carries a tag. [→](#states--transitions)                                                                    |
+| **matches**     | Exact-state check — `m.matches('open')`. [→](#states--transitions)                                                                          |
+| **createStore** | A tiny reactive cell (value + listeners) for singleton state _outside_ any one machine. [→](#createstore--cross-instance-singleton-state)   |
 | **store**       | What `createStore(...)` returns: `get` / `set` / `subscribe` (+ optional domain methods). [→](#createstore--cross-instance-singleton-state) |
 
 ### Lifecycle
 
-| Term                | Meaning                                                                                          |
-| ------------------- | ------------------------------------------------------------------------------------------------ |
-| **start / stop**    | Boot / tear down the machine — effects, watchers, and reactions begin / clean up. [→](#lifecycle) |
+| Term                 | Meaning                                                                                                      |
+| -------------------- | ------------------------------------------------------------------------------------------------------------ |
+| **start / stop**     | Boot / tear down the machine — effects, watchers, and reactions begin / clean up. [→](#lifecycle)            |
 | **onStart / onStop** | Hang start/stop-scoped work off the machine's lifecycle (how the connector wires reactions). [→](#lifecycle) |
-| **MACHINE_INIT**    | The synthetic event fired when effects/watchers boot on `start()`. [→](#api-at-a-glance)          |
+| **MACHINE_INIT**     | The synthetic event fired when effects/watchers boot on `start()`. [→](#api-at-a-glance)                     |
 
 ### Cross-cutting concepts
 
-| Term                       | Meaning                                                                                    |
-| -------------------------- | ------------------------------------------------------------------------------------------ |
-| **the machine never sees props** | The defining rule: a machine is pure behavior; props live only at the edge. [→](#the-machine-never-sees-props) |
-| **the edge**               | Where props/platform meet the machine — the connector (props, reactions) + adapter (platform). [→](#the-machine-never-sees-props) |
-| **copy-on-write (COW)**    | The context memory model: share the config's object until the first write, then copy. [→](#how-it-compares) |
+| Term                             | Meaning                                                                                                                           |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **the machine never sees props** | The defining rule: a machine is pure behavior; props live only at the edge. [→](#the-machine-never-sees-props)                    |
+| **the edge**                     | Where props/platform meet the machine — the connector (props, reactions) + adapter (platform). [→](#the-machine-never-sees-props) |
+| **copy-on-write (COW)**          | The context memory model: share the config's object until the first write, then copy. [→](#how-it-compares)                       |

@@ -69,6 +69,9 @@ export interface AttrBindings {
   selected?: boolean
   disabled?: boolean
   hidden?: boolean
+  /** Marks a surface as a modal layer (ARIA aria-modal) — content outside it is
+   * inert. Substrates with no modal concept ignore it. */
+  modal?: boolean
 
   /**
    * The kind of popup this element opens (ARIA haspopup) — `'menu'`,

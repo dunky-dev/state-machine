@@ -19,13 +19,21 @@
       {
         "case": "kebabCase"
       }
-    ]
+    ],
+    "unicorn/no-useless-spread": "off",
+    "typescript/no-this-alias": "off"
   },
   "overrides": [
     {
       "files": ["packages/**/src/**/*.ts", "packages/**/src/**/*.tsx"],
       "rules": {
         "import/no-default-export": "error"
+      }
+    },
+    {
+      "files": ["**/*.test.ts", "**/*.test.tsx"],
+      "rules": {
+        "vitest/require-mock-type-parameters": "off"
       }
     }
   ],

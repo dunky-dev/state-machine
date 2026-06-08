@@ -25,6 +25,7 @@ const ATTR_MAP: Record<string, string> = {
   selected: 'aria-selected',
   disabled: 'aria-disabled',
   hidden: 'aria-hidden',
+  modal: 'aria-modal',
   focusable: 'tabIndex', // value transformed below
   role: 'role',
   id: 'id',

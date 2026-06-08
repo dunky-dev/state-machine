@@ -6,7 +6,7 @@
  * (names/inline/oneOf); only runs while the machine is running; cleaned up on
  * stop(); a watcher may send events / setContext.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { machine } from '../src'
 
 describe('watch — data-reactions', () => {
