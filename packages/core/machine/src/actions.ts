@@ -1,4 +1,6 @@
-import type { Action, ActionArg, ActionParams, OneOf, OneOfBranch } from './types'
+import { isDev } from './constants'
+import { makeGuardParams, resolveGuard } from './guards'
+import type { Action, ActionArg, Actions, ActionParams, Guard, OneOf, OneOfBranch } from './types'
 
 /** A context patch, or a function of the action params that returns one. */
 export type Patch<Context extends object, Event, Computed = Record<string, never>, Send = Event> =
@@ -96,4 +98,75 @@ export function isOneOf<Context extends object, Event, Computed>(
     action !== null &&
     (action as { __oneOf?: boolean }).__oneOf === true
   )
+}
+
+// -----------------------------------------------------------------------------
+// Running actions
+// -----------------------------------------------------------------------------
+
+/**
+ * Everything `runAction(s)` needs from the host machine to run an action: the
+ * named registries (actions + guards, the latter for `oneOf` branch guards) and
+ * live accessors for the params an action receives. Reads are LIVE — `context()`
+ * and `computed()` re-read each call so an action (and a later action in the same
+ * list) sees the current context after copy-on-write, not a stale snapshot.
+ */
+export interface ActionHost<Context extends object, Event, Computed> {
+  actions: Record<string, Action<Context, Event, Computed>> | undefined
+  guards: Record<string, Guard<Context, Event, Computed>> | undefined
+  context: () => Context
+  computed: () => Computed
+  setContext: (patch: Partial<Context>) => void
+  send: (event: Event) => void
+}
+
+/**
+ * Run one action arg for `event`. A `oneOf(...)` expands to its first
+ * guard-passing branch (guardless = fallback); an inline fn runs directly; a
+ * registered name resolves against `host.actions` (missing → throw in dev, warn
+ * in prod). The action receives live context/computed + setContext/send.
+ */
+export function runAction<Context extends object, Event, Computed>(
+  host: ActionHost<Context, Event, Computed>,
+  action: ActionArg<Context, Event, Computed>,
+  event: Event,
+): void {
+  if (isOneOf(action)) {
+    const params = makeGuardParams(host.context(), event, host.computed(), host.guards)
+    const branch = action.branches.find(b =>
+      b.guard ? resolveGuard(b.guard, params, host.guards) : true,
+    )
+    if (branch) runActions(host, branch.actions, event)
+    return
+  }
+  // past the oneOf guard, `action` is an inline fn or a registered name
+  const named = action as Exclude<typeof action, OneOf<Context, Event, Computed>>
+  const fn = typeof named === 'function' ? named : host.actions?.[named]
+  if (!fn) {
+    const msg = `[machine] no action "${action as string}"`
+    if (isDev) throw new Error(msg)
+    console.warn(msg)
+    return
+  }
+  fn({
+    context: host.context(),
+    setContext: host.setContext,
+    event,
+    send: host.send,
+    computed: host.computed(),
+  })
+}
+
+/**
+ * Run an `actions` / `entry` / `exit` slot: a single action or a list, in order.
+ * Undefined slot is a no-op.
+ */
+export function runActions<Context extends object, Event, Computed>(
+  host: ActionHost<Context, Event, Computed>,
+  actions: Actions<Context, Event, Computed> | undefined,
+  event: Event,
+): void {
+  if (!actions) return
+  const list = Array.isArray(actions) ? actions : [actions]
+  for (const action of list) runAction(host, action, event)
 }

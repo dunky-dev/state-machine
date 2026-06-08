@@ -13,11 +13,11 @@ export type { MachineConfig, TransitionConfig, Transition, Implementations } fro
 
 // Per-state node shape (used when annotating a config's `states`).
 export type { StateNode } from './types'
-// NOTE: createContext / createState are intentionally NOT exported. They're the
-// engine's internal building blocks (the machine inlines their logic on `this`);
-// the standalone helpers carry a per-field getter cost and createContext also
-// name-collides with React's createContext. Import from './context' / './state'
-// directly if you genuinely need them (e.g. tests).
+// NOTE: state and context have no standalone modules — they're plain fields on
+// the machine instance (getter-free reads, inline dedup + copy-on-write writes);
+// see machine.ts. What IS factored into its own module is the logic with real
+// complexity: computed tracking (./computed) and transition selection
+// (./transitions).
 
 // Guards: combinators + types.
 export { and, or, not } from './guards'

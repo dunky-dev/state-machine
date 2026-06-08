@@ -7,24 +7,37 @@
  * so it fires only on a real change (O(changed) at the listener), and `computed`
  * memoizes against `version`.
  */
-import { isOneOf } from './actions'
-import { MACHINE_INIT } from './constants'
-import { tagsForNodes } from './state'
+import { type ActionHost, runActions } from './actions'
+import { installComputed } from './computed'
+import { isDev, MACHINE_INIT } from './constants'
+import { makeGuardParams } from './guards'
+import { lookupOn, resolve } from './transitions'
 import type {
-  ActionArg,
   Actions,
   GuardArg,
-  GuardParams,
   Machine,
-  OneOf,
   Select,
   Selection,
+  StateNode,
   Transition,
   TransitionConfig,
-  TransitionEntry,
 } from './types'
 
-const isDev = process.env.NODE_ENV !== 'production'
+// Per-`states` tag-set cache: a state's tags depend only on the STATIC config, so
+// derive them once per states-map and share across every machine built from it —
+// keeps per-instance memory flat as state count grows. Keyed by the states object.
+const tagsCache = new WeakMap<object, Record<string, ReadonlySet<string>>>()
+function tagsForStates<State extends string>(
+  states: Record<State, StateNode>,
+): Record<State, ReadonlySet<string>> {
+  let tags = tagsCache.get(states) as Record<State, ReadonlySet<string>> | undefined
+  if (!tags) {
+    tags = {} as Record<State, ReadonlySet<string>>
+    for (const name in states) tags[name as State] = new Set(states[name as State].tags ?? [])
+    tagsCache.set(states, tags)
+  }
+  return tags
+}
 
 class MachineClass<
   State extends string,
@@ -71,123 +84,43 @@ class MachineClass<
   // stable bound refs handed to actions/effects (the only per-instance closures)
   setContext: (patch: Partial<Context>) => void
   send: (event: Event) => void
+  // live params + named registries that runAction(s) read (built once in the ctor)
+  actionHost: ActionHost<Context, Event, Computed>
 
   constructor(config: TransitionConfig<State, Context, Event, Computed>) {
     this.config = config
     this.ctx = config.context // SHARED ref (copy-on-write below)
     this.stateValue = config.initial
-    // shared per-config tag sets (not rebuilt per instance) — see tagsForNodes
-    this.tagsOf = tagsForNodes(config.states as Record<State, { tags?: string[] }>)
+    // shared per-config tag sets (not rebuilt per instance) — see tagsForStates
+    this.tagsOf = tagsForStates(config.states)
 
-    // Computed bag with read-key tracking: each def records exactly which
-    // context keys and which other computeds it read (via a tracking proxy on
-    // first/every recompute), and only recomputes when one of THOSE inputs
-    // changed — not on any context write. This keeps signal-level laziness (an
-    // expensive computed in a churny machine doesn't recompute when an unrelated
-    // field moves) without per-field reactive cells. Chains resolve transitively
-    // and glitch-free: a dep on another computed is checked by reading that
-    // computed (which lazily recomputes itself first if stale).
+    // Computed bag with read-key tracking — see ./computed. The host accessors
+    // read this machine's live context / computed / state, so a def stays correct
+    // after copy-on-write reassigns `this.ctx`. `target` IS `this.computed`, so a
+    // computed→computed dep resolves in place against the same bag.
     this.computed = {} as Computed
-    // captured for the `state` getter inside each computed's params literal,
-    // where `this` would otherwise bind to the literal, not the machine.
-    const self = this
     if (config.computed) {
-      for (const key in config.computed) {
-        const k = key as keyof Computed
-        const def = config.computed[k]
-        let computedOnce = false
-        let cachedValue: Computed[keyof Computed]
-        // recorded deps from the last run: context keys + computed keys read,
-        // plus whether the def read `state` (the lifecycle is also a dependency)
-        let ctxDeps: string[] = []
-        let computedDeps: string[] = []
-        let ctxSnapshot: Record<string, unknown> = {}
-        let computedSnapshot: Record<string, unknown> = {}
-        let readState = false
-        let stateSnapshot: State | undefined
+      installComputed(this.computed, config.computed, {
+        context: () => this.ctx,
+        computed: () => this.computed,
+        state: () => this.stateValue,
+      })
+    }
 
-        // The two tracking proxies are built ONCE per computed (not per recompute).
-        // Their targets read `this.ctx` / `this.computed` LIVE through the trap, so
-        // they stay correct even after copy-on-write reassigns `this.ctx`. Each
-        // `get` records the key into the CURRENT read-set, which the recompute
-        // swaps in before calling `def`.
-        let ctxRead: Set<string> | null = null
-        let computedRead: Set<string> | null = null
-        // set true during a recompute so reading `params.state` records the
-        // dependency; nulled outside so a stale-check read never records.
-        let tracking = false
-        const trackedCtx = new Proxy({} as Record<string, unknown>, {
-          get: (_t, p: string) => {
-            ctxRead?.add(p)
-            return (this.ctx as Record<string, unknown>)[p]
-          },
-        }) as Context
-        const trackedComputed = new Proxy({} as Record<string, unknown>, {
-          get: (_t, p: string) => {
-            computedRead?.add(p)
-            return (this.computed as Record<string, unknown>)[p]
-          },
-        }) as Computed
-
-        const stale = (): boolean => {
-          // if the def read `state`, the lifecycle is a dependency too
-          if (readState && stateSnapshot !== this.stateValue) return true
-          for (const dk of ctxDeps) {
-            if (!Object.is(ctxSnapshot[dk], (this.ctx as Record<string, unknown>)[dk])) return true
-          }
-          // reading a computed dep below resolves ITS staleness first, so a
-          // transitive change surfaces as a value difference here
-          for (const dk of computedDeps) {
-            if (!Object.is(computedSnapshot[dk], (this.computed as Record<string, unknown>)[dk]))
-              return true
-          }
-          return false
-        }
-
-        Object.defineProperty(this.computed, k, {
-          enumerable: true,
-          get: () => {
-            if (computedOnce && !stale()) return cachedValue
-            // swap in fresh read-sets, recompute under the (reused) proxies
-            const cr = new Set<string>()
-            const compr = new Set<string>()
-            ctxRead = cr
-            computedRead = compr
-            readState = false
-            tracking = true
-            try {
-              cachedValue = def({
-                context: trackedCtx,
-                computed: trackedComputed,
-                // a getter: reading `state` records it as a dependency (during
-                // tracking) so a later transition invalidates this computed
-                get state() {
-                  if (tracking) readState = true
-                  return self.stateValue
-                },
-              }) as Computed[keyof Computed]
-            } finally {
-              ctxRead = null
-              computedRead = null
-              tracking = false
-            }
-            ctxDeps = [...cr]
-            computedDeps = [...compr]
-            stateSnapshot = readState ? this.stateValue : undefined
-            ctxSnapshot = {}
-            for (const dk of ctxDeps) ctxSnapshot[dk] = (this.ctx as Record<string, unknown>)[dk]
-            computedSnapshot = {}
-            for (const dk of computedDeps) {
-              computedSnapshot[dk] = (this.computed as Record<string, unknown>)[dk]
-            }
-            computedOnce = true
-            return cachedValue
-          },
-        })
-      }
+    // Live action params (context/computed re-read each run, so a later action in
+    // a list sees an earlier one's writes after copy-on-write) + the named
+    // registries. Built once; `runAction(s)` close over it.
+    this.actionHost = {
+      actions: config.implementations?.actions,
+      guards: config.implementations?.guards,
+      context: () => this.ctx,
+      computed: () => this.computed,
+      setContext: p => this.setContext(p),
+      send: e => this.send(e),
     }
 
     this.setContext = patch => {
+      // dedup: a no-op write must not notify (Object.is, early-out)
       let changed = false
       for (const key in patch) {
         if (!Object.is(this.ctx[key], patch[key])) {
@@ -248,98 +181,21 @@ class MachineClass<
   }
 
   // ---- guards / resolution ----
-  private guardParams(event: Event): GuardParams<Context, Event, Computed> {
-    const params: GuardParams<Context, Event, Computed> = {
-      context: this.ctx,
+  // A guard resolver bound to THIS event's params + the config's guard registry,
+  // handed to `resolve` (transition selection) so guard names resolve against the
+  // runtime's single registry. Params are built once per event and shared across
+  // the candidate list.
+  private resolverFor(event: Event): (guard: GuardArg<Context, Event, Computed>) => boolean {
+    const params = makeGuardParams(
+      this.ctx,
       event,
-      computed: this.computed,
-      guard: g => this.resolveGuard(g, params),
-    }
-    return params
-  }
-  private resolveGuard(
-    guard: GuardArg<Context, Event, Computed>,
-    params: GuardParams<Context, Event, Computed>,
-  ): boolean {
-    if (typeof guard === 'function') return guard(params)
-    const fn = this.config.implementations?.guards?.[guard]
-    if (!fn) {
-      const msg = `[machine] no guard "${guard}"`
-      if (isDev) throw new Error(msg)
-      console.warn(msg)
-      return false
-    }
-    return fn(params)
-  }
-  // Look up the `on` entry for a live event: per-state first, falling back to
-  // any-state. `EventMap` is keyed to the narrow event-type literals, so the
-  // entry it yields for key `K` narrows `event` to that variant at AUTHORING
-  // time — but at RUNTIME we index with the broad `event.type`, so we read it
-  // back through the union `TransitionEntry` (`resolve` re-narrows by matching
-  // the actual event). The single place that crosses the narrow→broad boundary.
-  private lookupOn(
-    stateValue: State,
-    type: Event['type'],
-  ): TransitionEntry<State, Context, Event, Computed> | undefined {
-    const onState = this.config.states[stateValue].on as
-      | Record<string, TransitionEntry<State, Context, Event, Computed>>
-      | undefined
-    const onAny = this.config.on as
-      | Record<string, TransitionEntry<State, Context, Event, Computed>>
-      | undefined
-    return onState?.[type] ?? onAny?.[type]
-  }
-
-  private resolve(
-    entry: TransitionEntry<State, Context, Event, Computed> | undefined,
-    event: Event,
-  ): Transition<State, Context, Event, Computed> | undefined {
-    if (!entry) return undefined
-    const list = Array.isArray(entry) ? entry : [entry]
-    const params = this.guardParams(event)
-    // A bare fn entry is a guardless, targetless transition: normalize it to
-    // { actions: [fn] } so the one "first passing guard wins" loop covers all
-    // three forms. Guardless → always matches (so a bare fn is a fallback).
-    for (const el of list) {
-      const t: Transition<State, Context, Event, Computed> =
-        typeof el === 'function' ? { actions: [el] } : el
-      if (!t.guard || this.resolveGuard(t.guard, params)) return t
-    }
-    return undefined
-  }
-
-  // ---- actions ----
-  private runAction(action: ActionArg<Context, Event, Computed>, event: Event): void {
-    if (isOneOf(action)) {
-      const params = this.guardParams(event)
-      const branch = action.branches.find(b =>
-        b.guard ? this.resolveGuard(b.guard, params) : true,
-      )
-      if (branch) this.runActions(branch.actions, event)
-      return
-    }
-    // past the oneOf guard, `action` is an inline fn or a registered name
-    const named = action as Exclude<typeof action, OneOf<Context, Event, Computed>>
-    const fn = typeof named === 'function' ? named : this.config.implementations?.actions?.[named]
-    if (!fn) {
-      const msg = `[machine] no action "${action as string}"`
-      if (isDev) throw new Error(msg)
-      console.warn(msg)
-      return
-    }
-    fn({
-      context: this.ctx,
-      setContext: this.setContext,
-      event,
-      send: this.send,
-      computed: this.computed,
-    })
+      this.computed,
+      this.config.implementations?.guards,
+    )
+    return guard => params.guard(guard)
   }
   private runActions(actions: Actions<Context, Event, Computed> | undefined, event: Event): void {
-    if (!actions) return
-    // An `actions` / `entry` / `exit` slot may be a single action or a list.
-    const list = Array.isArray(actions) ? actions : [actions]
-    for (const action of list) this.runAction(action, event)
+    runActions(this.actionHost, actions, event)
   }
 
   // ---- transition: exit (cleanup effects + exit actions) → transition actions →
@@ -368,7 +224,8 @@ class MachineClass<
     try {
       while (this.queue.length) {
         const e = this.queue.shift()!
-        const t = this.resolve(this.lookupOn(this.stateValue, e.type), e)
+        const entry = lookupOn(this.config, this.stateValue, e.type)
+        const t = resolve(entry, this.resolverFor(e))
         if (t) this.applyTransition(t, e)
       }
     } finally {
@@ -387,7 +244,7 @@ class MachineClass<
       console.warn(msg)
       return 0
     }
-    return fn(this.guardParams(event))
+    return fn(makeGuardParams(this.ctx, event, this.computed, this.config.implementations?.guards))
   }
   // A fired timer applies the first `after` transition whose guard passes — only
   // if still in the scheduling state and still running. If a drain is in flight,
@@ -402,14 +259,14 @@ class MachineClass<
       queueMicrotask(() => this.dispatchAfter(scheduledIn, key, event, generation))
       return
     }
-    const t = this.resolve(this.config.states[scheduledIn].after?.[key], event)
+    const t = resolve(this.config.states[scheduledIn].after?.[key], this.resolverFor(event))
     if (!t) return
     this.flushing = true
     try {
       this.applyTransition(t, event)
       while (this.queue.length) {
         const e = this.queue.shift()!
-        const nx = this.resolve(this.lookupOn(this.stateValue, e.type), e)
+        const nx = resolve(lookupOn(this.config, this.stateValue, e.type), this.resolverFor(e))
         if (nx) this.applyTransition(nx, e)
       }
     } finally {
