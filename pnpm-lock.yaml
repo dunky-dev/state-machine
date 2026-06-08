@@ -299,6 +299,9 @@ importers:
       expo-dev-menu:
         specifier: ^56.0.16
         version: 56.0.16(expo@56.0.8)(react-native@0.85.0(@babel/core@7.29.7)(@react-native/jest-preset@0.85.3(@babel/core@7.29.7)(react@19.2.6))(@types/react@19.2.15)(react@19.2.0))
+      expo-linear-gradient:
+        specifier: ^56.0.4
+        version: 56.0.4(expo@56.0.8)(react-native@0.85.0(@babel/core@7.29.7)(@react-native/jest-preset@0.85.3(@babel/core@7.29.7)(react@19.2.6))(@types/react@19.2.15)(react@19.2.0))(react@19.2.0)
       expo-status-bar:
         specifier: ^3.0.0
         version: 3.0.9(react-native@0.85.0(@babel/core@7.29.7)(@react-native/jest-preset@0.85.3(@babel/core@7.29.7)(react@19.2.6))(@types/react@19.2.15)(react@19.2.0))(react@19.2.0)
@@ -2979,6 +2982,13 @@ packages:
     peerDependencies:
       expo: '*'
       react: '*'
+
+  expo-linear-gradient@56.0.4:
+    resolution: {integrity: sha512-KUp1dNSRtuMyiExhf6FJf5YUtmw2cRaPytl10HQi7isj5Yac38udmD55T2tglNYTZlvgT5+oflpyFoH15hmOcw==}
+    peerDependencies:
+      expo: '*'
+      react: '*'
+      react-native: '*'
 
   expo-manifests@56.0.4:
     resolution: {integrity: sha512-Fokawl2UkiExIF0bqGoblRFA8lYpROVD+EpvDwSW4LgqQyPwNua1gLSgHZjdl5GsVugfRMMWE3LHaibDyX93hw==}
@@ -8340,6 +8350,12 @@ snapshots:
       expo: 56.0.8(@babel/core@7.29.7)(@expo/dom-webview@56.0.5)(react-dom@19.2.6(react@19.2.6))(react-native@0.85.0(@babel/core@7.29.7)(@react-native/jest-preset@0.85.3(@babel/core@7.29.7)(react@19.2.6))(@types/react@19.2.15)(react@19.2.6))(react@19.2.6)(typescript@6.0.3)
       react: 19.2.6
     optional: true
+
+  expo-linear-gradient@56.0.4(expo@56.0.8)(react-native@0.85.0(@babel/core@7.29.7)(@react-native/jest-preset@0.85.3(@babel/core@7.29.7)(react@19.2.6))(@types/react@19.2.15)(react@19.2.0))(react@19.2.0):
+    dependencies:
+      expo: 56.0.8(@babel/core@7.29.7)(@expo/dom-webview@56.0.5)(react-dom@19.2.6(react@19.2.0))(react-native@0.85.0(@babel/core@7.29.7)(@react-native/jest-preset@0.85.3(@babel/core@7.29.7)(react@19.2.6))(@types/react@19.2.15)(react@19.2.0))(react@19.2.0)(typescript@6.0.3)
+      react: 19.2.0
+      react-native: 0.85.0(@babel/core@7.29.7)(@react-native/jest-preset@0.85.3(@babel/core@7.29.7)(react@19.2.6))(@types/react@19.2.15)(react@19.2.0)
 
   expo-manifests@56.0.4(expo@56.0.8):
     dependencies:

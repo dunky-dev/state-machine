@@ -10,6 +10,23 @@ layer plugs it into a runtime.
 The same machine drives any render in a JS runtime. Same states, same
 transitions, same accessibility intent. Only the render differs.
 
+```
+          ┌──────────────────────────────┐
+          │      ONE STATE MACHINE        │
+          │   states · events · context  │
+          │   pure behavior — no render  │
+          └───────────────┬──────────────┘
+                          │  connect() → onPress · role · describedBy
+          ┌───────────────┼───────────────┐
+          ▼               ▼               ▼
+    ┌───────────┐   ┌───────────┐   ┌───────────┐
+    │ React DOM │   │   Native  │   │    TUI    │
+    │ → onClick │   │→ Pressable│   │ → keypress│
+    │  + aria-* │   │   + a11y  │   │  + cells  │
+    └───────────┘   └───────────┘   └───────────┘
+     same behavior, byte-for-byte — only the render differs
+```
+
 > **Status: experimental.** The engine (`core/machine`) is stable and tested. The
 > components and target bridges are NOT production-ready yet.
 >

@@ -54,13 +54,13 @@ no renderer. It says _what_ a component is: its states, its transitions,
 its bindings vocabulary, its style spec. Nothing in `core/` knows that
 React or the DOM exists.
 
-> **Status.** The `core/machine` engine is rebuilt and stable (a plain-mutation
-> kernel — no signals; see
+> **Status: experimental, but it compiles and runs.** The `core/machine` engine
+> is a stable plain-mutation kernel (no signals; see
 > [`packages/core/machine/README.md`](./packages/core/machine/README.md)). The
-> components (`core/components/*`) and the target bridges (`<target>/machine`,
-> `<target>/components`) are **mid-migration** to the new engine API and do not
-> yet compile against it — treat their descriptions below as the intended shape,
-> not the current build.
+> two reference components (tooltip, dropdown-menu) build through the codegen
+> pipeline to the React and native targets and run in their sandboxes; the suite
+> is green and `tsc` is clean. It's an in-progress exploration — the API may still
+> move — not a 1.0.
 
 **`<target>/`** is the substrate side — `react`, `native`, etc, and
 any future renderer. Each target is a complete implementation of the
