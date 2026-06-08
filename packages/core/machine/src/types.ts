@@ -1,210 +1,500 @@
 /**
- * Machine DSL — a Zag-shaped library with NO substrate assumptions.
- *
- * A machine config is data: states, events, transitions, named guards/actions/effects.
- * The `connect` output is LOGICAL: no `onClick`, no `aria-*`, no `style`, no `data-*`.
- * Target adapters translate that logical surface to a specific renderer.
+ * Shared type vocabulary for the engine. Pure types (no runtime), imported by
+ * every concern module. The runtime lives in the per-concern files + machine.ts.
  */
 
-import type { AttrBindings, EventBindings } from './bindings'
+// -----------------------------------------------------------------------------
+// State
+// -----------------------------------------------------------------------------
+
+/** Per-state node. `tags` groups states so consumers query a tag, not names. */
+export interface StateNode {
+  tags?: string[]
+}
+
+export interface State<T extends string> {
+  /** The current state. */
+  readonly state: T
+  /** Is the current state tagged `tag`? */
+  hasTag: (tag: string) => boolean
+  /** Is the current state exactly `name`? (sugar for state === name) */
+  matches: (name: T) => boolean
+  /**
+   * Move to a new state. Internal to the engine: the transition layer calls
+   * this; the assembled machine does not expose it (consumers move state via
+   * `send`).
+   */
+  set: (next: T) => void
+}
+
+// -----------------------------------------------------------------------------
+// Guards
+// -----------------------------------------------------------------------------
+
+/** Everything a guard can read. */
+export interface GuardParams<Context extends object, Event, Computed = Record<string, never>> {
+  context: Context
+  event: Event
+  computed: Computed
+  /**
+   * Resolve another guard — a registered name or an inline fn — against these
+   * same params. The channel the combinators use, so `and('a', not(b))`
+   * resolves names through the runtime's single guard registry.
+   */
+  guard: (g: GuardArg<Context, Event, Computed>) => boolean
+}
+
+/** An inline guard: a predicate over the params. */
+export type Guard<Context extends object, Event, Computed = Record<string, never>> = (
+  params: GuardParams<Context, Event, Computed>,
+) => boolean
+
+/** A guard arg in a transition: an inline predicate or a registered name
+ * (resolved against implementations.guards). Missing name → throw in dev,
+ * warn + false in prod. */
+export type GuardArg<Context extends object, Event, Computed = Record<string, never>> =
+  | Guard<Context, Event, Computed>
+  | string
+
+// -----------------------------------------------------------------------------
+// Transitions
+// -----------------------------------------------------------------------------
+
+/** A single transition: optional target, optional guard, optional actions.
+ * `Event` is the (possibly narrowed) incoming event; `Send` is the full event
+ * union an action may dispatch (defaults to `Event`). */
+export interface Transition<
+  State extends string,
+  Context extends object,
+  Event,
+  Computed = Record<string, never>,
+  Send = Event,
+> {
+  // NoInfer: `target` is checked against the State union (defined by the states
+  // keys) rather than contributing to inferring it — so a bad target errors at
+  // the target and autocompletes the declared states, instead of widening State.
+  target?: NoInfer<State>
+  guard?: GuardArg<Context, Event, Computed>
+  /** Actions to run, in order. A single action or a list. */
+  actions?: Actions<Context, Event, Computed, Send>
+}
 
 /**
- * Base event shape. Components declare their own discriminated-union
- * `Event` extending this — `{ type: 'item.click'; value: string; ... }`
- * etc — and pass it as the third generic to `MachineConfig` / `Machine`.
+ * A transition entry, in any of three forms:
+ *   - a {@link Transition} object        — "go (+ optionally do)"
+ *   - a bare {@link Action} function      — "just do this" (a guardless,
+ *     targetless transition — the terse form for context-only handlers, where
+ *     a `{ actions: [fn] }` wrapper with no `target` would be pure noise)
+ *   - an array of either                  — fallthrough: the first element whose
+ *     guard passes wins; a bare fn is guardless, so it always matches (use it
+ *     last, as the fallback). Mirrors the rule for a guardless object.
  *
- * Action / guard bodies then get a fully-typed `event` parameter, and
- * `send()` call sites are type-checked. The default keeps non-opted-in
- * callers working with a payload-free event.
+ * The runtime normalizes a bare fn to `{ actions: [fn] }` (see `resolve`), so
+ * all three forms run through the same "first passing guard wins" loop.
  */
-export type EventObject = { type: string }
+export type TransitionEntry<
+  State extends string,
+  Context extends object,
+  Event,
+  Computed,
+  Send = Event,
+> =
+  | Transition<State, Context, Event, Computed, Send>
+  | Action<Context, Event, Computed, Send>
+  | Array<
+      Transition<State, Context, Event, Computed, Send> | Action<Context, Event, Computed, Send>
+    >
 
-export interface Params<
-  Context,
-  Props,
-  Event extends EventObject = EventObject,
+// -----------------------------------------------------------------------------
+// Actions
+// -----------------------------------------------------------------------------
+
+/**
+ * Everything an action can read/use. `Event` is the (possibly narrowed)
+ * incoming event the action reads; `Send` is the FULL event union you may
+ * dispatch — under a per-event `on.K` entry, `event` narrows to that variant
+ * while `send` still accepts any event. `Send` defaults to `Event` so a
+ * direct/unnarrowed use is unchanged.
+ */
+export interface ActionParams<
+  Context extends object,
+  Event,
   Computed = Record<string, never>,
+  Send = Event,
 > {
   context: Context
   setContext: (patch: Partial<Context>) => void
-  props: Props
   event: Event
-  send: (event: Event) => void
-  /**
-   * Derived values declared via `computed: { ... }` on the machine config.
-   * Recomputed lazily when the machine's version bumps; cached otherwise.
-   * Empty object `{}` when no computed declared.
-   */
+  send: (event: Send) => void
   computed: Computed
-  /**
-   * Dispatch any guard argument — a name from `implementations.guards`
-   * or an inline `Guard` function — against the live params. Returns
-   * the boolean the guard yields. Used by `setup<>().guards.and/or/not`
-   * to resolve composed guards against the same registry the runtime
-   * uses; available to user-written guards / actions / effects that
-   * need to consult another named guard.
-   */
-  guard: (g: string | Guard<Context, Props, Event, Computed>) => boolean
 }
 
+/** An inline action: a side-effect over the params. */
 export type Action<
-  Context,
-  Props,
-  Event extends EventObject = EventObject,
+  Context extends object,
+  Event,
   Computed = Record<string, never>,
-> = (params: Params<Context, Props, Event, Computed>) => void
+  Send = Event,
+> = (params: ActionParams<Context, Event, Computed, Send>) => void
 
-export type Guard<
-  Context,
-  Props,
-  Event extends EventObject = EventObject,
+/** One branch of a oneOf: an optional guard + the actions to run if it wins
+ * (a single action or a list — the runtime normalizes when it runs them). */
+export interface OneOfBranch<
+  Context extends object,
+  Event,
   Computed = Record<string, never>,
-> = (params: Omit<Params<Context, Props, Event, Computed>, 'send' | 'setContext'>) => boolean
+  Send = Event,
+> {
+  guard?: GuardArg<Context, Event, Computed>
+  actions: Actions<Context, Event, Computed, Send>
+}
+
+/** The oneOf sentinel — the runtime detects it in an actions list and expands. */
+export interface OneOf<
+  Context extends object,
+  Event,
+  Computed = Record<string, never>,
+  Send = Event,
+> {
+  readonly __oneOf: true
+  readonly branches: Array<OneOfBranch<Context, Event, Computed, Send>>
+}
 
 /**
- * What a transition's `guard` field accepts: a name (resolved against
- * `implementations.guards`), an inline function, or a combinator (and / or /
- * not) — itself just a Guard function. Same shape composes arbitrarily.
+ * An action arg in an `actions` list: an inline action, a registered name
+ * (resolved against implementations.actions), or a `oneOf(...)` conditional
+ * branch. Missing name → throw in dev, warn in prod. A list runs in order.
  */
-export type GuardArg<
-  Context = unknown,
-  Props = unknown,
-  Event extends EventObject = EventObject,
+export type ActionArg<
+  Context extends object,
+  Event,
   Computed = Record<string, never>,
-> = string | Guard<Context, Props, Event, Computed>
+  Send = Event,
+> = Action<Context, Event, Computed, Send> | string | OneOf<Context, Event, Computed, Send>
 
+/** What an `actions` / `entry` / `exit` slot accepts: a single action or a list.
+ * The runtime normalizes a single value to a one-element list, so `actions: act(...)`
+ * and `actions: [act(...), 'log']` are both valid. */
+export type Actions<
+  Context extends object,
+  Event,
+  Computed = Record<string, never>,
+  Send = Event,
+> = ActionArg<Context, Event, Computed, Send> | Array<ActionArg<Context, Event, Computed, Send>>
+
+// -----------------------------------------------------------------------------
+// Effects
+// -----------------------------------------------------------------------------
+
+/** An inline effect: runs on enter, optionally returns a cleanup run on exit. */
 export type Effect<
-  Context,
-  Props,
-  Event extends EventObject = EventObject,
+  Context extends object,
+  Event,
   Computed = Record<string, never>,
-> = (params: Omit<Params<Context, Props, Event, Computed>, 'event'>) => VoidFunction | void
+  Send = Event,
+> = (params: ActionParams<Context, Event, Computed, Send>) => void | (() => void)
+
+/** An effect arg: an inline effect or a registered name (resolved against
+ * implementations.effects). Missing name → throw in dev, warn in prod. */
+export type EffectArg<
+  Context extends object,
+  Event,
+  Computed = Record<string, never>,
+  Send = Event,
+> = Effect<Context, Event, Computed, Send> | string
+
+// -----------------------------------------------------------------------------
+// Computed
+// -----------------------------------------------------------------------------
+
+/** A single computed definition: derives a value from context, the current
+ * `state`, and other computeds. Reading `state` makes the lifecycle a tracked
+ * dependency, so a transition re-evaluates the computed (same memoization as a
+ * context-key read). */
+export type ComputedDef<
+  State extends string,
+  Context,
+  Computed = Record<string, never>,
+  Value = unknown,
+> = (params: { context: Context; state: State; computed: Computed }) => Value
+
+/** The map of computed definitions, keyed to the Computed value shape. */
+export type ComputedDefs<State extends string, Context, Computed> = {
+  [K in keyof Computed]: ComputedDef<State, Context, Computed, Computed[K]>
+}
+
+// -----------------------------------------------------------------------------
+// Delays
+// -----------------------------------------------------------------------------
+
+/** A named delay: resolves to a number of ms, may read context/computed so a
+ * prop-driven delay is dynamic. Referenced by name in a state's `after`. */
+export type Delay<Context extends object, Event, Computed = Record<string, never>> = (
+  params: GuardParams<Context, Event, Computed>,
+) => number
+
+// -----------------------------------------------------------------------------
+// Config
+// -----------------------------------------------------------------------------
+
+/** The named-implementation registries a config (and an adapter) supply. */
+export interface Implementations<Context extends object, Event, Computed = Record<string, never>> {
+  /** Reusable named guards. Referenced by name in a transition `guard`. */
+  guards?: Record<string, Guard<Context, Event, Computed>>
+  /** Reusable named actions. Referenced by name in an `actions` list. */
+  actions?: Record<string, Action<Context, Event, Computed>>
+  /** Reusable named effects. The adapter (withAdapter) overrides these. */
+  effects?: Record<string, Effect<Context, Event, Computed>>
+  /** Reusable named delays. Referenced by name as an `after` key. */
+  delays?: Record<string, Delay<Context, Event, Computed>>
+}
 
 /**
- * One computed value's definition: a function over the snapshot that
- * returns the derived value. The runtime evaluates it lazily and caches
- * by machine version.
+ * The `on` map keyed to the event union: each key is an `Event['type']`, and
+ * its entry's incoming `event` narrows to that exact variant
+ * (`Extract<Event, { type: K }>`) — so an action under `on.set` reads
+ * `event.value` without a manual cast, and a key that isn't a real event type
+ * errors. `send` keeps the FULL `Event` union (passed as the trailing `Send`
+ * arg), because an action routinely dispatches OTHER events. Partial: a state
+ * handles only the events it cares about.
  */
-export type ComputedFn<Context, Props, Value> = (params: {
-  state: string
+export type EventMap<
+  State extends string,
+  Context extends object,
+  Event extends { type: string },
+  Computed,
+> = {
+  [K in Event['type']]?: TransitionEntry<
+    State,
+    Context,
+    Extract<Event, { type: K }>,
+    Computed,
+    Event
+  >
+}
+
+export interface TransitionConfig<
+  State extends string,
+  Context extends object,
+  Event extends { type: string },
+  Computed = Record<string, never>,
+> {
+  // NoInfer: `initial` is checked against the State union, which is inferred
+  // solely from the `states` keys below (the single source of truth) — so a
+  // mistyped initial errors and autocompletes the declared states.
+  initial: NoInfer<State>
   context: Context
-  props: Props
-}) => Value
-
-/**
- * One branch of a `choose([...])` block: optional guard, an action list
- * to run when the guard matches (or it's the catch-all). First branch
- * whose guard returns true wins; later branches are skipped.
- */
-export interface ChooseBranch {
-  guard?: GuardArg
-  actions: string[]
+  states: Record<
+    State,
+    StateNode & {
+      on?: EventMap<State, Context, Event, Computed>
+      /** Actions run when this state is entered (after the switch). One or a list. */
+      entry?: Actions<Context, Event, Computed>
+      /** Actions run when this state is exited (before the switch). One or a list. */
+      exit?: Actions<Context, Event, Computed>
+      /** Effects started on enter; their cleanups run first on exit. */
+      effects?: Array<EffectArg<Context, Event, Computed>>
+      /** Timed transitions. Each key is a delay — a number of ms (e.g. 200) or
+       * a name resolved from implementations.delays. The transition fires after
+       * the delay WHILE in this state; auto-cancelled on exit. A delay may map
+       * to a transition array (guard fallthrough). */
+      after?: Record<string, TransitionEntry<State, Context, Event, Computed>>
+    }
+  >
+  /** Any-state events. Per-state `on` takes precedence over this. */
+  on?: EventMap<State, Context, Event, Computed>
+  /** Derived state. Each def becomes a lazy, memoized computed signal read via
+   * the `computed` bag in guard/action/effect params (and on the machine). */
+  computed?: ComputedDefs<State, Context, Computed>
+  /** Data-reactions. Each key is a context (or computed) field; its actions run
+   * whenever that field changes — in ANY state, while the machine runs. Started
+   * on start(), cleaned up on stop(). The action's `event` is the MACHINE_INIT
+   * marker (a data change isn't an event). */
+  watch?: {
+    [K in keyof Context | keyof Computed]?: Array<ActionArg<Context, Event, Computed>>
+  }
+  /** Named implementations referenced by string in transitions. */
+  implementations?: Implementations<Context, Event, Computed>
 }
 
 /**
- * A `choose(...)` sentinel — a tagged object the runtime detects in
- * `transition.actions` and expands by picking the first matching branch.
- * Authored via the `choose()` helper exported from this package; users
- * never construct it by hand.
+ * Public alias for the machine config shape. Annotating a config with this
+ * still requires the generics (`const c: MachineConfig<'a' | 'b', Ctx, Ev>`);
+ * for type-checking + inference at the definition site with no manual generics,
+ * prefer the `config(...)` helper.
  */
-export interface ChosenActions {
-  readonly __choose: true
-  readonly branches: ChooseBranch[]
-}
-
-export interface Transition {
-  target?: string
-  /**
-   * Either a name (resolved against `implementations.guards`) or an
-   * inline function. Compose with `and / or / not`.
-   */
-  guard?: GuardArg
-  /**
-   * Either a list of named actions to run unconditionally, or a
-   * `choose([...])` sentinel that picks one branch at runtime.
-   */
-  actions?: string[] | ChosenActions
-}
-
-export interface StateNode {
-  entry?: string[]
-  exit?: string[]
-  effects?: string[]
-  on?: Record<string, Transition | Transition[]>
-}
-
-export interface MachineConfig<
-  Context,
-  Props = Record<string, unknown>,
-  Event extends EventObject = EventObject,
+export type MachineConfig<
+  State extends string,
+  Context extends object,
+  Event extends { type: string },
   Computed = Record<string, never>,
-> {
-  initial: string | ((props: Props) => string)
-  context: Context | ((props: Props) => Context)
-  states: Record<string, StateNode>
-  on?: Record<string, Transition | Transition[]>
-  /**
-   * Derived values, evaluated lazily and memoized by machine version.
-   * Each key maps to a function over the snapshot. Available to actions,
-   * guards, effects, and the connect via `params.computed`.
-   */
-  computed?: {
-    [K in keyof Computed]: ComputedFn<Context, Props, Computed[K]>
-  }
-  implementations?: {
-    actions?: Record<string, Action<Context, Props, Event, Computed>>
-    guards?: Record<string, Guard<Context, Props, Event, Computed>>
-    effects?: Record<string, Effect<Context, Props, Event, Computed>>
-  }
+> = TransitionConfig<State, Context, Event, Computed>
+
+/**
+ * Platform implementations swapped per target. Only actions + effects — the
+ * things that touch the platform. On a name collision the adapter wins: the
+ * config's named impl is the default, the platform overrides.
+ */
+export type Adapter<Context extends object, Event, Computed = Record<string, never>> = Pick<
+  Implementations<Context, Event, Computed>,
+  'actions' | 'effects'
+>
+
+// -----------------------------------------------------------------------------
+// Subscription surface
+// -----------------------------------------------------------------------------
+
+/** Compare two selected values; return true if equal (no fire). */
+export type EqualityFn<Value> = (a: Value, b: Value) => boolean
+
+/** A narrowed, value-deduped view of the machine. */
+export interface Selection<Value> {
+  /** Current selected value, evaluated on read. */
+  readonly value: Value
+  /** Fire `listener(value)` only when the selected value changes (Object.is by
+   * default, or `equals`). Does not fire on subscribe. Bare unsubscribe. */
+  subscribe: (listener: (value: Value) => void, equals?: EqualityFn<Value>) => () => void
 }
 
 /**
- * Part — the shape of a single named slice on a connect() API.
- *
- * Every component's connect output groups its rendered surfaces under
- * `api.parts`. Each part has, at minimum, a `handlers` bag (events the
- * adapter wires up) and an `attrs` bag (attributes the adapter applies).
- *
- * Most parts also expose:
- *   - `variants`: the cross-substrate styling variant prop set, computed
- *     in the connect from state + props so adapters don't re-derive.
- *   - extras: positioning, rendered flag, anything component-specific.
- *
- * The two generics are independent on purpose:
- *
- *   Part                       — handlers + attrs only
- *   Part<MyVariants>           — adds typed variants
- *   Part<MyVariants, MyExtras> — adds typed extras (e.g., positioning)
- *
- * Authors who don't need variants still benefit from the typing: a
- * Separator's part is just `Part` (no variants, no extras).
+ * The `select` builder: callable for the function form, with typed named-scope
+ * methods. Each form returns a Selection.
  */
-export type Part<Variants extends object = never, Extras extends object = never> = {
-  handlers: EventBindings
-  attrs: AttrBindings
-} & ([Variants] extends [never] ? unknown : { variants: Variants }) &
-  ([Extras] extends [never] ? unknown : Extras)
+export interface Select<State extends string, Context, Computed> {
+  /** Function form: derived/composite selection over anything. */
+  <Value>(selector: () => Value): Selection<Value>
+  /** A single context field, by key. Exact return type + autocomplete. */
+  context: <K extends keyof Context>(key: K) => Selection<Context[K]>
+  /** A single computed value, by key. */
+  computed: <K extends keyof Computed>(key: K) => Selection<Computed[K]>
+  /** The current state string. */
+  state: () => Selection<State>
+}
 
+// -----------------------------------------------------------------------------
+// Machine service
+// -----------------------------------------------------------------------------
+
+/**
+ * A machine service — the live, running instance produced by `machine(config)`.
+ * Built stopped; `start()` boots its effects, `stop()` runs their cleanups.
+ * Reads (state/context/computed) are plain getters; transitions go through
+ * `send`; observe via `subscribe` (coarse) or `select` (value-deduped).
+ */
 export interface Machine<
-  Context,
-  Props = Record<string, unknown>,
-  Event extends EventObject = EventObject,
+  State extends string,
+  Context extends object,
+  Event extends { type: string },
   Computed = Record<string, never>,
 > {
-  getState: () => string
-  getContext: () => Context
-  getProps: () => Props
-  /** Latest computed values; cached by version, recomputed on first read after a bump. */
-  getComputed: () => Computed
-  /**
-   * Monotonic counter that bumps on every state transition or context
-   * change. Designed as a cheap "did anything change?" snapshot for
-   * subscribers like React's useSyncExternalStore.
-   */
-  getVersion: () => number
-  setProps: (next: Props) => void
+  readonly state: State
+  hasTag: (tag: string) => boolean
+  matches: (name: State) => boolean
+  readonly context: Context
+  /** Derived state. Reading a field is a tracked computed-signal read. */
+  readonly computed: Computed
   send: (event: Event) => void
+  /** Coarse subscription — listener fires on ANY subsequent change (state or
+   * context). Does not fire on subscribe. Returns a bare unsubscribe. */
   subscribe: (listener: () => void) => () => void
+  /** Narrow to a value-deduped Selection. Callable for the function form
+   * (select(fn)); typed named scopes (select.context/.computed/.state). */
+  select: Select<State, Context, Computed>
+  /** Boot the machine: start the initial state's effects (and the watchers).
+   * Idempotent; a re-start after stop re-boots. */
   start: () => void
+  /** Run all active effect/watcher cleanups and mark stopped. Consumer
+   * subscriptions (subscribe/select) are the consumer's to dispose. */
   stop: () => void
+  /** Register a listener fired on every `start()` (and immediately if already
+   * running). Returns an unregister. Lets an outer layer hang start-scoped work
+   * off the lifecycle — e.g. the connector wiring its reactions. */
+  onStart: (fn: () => void) => () => void
+  /** Register a listener fired on every `stop()`. Returns an unregister.
+   * The teardown counterpart to onStart. */
+  onStop: (fn: () => void) => () => void
+}
+
+// -----------------------------------------------------------------------------
+// Connector
+// -----------------------------------------------------------------------------
+
+/** What a component's connect() receives. Machine reads are live getters. */
+export interface ConnectSnapshot<
+  State extends string,
+  Context extends object,
+  Event extends { type: string },
+  Props,
+  Computed = Record<string, never>,
+> {
+  readonly state: State
+  readonly context: Context
+  readonly computed: Computed
+  readonly props: Props
+  send: (event: Event) => void
+}
+
+/**
+ * A substrate-agnostic reaction: `[selector, callback]`. When the value
+ * `selector` derives from the machine changes, the connector calls
+ * `callback(value, props)`. This is how a component declares "machine-state
+ * change → consumer callback" ONCE (e.g. `onOpenChange`), fired identically on
+ * every target — the machine never reads props or fires callbacks itself.
+ * (Platform-specific reactions like a DOM Escape listener stay in the
+ * per-target effects.)
+ *
+ * Tuple shape mirrors a React `ComponentEffect` (`[fn, deps]`) so the two read
+ * the same — declare each as a named const, collect them in a list.
+ */
+export type Reaction<
+  State extends string,
+  Context extends object,
+  Event extends { type: string },
+  Props,
+  Computed = Record<string, never>,
+  Value = unknown,
+> = [
+  selector: (machine: Machine<State, Context, Event, Computed>) => Value,
+  callback: (value: Value, props: Props) => void,
+]
+
+/**
+ * A pure connect(): snapshot → view-facing api. It MAY carry a static
+ * `reactions` array — declarative state-change → prop-callback bindings the
+ * connector registers once (the mapping itself stays pure / side-effect free).
+ */
+export type Connect<
+  State extends string,
+  Context extends object,
+  Event extends { type: string },
+  Props,
+  Api,
+  Computed = Record<string, never>,
+> = ((snapshot: ConnectSnapshot<State, Context, Event, Props, Computed>) => Api) & {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  reactions?: Array<Reaction<State, Context, Event, Props, Computed, any>>
+}
+
+/** The live, subscribable connector: snapshot + subscribe + select + setProps. */
+export interface Connector<
+  State extends string,
+  Context extends object,
+  Api,
+  Props,
+  Computed = Record<string, never>,
+> {
+  /** Memoized connect() output. Stable identity until state/context/computed/
+   * props change — safe as a useSyncExternalStore getSnapshot. */
+  readonly snapshot: Api
+  /** Coarse: wake on any change (also fires when props change). */
+  subscribe: (listener: () => void) => () => void
+  /** Per-field selection forwarded from the machine. */
+  select: Select<State, Context, Computed>
+  /** Update consumer props (a reactive input) — recomputes snapshot + wakes. */
+  setProps: (props: Props) => void
+  /** Detach the connector from the machine: drops its bus subscription and any
+   * lifecycle hooks. Call when discarding the connector independently of the
+   * machine. (When the machine is discarded too — the common case — both are
+   * collected together and `destroy()` is optional.) */
+  destroy: () => void
 }

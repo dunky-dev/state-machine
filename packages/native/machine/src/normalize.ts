@@ -47,6 +47,11 @@ const ATTR_MAP: Record<string, string> = {
   id: 'nativeID',
 }
 
+// Attrs with no clean RN analog — stripped rather than passed through as
+// invalid props. (`controls`/`hasPopup` are DOM ARIA-only; RN menus use their
+// own overlay semantics.)
+const ATTR_DROP = new Set(['controls', 'hasPopup'])
+
 // Attrs that fold into accessibilityState.
 const A11Y_STATE_KEYS = new Set(['disabled', 'expanded', 'selected', 'hidden'])
 
@@ -61,6 +66,7 @@ export function normalize(logical: Bindings): Record<string, unknown> {
     if (value === undefined) continue
 
     if (HANDLER_DROP.has(key)) continue
+    if (ATTR_DROP.has(key)) continue
 
     const handler = HANDLER_MAP[key]
     if (handler) {

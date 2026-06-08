@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@preact/signals-core':
+        specifier: ^1.14.2
+        version: 1.14.2
       '@react-native/babel-preset':
         specifier: ^0.85.3
         version: 0.85.3(@babel/core@7.29.7)
@@ -35,6 +38,24 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^6.0.2
         version: 6.0.2(babel-plugin-react-compiler@1.0.0)(vite@8.0.14(@types/node@22.19.19)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))
+      '@xstate/react':
+        specifier: ^6.1.0
+        version: 6.1.0(@types/react@19.2.15)(react@19.2.6)(xstate@5.32.0)
+      '@xstate/store':
+        specifier: ^4.1.0
+        version: 4.1.0
+      '@zag-js/core':
+        specifier: ^1.41.1
+        version: 1.41.1
+      '@zag-js/react':
+        specifier: ^1.41.1
+        version: 1.41.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@zag-js/vanilla':
+        specifier: ^1.41.1
+        version: 1.41.1
+      alien-signals:
+        specifier: ^3.2.1
+        version: 3.2.1
       chokidar:
         specifier: ^5.0.0
         version: 5.0.0
@@ -89,6 +110,9 @@ importers:
       vitest:
         specifier: ^4.1.7
         version: 4.1.7(@types/node@22.19.19)(jsdom@29.1.1)(vite@8.0.14(@types/node@22.19.19)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))
+      xstate:
+        specifier: ^5.32.0
+        version: 5.32.0
 
   packages/core/components/dropdown-menu:
     dependencies:
@@ -98,9 +122,9 @@ importers:
       '@render-experiment/machine-core':
         specifier: workspace:*
         version: link:../../machine
-      '@render-experiment/store':
+      '@render-experiment/style-engine-core':
         specifier: workspace:*
-        version: link:../../store
+        version: link:../../style-engine
       '@render-experiment/utils':
         specifier: workspace:*
         version: link:../../../shared/utils
@@ -110,9 +134,9 @@ importers:
       '@render-experiment/machine-core':
         specifier: workspace:*
         version: link:../../machine
-      '@render-experiment/store':
+      '@render-experiment/style-engine-core':
         specifier: workspace:*
-        version: link:../../store
+        version: link:../../style-engine
       '@render-experiment/tooltip-shared':
         specifier: workspace:*
         version: link:../../../shared/components/tooltip
@@ -120,13 +144,9 @@ importers:
         specifier: workspace:*
         version: link:../../../shared/utils
 
-  packages/core/machine:
-    dependencies:
-      '@render-experiment/store':
-        specifier: workspace:*
-        version: link:../store
+  packages/core/machine: {}
 
-  packages/core/store: {}
+  packages/core/style-engine: {}
 
   packages/native/components/dropdown-menu:
     dependencies:
@@ -175,6 +195,9 @@ importers:
       '@render-experiment/machine-core':
         specifier: workspace:*
         version: link:../../core/machine
+      '@render-experiment/machine-react':
+        specifier: workspace:*
+        version: link:../../react/machine
       '@render-experiment/utils':
         specifier: workspace:*
         version: link:../../shared/utils
@@ -187,6 +210,9 @@ importers:
 
   packages/native/style-engine:
     dependencies:
+      react:
+        specifier: '*'
+        version: 19.2.6
       react-native:
         specifier: '*'
         version: 0.85.0(@babel/core@7.29.7)(@react-native/jest-preset@0.85.3(@babel/core@7.29.7)(react@19.2.6))(@types/react@19.2.15)(react@19.2.6)
@@ -232,18 +258,6 @@ importers:
       react:
         specifier: '*'
         version: 19.2.6
-
-  packages/react/store:
-    dependencies:
-      '@render-experiment/store':
-        specifier: workspace:*
-        version: link:../../core/store
-      react:
-        specifier: '*'
-        version: 19.2.6
-      use-sync-external-store:
-        specifier: ^1.4.0
-        version: 1.6.0(react@19.2.6)
 
   packages/react/style-engine:
     dependencies:
@@ -1792,6 +1806,9 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@preact/signals-core@1.14.2':
+    resolution: {integrity: sha512-RZHdBj9ZF4n40Rp4jS052EHHjBWf96P9oNdXPfhQTovCuWY9iQn3Gq+gOTJSgBO9A/JBuPfMOWsSX/lIU9Pc/A==}
+
   '@react-native/assets-registry@0.85.0':
     resolution: {integrity: sha512-zfVwcEunuywcDR6EYSOcyPKzWMR/HXuByjfS4m7//Hs+Qh5r1j5yfDFNeqansNs3LKv+7EFnEEYFCfpLhYTIew==}
     engines: {node: ^20.19.4 || ^22.13.0 || ^24.3.0 || >= 25.0.0}
@@ -2172,6 +2189,42 @@ packages:
     resolution: {integrity: sha512-A9gOqLdi6cV4ibazAjcQufGj0B1y/vDqYrcuP6d/6x8P27gRS8643Dj9o1dEKtB6O7fwxb2FgBmJS2mX7gpvdw==}
     engines: {node: '>=14.6'}
 
+  '@xstate/react@6.1.0':
+    resolution: {integrity: sha512-ep9F0jGTI63B/jE8GHdMpUqtuz7yRebNaKv8EMUaiSi29NOglywc2X2YSOV/ygbIK+LtmgZ0q9anoEA2iBSEOw==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      xstate: ^5.28.0
+    peerDependenciesMeta:
+      xstate:
+        optional: true
+
+  '@xstate/store@4.1.0':
+    resolution: {integrity: sha512-r6wDC2Tk1VIe99gVb8VgmV3ZoIMfFpJ0HK8hVYDUIPfCQqfYbsz7vscakE9NWWb/oVpvXNNMH35ioITTplCTDw==}
+
+  '@zag-js/core@1.41.1':
+    resolution: {integrity: sha512-np7Tlf1EUK2ITojiX3aQy79LWIZhu4xxrS6pE8V/wD0h9JeQmhyNtyC147jqIE/AYjSunhMShsWp/+W1b5skjQ==}
+
+  '@zag-js/dom-query@1.41.1':
+    resolution: {integrity: sha512-f6hBV6fPc9Ok/Re/tsxqJ8NcgQzsASQ6YoulUKSQnZMGb7tr0Ks1IH3Hjy3+ARXvCaSjgDhPPXt5+bkieur4eg==}
+
+  '@zag-js/react@1.41.1':
+    resolution: {integrity: sha512-lphduGB974XvtYUVXhX53C+TzKmcvGjK5H/h9+Q4M+1AwQOq37wKjH3Kt8gV0g5SQ6nW+3RM54mhWdcQvsFQiw==}
+    peerDependencies:
+      react: '>=18.0.0'
+      react-dom: '>=18.0.0'
+
+  '@zag-js/store@1.41.1':
+    resolution: {integrity: sha512-1b6Kv/wvDwRLGjUI7cXvsW5KAB3TPux7FZ5W1264Qf2vaudd9HFoyMAftpI8VnKpcDF+z1t7skzr+4b0ZmFBsQ==}
+
+  '@zag-js/types@1.41.1':
+    resolution: {integrity: sha512-xhKEX61yvNa/6yofkNe7IihKyt3JLe4/k5JxaH0hj46V4S2Kac2cNAXPgnWHbl1gXGBcfLr+qLFzo4oLl+VdwA==}
+
+  '@zag-js/utils@1.41.1':
+    resolution: {integrity: sha512-IZGqDpQYvgCQlGcLTVCzWG5DEz318ZLVJhp8TtT9HPDNd+RJTcVHRja7z+vqQ0Su+wKZkuLlIh5gtraxQ+YX9Q==}
+
+  '@zag-js/vanilla@1.41.1':
+    resolution: {integrity: sha512-ZqdO/BN6zHKcyaSK0jmwW4qtgS+/63rVDXDfPYIcdT3Sx2Myto5vUCXd7htrRtkSDTPvT6183zzU5dUB+RuUrw==}
+
   abab@2.0.6:
     resolution: {integrity: sha512-j2afSsaIENvHZN2B8GOpF566vZ5WVk5opAiMTvWgaQT8DkbOqsTfvNAvHoRGU2zzP8cPoqys+xHTRDWW8L+/BA==}
     deprecated: Use your platform's native atob() and btoa() methods instead
@@ -2207,6 +2260,9 @@ packages:
   agent-base@7.1.4:
     resolution: {integrity: sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ==}
     engines: {node: '>= 14'}
+
+  alien-signals@3.2.1:
+    resolution: {integrity: sha512-I8FjmltrfnDFoZedi5CG8DghVYNhzb/Ijluz7tCSJH0xpd0484Kowhbb1XDYOxfJpU1p5wnM2X54dA+IfGyD1g==}
 
   anser@1.4.10:
     resolution: {integrity: sha512-hCv9AqTQ8ycjpSd3upOJd7vFwW1JaoYQ7tpham03GJ1ca8/65rqn0RpaWpItOAd6ylW9wAw6luXYPJIyPFVOww==}
@@ -4242,6 +4298,9 @@ packages:
     resolution: {integrity: sha512-NxNv/kLguCA7p3jE8oL2aEBsrJWgAakBpgmgK6lpPWV+WuOmY6r2/zbAVnP+T8bQlA0nzHXSJSJW0Hq7ylaD2Q==}
     engines: {node: '>= 6'}
 
+  proxy-compare@3.0.1:
+    resolution: {integrity: sha512-V9plBAt3qjMlS1+nC8771KNf6oJ12gExvaxnNzN/9yVRLdTv/lc+oJlnSzrdYDAvBfTStPCoiaCOTmTs0adv7Q==}
+
   psl@1.15.0:
     resolution: {integrity: sha512-JZd3gMVBAVQkSs6HdNZo9Sdo0LNcQeMNP3CozBJb3JYC/QUYZTnKxP+f8oWRX4rHP5EurWxqAHTSwUCjlNKa1w==}
 
@@ -4916,6 +4975,15 @@ packages:
   url-parse@1.5.10:
     resolution: {integrity: sha512-WypcfiRhfeUP9vvF0j6rw0J3hrWrw6iZv3+22h6iRMJ/8z1Tj6XfLP4DsUix5MhMPnXpiHDoKyoZ/bdCkwBCiQ==}
 
+  use-isomorphic-layout-effect@1.2.1:
+    resolution: {integrity: sha512-tpZZ+EX0gaghDAiFR37hj5MgY6ZN55kLiPkJsKxBMZ6GZdOSPJXiOzPM984oPYZ5AnehYx5WQp1+ME8I/P/pRA==}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+
   use-sync-external-store@1.6.0:
     resolution: {integrity: sha512-Pp6GSwGP/NrPIrxVFAIkOQeyw8lFenOHijQWkUTrDvrF4ALqylP2C/KCkeS9dpUM3KvYRQhna5vt7IL95+ZQ9w==}
     peerDependencies:
@@ -5187,6 +5255,9 @@ packages:
 
   xmlchars@2.2.0:
     resolution: {integrity: sha512-JZnDKK8B0RCDw84FNdDAIpZK+JuJw+s7Lz8nksI7SIuU3UXJJslUthsi+uWBUYOwPFwW7W7PRLRfUKpxjtjFCw==}
+
+  xstate@5.32.0:
+    resolution: {integrity: sha512-zsk73aWGmxn9z34P0kbiod5JwTvdYRW3+IDxITq8sd9+VWwMyW7BUzpplnYy9mIEXa6V8IMDv7Hy4m0mhT5+2Q==}
 
   y18n@5.0.8:
     resolution: {integrity: sha512-0pfFzegeDWJHJIAmTLRP2DwHjdF5s7jo9tuztdQxAhINCdvS+3nGINqPd00AphqJR/0LhANUS6/+7SCb98YOfA==}
@@ -6865,6 +6936,8 @@ snapshots:
   '@oxlint/binding-win32-x64-msvc@1.67.0':
     optional: true
 
+  '@preact/signals-core@1.14.2': {}
+
   '@react-native/assets-registry@0.85.0': {}
 
   '@react-native/babel-plugin-codegen@0.85.3(@babel/core@7.29.7)':
@@ -7301,6 +7374,53 @@ snapshots:
 
   '@xmldom/xmldom@0.9.10': {}
 
+  '@xstate/react@6.1.0(@types/react@19.2.15)(react@19.2.6)(xstate@5.32.0)':
+    dependencies:
+      react: 19.2.6
+      use-isomorphic-layout-effect: 1.2.1(@types/react@19.2.15)(react@19.2.6)
+      use-sync-external-store: 1.6.0(react@19.2.6)
+    optionalDependencies:
+      xstate: 5.32.0
+    transitivePeerDependencies:
+      - '@types/react'
+
+  '@xstate/store@4.1.0': {}
+
+  '@zag-js/core@1.41.1':
+    dependencies:
+      '@zag-js/dom-query': 1.41.1
+      '@zag-js/utils': 1.41.1
+
+  '@zag-js/dom-query@1.41.1':
+    dependencies:
+      '@zag-js/types': 1.41.1
+
+  '@zag-js/react@1.41.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6)':
+    dependencies:
+      '@zag-js/core': 1.41.1
+      '@zag-js/store': 1.41.1
+      '@zag-js/types': 1.41.1
+      '@zag-js/utils': 1.41.1
+      react: 19.2.6
+      react-dom: 19.2.6(react@19.2.6)
+
+  '@zag-js/store@1.41.1':
+    dependencies:
+      proxy-compare: 3.0.1
+
+  '@zag-js/types@1.41.1':
+    dependencies:
+      csstype: 3.2.3
+
+  '@zag-js/utils@1.41.1': {}
+
+  '@zag-js/vanilla@1.41.1':
+    dependencies:
+      '@zag-js/core': 1.41.1
+      '@zag-js/store': 1.41.1
+      '@zag-js/types': 1.41.1
+      '@zag-js/utils': 1.41.1
+
   abab@2.0.6: {}
 
   abort-controller@3.0.0:
@@ -7335,6 +7455,8 @@ snapshots:
       - supports-color
 
   agent-base@7.1.4: {}
+
+  alien-signals@3.2.1: {}
 
   anser@1.4.10: {}
 
@@ -10006,6 +10128,8 @@ snapshots:
       kleur: 3.0.3
       sisteransi: 1.0.5
 
+  proxy-compare@3.0.1: {}
+
   psl@1.15.0:
     dependencies:
       punycode: 2.3.1
@@ -10800,6 +10924,12 @@ snapshots:
       querystringify: 2.2.0
       requires-port: 1.0.0
 
+  use-isomorphic-layout-effect@1.2.1(@types/react@19.2.15)(react@19.2.6):
+    dependencies:
+      react: 19.2.6
+    optionalDependencies:
+      '@types/react': 19.2.15
+
   use-sync-external-store@1.6.0(react@19.2.6):
     dependencies:
       react: 19.2.6
@@ -11021,6 +11151,8 @@ snapshots:
   xmlbuilder@15.1.1: {}
 
   xmlchars@2.2.0: {}
+
+  xstate@5.32.0: {}
 
   y18n@5.0.8: {}
 

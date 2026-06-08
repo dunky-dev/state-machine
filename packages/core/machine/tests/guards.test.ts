@@ -1,88 +1,238 @@
+/**
+ * Guards — predicates that gate transitions: inline fns, named (resolved from
+ * implementations.guards), and the and/or/not combinators. Guards receive
+ * { context, event, computed }. A missing name throws in dev.
+ */
+import { and, machine, not, or } from '../src'
 import { describe, expect, it } from 'vitest'
-import { and, not, or } from '@render-experiment/machine-core'
-import type { Guard } from '@render-experiment/machine-core'
 
-// Stub Params just enough for type-checking. The combinators don't read
-// the params themselves — they only forward them to inner guards.
-const PARAMS = {
-  context: {},
-  props: {},
-  event: { type: '_' },
-} as Parameters<Guard<object, object, { type: '_' }>>[0]
+describe('inline guards', () => {
+  it('an inline guard gates the transition (true = taken)', () => {
+    const m = machine<'idle', { allow: boolean }, { type: 'go' }>({
+      initial: 'idle',
+      context: { allow: true },
+      states: {
+        idle: {
+          on: {
+            go: {
+              guard: ({ context }) => context.allow,
+              actions: [({ setContext }) => setContext({ allow: false })],
+            },
+          },
+        },
+      },
+    })
+    m.send({ type: 'go' }) // allow=true → runs → sets allow=false
+    expect(m.context.allow).toBe(false)
+    m.send({ type: 'go' }) // allow=false → guard blocks → no change
+    expect(m.context.allow).toBe(false)
+  })
 
-const T: Guard<object, object, { type: '_' }> = () => true
-const F: Guard<object, object, { type: '_' }> = () => false
+  it('a guard can read the event payload', () => {
+    const m = machine<'idle', { n: number }, { type: 'add'; by: number }>({
+      initial: 'idle',
+      context: { n: 0 },
+      states: {
+        idle: {
+          on: {
+            add: {
+              guard: ({ event }) => event.by > 0, // only positive additions
+              actions: [
+                ({ context, setContext, event }) => setContext({ n: context.n + event.by }),
+              ],
+            },
+          },
+        },
+      },
+    })
+    m.send({ type: 'add', by: 5 })
+    expect(m.context.n).toBe(5)
+    m.send({ type: 'add', by: -3 }) // guard blocks negative
+    expect(m.context.n).toBe(5)
+  })
 
-describe('and', () => {
-  it('returns true when every guard passes', () => {
-    expect(and(T, T, T)(PARAMS)).toBe(true)
-  })
-  it('returns false when any guard fails', () => {
-    expect(and(T, F, T)(PARAMS)).toBe(false)
-  })
-  it('returns true with zero arguments (empty intersection)', () => {
-    expect(and()(PARAMS)).toBe(true)
-  })
-  it('short-circuits on the first failing guard', () => {
-    let ran = 0
-    const tick: Guard<object, object, { type: '_' }> = () => {
-      ran++
-      return true
-    }
-    and(tick, F, tick)(PARAMS)
-    expect(ran).toBe(1)
+  it('guard params include `computed` (empty when no computed configured)', () => {
+    let sawComputed: unknown
+    const m = machine<'idle', object, { type: 'check' }>({
+      initial: 'idle',
+      context: {},
+      states: {
+        idle: {
+          on: {
+            check: {
+              guard: ({ computed }) => {
+                sawComputed = computed
+                return true
+              },
+              actions: [],
+            },
+          },
+        },
+      },
+    })
+    m.send({ type: 'check' })
+    expect(sawComputed).toEqual({})
   })
 })
 
-describe('or', () => {
-  it('returns true when any guard passes', () => {
-    expect(or(F, T, F)(PARAMS)).toBe(true)
+describe('named guards', () => {
+  it('resolves a guard by name from implementations.guards', () => {
+    const m = machine<'idle', { allow: boolean }, { type: 'go' }>({
+      initial: 'idle',
+      context: { allow: true },
+      states: {
+        idle: {
+          on: {
+            go: { guard: 'isAllowed', actions: [({ setContext }) => setContext({ allow: false })] },
+          },
+        },
+      },
+      implementations: { guards: { isAllowed: ({ context }) => context.allow } },
+    })
+    m.send({ type: 'go' }) // isAllowed true → runs
+    expect(m.context.allow).toBe(false)
+    m.send({ type: 'go' }) // isAllowed false → blocked
+    expect(m.context.allow).toBe(false)
   })
-  it('returns false when every guard fails', () => {
-    expect(or(F, F)(PARAMS)).toBe(false)
+
+  it('named and inline guards coexist (fallthrough array)', () => {
+    const m = machine<'idle', { n: number }, { type: 'tick' }>({
+      initial: 'idle',
+      context: { n: 0 },
+      states: {
+        idle: {
+          on: {
+            tick: [
+              { guard: 'never', actions: [({ setContext }) => setContext({ n: 99 })] },
+              {
+                guard: ({ context }) => context.n < 3,
+                actions: [({ context, setContext }) => setContext({ n: context.n + 1 })],
+              },
+            ],
+          },
+        },
+      },
+      implementations: { guards: { never: () => false } },
+    })
+    m.send({ type: 'tick' }) // 'never' false → falls to inline → n=1
+    expect(m.context.n).toBe(1)
   })
-  it('returns false with zero arguments (empty union)', () => {
-    expect(or()(PARAMS)).toBe(false)
-  })
-  it('short-circuits on the first passing guard', () => {
-    let ran = 0
-    const tick: Guard<object, object, { type: '_' }> = () => {
-      ran++
-      return false
-    }
-    or(tick, T, tick)(PARAMS)
-    expect(ran).toBe(1)
+
+  it('throws in dev when a guard name is not registered', () => {
+    const m = machine<'idle', object, { type: 'go' }>({
+      initial: 'idle',
+      context: {},
+      states: { idle: { on: { go: { guard: 'missing', actions: [] } } } },
+    })
+    expect(() => m.send({ type: 'go' })).toThrow(/no guard "missing"/)
   })
 })
 
-describe('not', () => {
-  it('negates true to false', () => {
-    expect(not(T)(PARAMS)).toBe(false)
+describe('combinators — and / or / not', () => {
+  it('and(): true only when every sub-guard passes (names)', () => {
+    let ran = false
+    const m = machine<'idle', { a: boolean; b: boolean }, { type: 'go' }>({
+      initial: 'idle',
+      context: { a: true, b: true },
+      states: {
+        idle: { on: { go: { guard: and('isA', 'isB'), actions: [() => (ran = true)] } } },
+      },
+      implementations: {
+        guards: { isA: ({ context }) => context.a, isB: ({ context }) => context.b },
+      },
+    })
+    m.send({ type: 'go' })
+    expect(ran).toBe(true)
   })
-  it('negates false to true', () => {
-    expect(not(F)(PARAMS)).toBe(true)
-  })
-})
 
-describe('composition', () => {
-  it('arbitrary nesting works', () => {
-    // (T && !F) || (F && T)  →  true
-    expect(or(and(T, not(F)), and(F, T))(PARAMS)).toBe(true)
+  it('and(): blocks when one sub-guard fails', () => {
+    let ran = false
+    const m = machine<'idle', { a: boolean; b: boolean }, { type: 'go' }>({
+      initial: 'idle',
+      context: { a: true, b: false },
+      states: {
+        idle: { on: { go: { guard: and('isA', 'isB'), actions: [() => (ran = true)] } } },
+      },
+      implementations: {
+        guards: { isA: ({ context }) => context.a, isB: ({ context }) => context.b },
+      },
+    })
+    m.send({ type: 'go' })
+    expect(ran).toBe(false)
   })
-  it('forwards params to inner guards', () => {
-    const seen: unknown[] = []
-    const spy: Guard<{ x: number }, object, { type: '_' }> = ({ context }) => {
-      seen.push(context)
-      return true
-    }
-    const params = {
-      context: { x: 1 },
-      props: {},
-      event: { type: '_' as const },
-      computed: {} as Record<string, never>,
-      guard: () => false,
-    }
-    and(spy, not(spy))(params)
-    expect(seen).toEqual([{ x: 1 }, { x: 1 }])
+
+  it('or(): true when any passes; not(): negates; mixed names + inline fns', () => {
+    let ran = false
+    const m = machine<'idle', { locked: boolean }, { type: 'go'; force?: boolean }>({
+      initial: 'idle',
+      context: { locked: true },
+      states: {
+        idle: {
+          on: {
+            go: {
+              guard: or(({ event }) => !!event.force, not('isLocked')),
+              actions: [() => (ran = true)],
+            },
+          },
+        },
+      },
+      implementations: { guards: { isLocked: ({ context }) => context.locked } },
+    })
+    m.send({ type: 'go' }) // locked, no force → blocked
+    expect(ran).toBe(false)
+    m.send({ type: 'go', force: true }) // force → or passes → runs
+    expect(ran).toBe(true)
+  })
+
+  it('combinators accept inline functions too (not just names)', () => {
+    let ran = false
+    const isPos = ({ context }: { context: { n: number } }) => context.n > 0
+    const m = machine<'idle', { n: number }, { type: 'go' }>({
+      initial: 'idle',
+      context: { n: 5 },
+      states: {
+        idle: {
+          on: {
+            go: {
+              guard: and(
+                isPos,
+                not(({ context }) => context.n > 100),
+              ),
+              actions: [() => (ran = true)],
+            },
+          },
+        },
+      },
+    })
+    m.send({ type: 'go' }) // n=5: >0 AND not(>100) → true
+    expect(ran).toBe(true)
+  })
+
+  it('nests deeply: and(or(...), not(and(...)))', () => {
+    let ran = false
+    const m = machine<'idle', { x: number }, { type: 'go' }>({
+      initial: 'idle',
+      context: { x: 2 },
+      states: {
+        idle: {
+          on: {
+            go: {
+              guard: and(or('isTwo', 'isThree'), not(and('isTwo', 'isOdd'))),
+              actions: [() => (ran = true)],
+            },
+          },
+        },
+      },
+      implementations: {
+        guards: {
+          isTwo: ({ context }) => context.x === 2,
+          isThree: ({ context }) => context.x === 3,
+          isOdd: ({ context }) => context.x % 2 === 1,
+        },
+      },
+    })
+    // x=2: or(isTwo,isThree)=true; and(isTwo,isOdd)=false; not(false)=true → true
+    m.send({ type: 'go' })
+    expect(ran).toBe(true)
   })
 })

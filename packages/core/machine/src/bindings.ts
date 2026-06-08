@@ -11,6 +11,14 @@
  *   Native (RN) : machine-native/normalize  (onPress → Pressable.onPress, …)
  *   Surface     : machine-surface/normalize (future)
  *
+ * A part's surface is two buckets:
+ *   - handlers (EventBindings)  — input → events
+ *   - attrs    (AttrBindings)   — substrate attributes (id, role, aria-*)
+ *
+ * Semantic state (machine state, side, …) is NOT collapsed into `data-*` here.
+ * Core stays agnostic; each adapter derives whatever `data-*` it wants from the
+ * machine state + the part's own fields.
+ *
  * The payload types below pin the fields a handler can rely on across
  * substrates. Anything substrate-specific (clientX, nativeEvent,
  * currentTarget) lives behind the adapter and is invisible to component
@@ -79,12 +87,22 @@ export interface AttrBindings {
   describedBy?: string
   /** "this element's label is over there" (ARIA labelledby). */
   labelledBy?: string
+  /** "this element controls that one" (ARIA controls) — e.g. a trigger naming
+   * the menu surface it toggles. */
+  controls?: string
 
   /** Boolean state (open/closed disclosure regions). */
   expanded?: boolean
   selected?: boolean
   disabled?: boolean
   hidden?: boolean
+
+  /**
+   * The kind of popup this element opens (ARIA haspopup) — `'menu'`,
+   * `'listbox'`, `'dialog'`, … or `true` for a generic popup. Substrates with
+   * no popup concept ignore it.
+   */
+  hasPopup?: 'menu' | 'listbox' | 'tree' | 'grid' | 'dialog' | boolean
 
   /**
    * Whether the element participates in keyboard focus.
@@ -94,13 +112,4 @@ export interface AttrBindings {
 
   /** ARIA role on web; equivalent semantic tag on other substrates. */
   role?: string
-
-  /**
-   * Open slot for substrate-specific attributes the named keys don't
-   * cover. Common case: `data-*` and `aria-*` attrs the React adapter
-   * passes through verbatim; the native adapter drops unknown keys.
-   * Keep values primitive (string / number / boolean) so adapters can
-   * serialize them.
-   */
-  [key: string]: string | number | boolean | undefined
 }

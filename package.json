@@ -14,6 +14,7 @@
     "test": "vitest",
     "test:native": "jest --config jest.native.js",
     "test:all": "pnpm test && pnpm test:native",
+    "benchmark": "NODE_ENV=production node --expose-gc --import tsx benchmark/index.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.jest.json",
     "lint": "oxlint .",
     "format": "oxfmt .",
@@ -22,6 +23,7 @@
     "prepare": "husky"
   },
   "devDependencies": {
+    "@preact/signals-core": "^1.14.2",
     "@react-native/babel-preset": "^0.85.3",
     "@testing-library/react": "^16.3.2",
     "@testing-library/react-native": "^13.3.3",
@@ -31,6 +33,12 @@
     "@types/react-dom": "^19.2.3",
     "@types/use-sync-external-store": "^1.5.0",
     "@vitejs/plugin-react": "^6.0.2",
+    "@xstate/react": "^6.1.0",
+    "@xstate/store": "^4.1.0",
+    "@zag-js/core": "^1.41.1",
+    "@zag-js/react": "^1.41.1",
+    "@zag-js/vanilla": "^1.41.1",
+    "alien-signals": "^3.2.1",
     "chokidar": "^5.0.0",
     "csstype": "^3.2.3",
     "husky": "^9.1.7",
@@ -48,7 +56,8 @@
     "tsx": "^4.22.3",
     "typescript": "^6.0.3",
     "vite": "^8.0.14",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.7",
+    "xstate": "^5.32.0"
   },
   "packageManager": "pnpm@10.20.0"
 }

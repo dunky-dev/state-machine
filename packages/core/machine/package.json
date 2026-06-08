@@ -8,7 +8,5 @@
   "exports": {
     ".": "./src/index.ts"
   },
-  "dependencies": {
-    "@render-experiment/store": "workspace:*"
-  }
+  "dependencies": {}
 }

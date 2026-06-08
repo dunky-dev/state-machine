@@ -1,90 +1,73 @@
 # Agnostic Render
 
-**Components as a state machines. Plug it into _any_ JS runtime.**
+**Define a behavior once. Render it anywhere.**
 
-A component is a state machine describing how it reacts to interactions. That
-machine is plain TypeScript. It doesn't know where it will be rendered.
+A UI component is really two things tangled together: _behavior_ and _render_.
+Agnostic Render splits them. You describe behavior as a plain TypeScript
+**state machine** that knows nothing about the environment and a thin per-substrate
+layer plugs it into a runtime.
 
-Plug the machine into a runtime and you get a component. Same machine, same
-behavior contract, same accessibility intent. Different render.
+The same machine drives any render in a JS runtime. Same states, same
+transitions, same accessibility intent. Only the render differs.
 
-```
-The host
-┌────────────────────────────────────────────────────────────────────┐
-│  core/                                                             │
-│  No runtime render                                                 │
-│  ┌─────────────────┐  ┌──────────────────────┐  ┌───────────────┐  │
-│  │ **machine**     │  │ **components**       │  │ **store**     │  │
-│  │ state + events  │  │ behavior + intent    │  │ reactive data │  │
-│  └─────────────────┘  └──────────────────────┘  └───────────────┘  │
-└────────────────────────────────────────────────────────────────────┘
-                               │  consumed by every target
-                               ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│  shared/                                                            │
-│  Cross-target styles + utilities.                                   │
-│  ┌──────────────────────────────────────┐  ┌──────────────────────┐ │
-│  │ **components**                       │  │ **utils**            │ │
-│  │ per-component style specs            │  │ positioning, merge   │ │
-│  └──────────────────────────────────────┘  └──────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────┘
-                               │  translated per target
-                               ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│  <target>/   (react, native, …)                                      │
-│  Runtime-specific render logic.                                      │
-│  ┌────────────────────────────────────────────────────────────────┐  │
-│  │ runtime glue                                                   │  │
-│  │  • connect to machine                                          │  │
-│  │  • normalize events to the target (e.g. onPress → onClick)     │  │
-│  │  • adapt/implement quirks (e.g. focusTrap logic)               │  │
-│  └────────────────────────────────────────────────────────────────┘  │
-│  ┌────────────────────────────────────────────────────────────────┐  │
-│  │ generated/                                                     │  │
-│  │  • component API out of the machine spec                       │  │
-│  │  • elements out of the machine spec + shared styles            │  │
-│  └────────────────────────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────────────────────────┘
-                               │  imported as a normal package
-                               ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│  App                                                                │
-└─────────────────────────────────────────────────────────────────────┘
-```
+> **Status: experimental.** The engine (`core/machine`) is stable and tested. The
+> components and target bridges are NOT production-ready yet.
+>
+> This is an in-progress exploration.
 
-### core
+## The challenge
 
-Pure TypeScript. No runtime. This is the host.
+### Truly agnostic
 
-- **machine** — every component is a state machine. States, events,
-  guards, side effects. No idea what's painting it.
-- **components** — per-component behavior: the machine config and the
-  connector function (e.g. `connectTooltip`) that turns state into
-  logical bindings (handlers + attrs).
-- **store** — tiny reactive store used by machines and by app code that
-  needs to subscribe to changes.
+This project was inspired by [Zag](https://zagjs.com/), which pioneered the
+component-as-a-headless-machine approach. Zag is agnostic about _which framework_
+renders the DOM, but it still assumes a DOM exists. Agnostic Render takes that one step
+further: it assumes _nothing_ about the environment. The machine is a pure
+behavioral kernel with no environment touchpoints, every place behavior meets the
+platform — a keydown listener, a timer, a focus — is pushed to a per-target
+adapter. So the _same_ machine runs unchanged on the DOM, React Native, or any other JS runtime.
 
-### shared
+### Fast at scale
 
-Cross-target styles and utilities. Runtime agnostic.
+The hard case is **many machines reacting to many events inside
+one frame budget** — things like a trading terminal with live tickers, a monitoring wall, a
+canvas board, a game HUD. There the cost of each transition and the memory per
+machine, multiplied by thousands, is what decides whether you hold the frame. The
+engine is built for it — ~3–4× XState's event throughput, flat-ish memory, surgical
+re-renders; numbers + methodology in the [engine README](./packages/core/machine/README.md#performance).
 
-- **components** — per-component style specs, one per component,
-  authored as plain objects (at `shared/components/<comp>/src/styles.ts`).
-  Each target translates them via codegen into styled elements.
-- **utils** — positioning, merge, and other cross-target helpers.
+## How it's built
 
-### \<target\>
+4 layers
 
-The runtime-specific layer. Two responsibilities.
+- **agnostic core** — the state machine engine
+- **connector** — turns machine state into logical bindings (e.g. `onPress`, `role`,
+  `describedBy`) and keeps that view in sync with the machine state
+- **adapter** — the per-target layer that supplies platform effects (e.g. a DOM keydown
+  listener, an RN `BackHandler`) and `normalize`s the logical bindings into real props
+  (`onPress` → `onClick` / `Pressable`)
+- **render glue** — the per-target view that spreads those normalized props onto the
+  actual elements
 
-- **runtime glue** — connects to the core machine, normalizes events
-  for the target (`onPress → onClick` on web, `onPress → onPress` on
-  RN), and implements substrate quirks (focus trap, escape listener,
-  back button, …).
-- **generated/** — built by codegen. The component API derives from
-  the machine spec; the elements derive from the machine spec plus
-  shared styles. Never hand-edited.
+The full layered model, the codegen pipeline, and the "the
+machine never sees props" rule are in:
 
-See `ARCHITECTURE.md` for the full layered model, `AGENTS.md` for the
-contributor / agent contract, and `packages/core/components/<comp>/SPEC.md`
-for per-component behavior.
+- **[`ARCHITECTURE.md`](./ARCHITECTURE.md)** — the big-picture map and the layered model.
+- **[`packages/core/machine/README.md`](./packages/core/machine/README.md)** — the state machine and full benchmark results.
+- **[`AGENTS.md`](./AGENTS.md)** — the contributor / agent contract.
+- `packages/core/components/<comp>/SPEC.md` — per-component behavior specs.
+
+## Inspiration & prior art
+
+Agnostic Render stands on the shoulders of the amazing libs:
+
+- **[XState](https://stately.ai/docs)** — for the disciplined statechart model:
+  queued run-to-completion transitions, guards, entry/exit, the rigor of treating
+  UI as a state machine in the first place.
+- **[Zag](https://zagjs.com/)** — for proving the headless, framework-agnostic
+  component-as-a-machine approach.
+
+The engine here is an independent implementation — its own kernel, its own
+state-machine runtime — built around one bet those libraries aren't: that behavior
+should run with **no environment assumption at all**, fast enough to drive
+thousands of machines at once.

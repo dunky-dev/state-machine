@@ -19,6 +19,8 @@ const HANDLER_MAP: Record<string, string> = {
 const ATTR_MAP: Record<string, string> = {
   describedBy: 'aria-describedby',
   labelledBy: 'aria-labelledby',
+  controls: 'aria-controls',
+  hasPopup: 'aria-haspopup',
   expanded: 'aria-expanded',
   selected: 'aria-selected',
   disabled: 'aria-disabled',

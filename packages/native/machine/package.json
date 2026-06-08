@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@render-experiment/machine-core": "workspace:*",
+    "@render-experiment/machine-react": "workspace:*",
     "@render-experiment/utils": "workspace:*"
   },
   "peerDependencies": {
