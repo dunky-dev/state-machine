@@ -83,41 +83,36 @@ cause underneath all of them is **how each engine holds a machine's data**.
 This lib keeps context as **one plain object, mutated in place (copy-on-write)** +
 a tiny notifier — no per-field reactive cell (Zag), no immutable snapshot per event (XState).
 
-| What's different                       | Zag                          | XState                       | machine-core                          |
-| -------------------------------------- | ---------------------------- | ---------------------------- | ------------------------------------- |
-| **State selection**                    | ❌ host framework does it    | ⚠️ `actor.select` (coarse)   | 🟢 `select` (fine-grained)            |
-| **Runs with no host framework**        | ❌ needs a framework         | ⚠️ statechart yes            | 🟢 yes                                |
-| **Flat-ish state memory**              | ❌ a reactive cell per field | 🟢 plain snapshot            | 🟢 plain context (copy-on-write)      |
-| Data model                             | reactive cell per field      | immutable snapshot per event | one plain object, mutated in place    |
-| Serializable snapshot (persist/replay) | ❌                           | 🟢 the actor model           | ⚠️ no built-in                        |
-| Nested / hierarchical states           | ❌ by design                 | ✅                           | ❌ flat                               |
-| Parallel / orthogonal regions          | ❌ by design                 | ✅                           | ⚠️ `compose` (peers, no shared event) |
-| Spawned child machines / actors        | ❌ by design                 | ✅                           | ❌ by design                          |
+| What's different                | Zag                          | XState                       | machine-core                          |
+| ------------------------------- | ---------------------------- | ---------------------------- | ------------------------------------- |
+| State selection                 | ❌ host framework does it    | ⚠️ `actor.select` (coarse)   | 🟢 `select` (fine-grained)            |
+| Runs with no host framework     | ❌ needs a framework         | ⚠️ statechart yes            | 🟢 yes                                |
+| Flat-ish state memory           | ❌ a reactive cell per field | 🟢 plain snapshot            | 🟢 plain context (copy-on-write)      |
+| Data model                      | reactive cell per field      | immutable snapshot per event | one plain object, mutated in place    |
+| Serializable snapshot¹          | ❌ state too scattered       | 🟢 the actor model           | ⚠️ no built-in                        |
+| Nested / hierarchical states    | ❌ by design²                | ✅                           | ❌ flat                               |
+| Parallel state                  | ❌ by design²                | ✅                           | ⚠️ `compose` (peers, no shared event) |
+| Spawned child machines / actors | ❌ by design²                | ✅                           | ❌ by design²                         |
 
-**XState** allocates a serializable snapshot on every transition, and it taxes the hot
-path. machine-core drops mutates in place. The speed and flat memory come from a
-**narrower contract**, not better engineering.
-**Zag** can run framework-free, but presumes a host DOM framework, machine-core owns
-its reactivity internally, extending the same idea onto any JS enviroment (DOM, React Native, TUI, WebGL, ...).
-
-Footnotes:
-
-- **❌-by-design** (nested/parallel/spawn) follows the same philosophy as Zag:
-  keep machines light-weight, avoid the heavy statechart concepts.
-- **Fine-grained `select`** re-evaluates on any change and fires only when the
-  _selected value_ changes — so an observer wakes for the slice it reads, no host
-  framework required. The trade vs. signals: not auto-dependency-tracked — a change
-  re-runs every live selector and value-compares (cheap, bounded per machine).
+- **XState** allocates a serializable snapshot on every transition, and it taxes the hot
+  path. machine-core drops mutates in place.
+- **Zag** can run framework-free, but presumes a host DOM framework, machine-core owns
+  its reactivity internally, extending the same idea onto any JS enviroment (DOM, React Native, TUI, WebGL, ...).
+- **¹ Serializable snapshot** — only XState ships it (actor model). machine-core can
+  add one (context is one plain object); Zag can't easily (state is scattered React
+  hook cells).
+- **² ❌-by-design** keep machines light-weight, avoid the heavy statechart concepts.
 
 ### Performance
 
 Numbers below are from `pnpm benchmark` (Node 24, single clean run) — **disposable
 first-look** figures, reproduce them yourself. The root
-[README](../../../README.md#benchmark) carries the headline summary + the bundle
-sizes; this section is the per-scenario detail. Contenders are `machine-core` and
-XState in the synchronous loops (both sync statecharts, fair ops/sec); Zag's
-headless `send` is async (microtask-batched), so it appears only in the React
-render arena it's built for.
+[README](../../../README.md#fast-at-scale) carries the headline summary; this
+section is the per-scenario detail. Contenders are `machine-core` and
+XState in the synchronous ops/sec loops (both sync statecharts, fair); Zag's
+headless `send` is async (microtask-batched), so it can't share a synchronous
+loop — it appears where it runs synchronously: construction, memory, and the
+React render arena (mount + re-render row-count).
 
 ### Benchmark
 
@@ -125,13 +120,13 @@ render arena it's built for.
 
 |                                 | **Agnostic Render** |  XState |        Zag |
 | ------------------------------- | ------------------: | ------: | ---------: |
-| **Events per second**           |         **3.3 M/s** | 850 K/s |      n/a ¹ |
-| **Spin up 10 000 machines**     |           **25 ms** |   65 ms |     101 ms |
-| **Memory at 64 fields/machine** |          **6.5 KB** |  9.3 KB | **132 KB** |
+| **Events per second**           |         **3.1 M/s** | 870 K/s |      n/a ¹ |
+| **Spin up 10 000 machines**     |           **34 ms** |   52 ms |      92 ms |
+| **Memory at 64 fields/machine** |          **7.8 KB** |  9.3 KB | **133 KB** |
 | **Bundle** (min + gzip)         |          **2.2 KB** | 15.8 KB |   0.5 KB ² |
 | **Bundle** + React adapter      |          **3.0 KB** | 18.6 KB |     3.6 KB |
-| **Render 1 000 rows** (mount)   |          **5.9 ms** |  6.8 ms |     6.9 ms |
-| **Re-render after a change** ³  |          **4.4 ms** |  7.8 ms |      n/a ¹ |
+| **Render 1 000 rows** (mount)   |          **5.4 ms** |  5.9 ms |     5.7 ms |
+| **Re-render after a change** ³  |          **3.8 ms** |  7.0 ms |      n/a ¹ |
 
 - ¹ Zag's `send` is async (microtask-batched), so it can't share a **synchronous** loop — neither the events/sec throughput nor the `flushSync` re-render timing. It IS measured where it runs sync: construction + memory (headless `VanillaMachine`), mount, and the re-render row-count (it wakes only 2 rows, same as the others — see the render table below).
 - ² Zag's `@zag-js/core` is config-only (the machine runtime lives in the framework adapter), so its 0.5 KB engine row isn't runnable on its own — the `+ React adapter` row (`@zag-js/react`) is the fair comparison.
@@ -143,30 +138,64 @@ render arena it's built for.
 
 | Scenario                          | machine-core | XState | core ×   |
 | --------------------------------- | -----------: | -----: | -------- |
-| Single machine, one event         |       3.33 M | 0.85 M | **3.9×** |
-| Propagate 1 of 1000 machines      |       2.61 M | 0.47 M | **5.6×** |
-| Propagate 1 of 5000 machines      |       1.68 M | 0.47 M | **3.6×** |
-| Fine-grain (unobserved) 1 of 5000 |       1.69 M | 0.42 M | **4.0×** |
+| Single machine, one event         |       3.12 M | 0.87 M | **3.6×** |
+| Fine-grain (unobserved) 1 of 5000 |       1.20 M | 0.45 M | **2.7×** |
 
-Throughput stays in the millions even at 5 000 machines — cost grows
-sub-linearly, not per-machine.
+Per-event cost is ~3.6× XState's, and changing a field nobody observes is ~2.7×
+(core's value-dedup suppresses the listener; XState fires its subscriber and
+diffs in it).
+
+**Fan-out — one machine, N observers, change one field (higher is better)**
+
+This is the honest scaling test: a single machine with N selections, bump one
+field. Core's `select` is a coarse bus — every selection re-evaluates on each
+notify and value-compares — so the re-eval pass is **O(N), not O(changed)**; only
+the React re-render is O(changed). XState's headless `actor.subscribe` is O(N)
+too, with a heavier per-notify constant.
+
+| Observers (N) | machine-core | XState | core ×   |
+| ------------- | -----------: | -----: | -------- |
+| 100           |        315 K |  256 K | **1.2×** |
+| 1 000         |        9.9 K | 10.8 K | 0.9× ¹   |
+| 5 000         |        6.3 K | 0.74 K | **8.5×** |
+
+Both engines degrade with N — this is **not** flat O(changed) at the engine
+level. What core buys is a far smaller constant: at 5 000 observers it's **8.5×**
+XState. (At 1 000 they're within noise of each other.)
+
+- **¹** At N=1 000 XState edges ahead by ~9%; the gap only opens up decisively at
+  larger N. Reported as-is rather than cherry-picked.
 
 **Construction — µs / machine, and memory — KB / machine (5 000 live; lower is better)**
 
 Construction is synchronous for all three, so Zag's headless `VanillaMachine` is a
 fair contender here (and for memory):
 
-| Metric                   | machine-core | XState |     Zag |
-| ------------------------ | -----------: | -----: | ------: |
-| Construct (×10 000)      |     **2.52** |   6.53 |   10.11 |
-| Memory, 2-field context  |     **3.43** |   6.23 |    8.74 |
-| Memory, 64-field context |     **6.55** |   9.26 | **132** |
+| Metric                        | machine-core | XState |     Zag |
+| ----------------------------- | -----------: | -----: | ------: |
+| Construct (µs/machine, ×10 K) |     **3.39** |   5.16 |    9.18 |
+| Memory, 2-field context       |     **4.81** |   6.26 |    8.78 |
+| Memory, 64-field context      |     **7.84** |   9.28 | **133** |
 
 2 → 64 fields adds only ~3 KB/machine for core: context is one plain object, so
 memory grows with the data you store, not with a per-field cell. It's **not**
 perfectly flat — it grows linearly, just slowly. **Zag is the contrast that makes
 the point**: its context is one reactive cell per field, so 64 fields balloon to
-~136 KB/machine (~21× core) — the per-field-cell cost this model avoids.
+~133 KB/machine (~17× core) — the per-field-cell cost this model avoids.
+
+**Memory after a write (copy-on-write fired).** The numbers above are idle
+machines, which for core share the config's context object (copy-on-write hasn't
+triggered). Sending one event to each — the realistic churny-app case — makes
+each core machine own its context copy. The footprint barely moves, and the
+contrast with XState sharpens:
+
+| Metric (64 fields, 5 000 machines) | machine-core | XState |    Zag |
+| ---------------------------------- | -----------: | -----: | -----: |
+| Idle (never written)               |     **7.84** |   9.28 |    133 |
+| Written (1 event each, COW fired)  |     **5.84** |  12.42 |    136 |
+
+Core stays flat (the idle/written wobble is within GC noise); **XState's snapshot
+model doubles** (6.4 → 12.4 KB) once `assign` allocates a per-machine context.
 
 **React rendering — list of 1 000 rows, 50 highlight moves.** Each library in its
 idiomatic fine-grained path (lower is better):
@@ -174,8 +203,8 @@ idiomatic fine-grained path (lower is better):
 | Metric                | machine-core | XState |          Zag |
 | --------------------- | -----------: | -----: | -----------: |
 | Rows woken / move     |        **2** |      2 |            2 |
-| Mount (ms)            |      **5.9** |    6.8 |          6.9 |
-| Re-render wall (ms) ¹ |      **4.4** |    7.8 | n/a (async)² |
+| Mount (ms) ³          |      **5.4** |    5.9 |          5.7 |
+| Re-render wall (ms) ¹ |      **3.8** |    7.0 | n/a (async)² |
 
 All three properly-set-up engines wake only the **2** rows that changed. The
 difference is per-render _cost_ — where core and XState are directly comparable
@@ -187,12 +216,35 @@ that matters for "does it stay surgical at scale."
 - ² Zag's `send` is microtask-batched, so a
   synchronous `flushSync` re-render loop can't time it fairly (it balloons under
   forced sync flushes) — only the row-count is reported for Zag.
+- ³ Mount (ms) is **not** apples-to-apples: each library mounts its idiomatic
+  per-row primitive (core/XState a `useSelector` subscription; Zag a full
+  `useMachine` + `React.memo` wrapper). It's "cost of this library's row", not a
+  shared primitive — the row-count and re-render wall are the comparable metrics.
+
+**Engine internals (core-only, events/sec).** These have no cross-engine
+counterpart (XState has no first-class lazy `computed`; the rest are engine hot
+paths) — they're here to characterize the runtime's own cost, not to compare:
+
+| Path                                          | events/sec | note                                    |
+| --------------------------------------------- | ---------: | --------------------------------------- |
+| `computed` — cached read (no change)          |     17.0 M | memo hit; ~11× a recompute              |
+| `computed` — recompute (read field changed)   |      1.5 M | full re-run under tracking proxies      |
+| `computed` — 4-deep chain (root → tip)        |      0.5 M | resolves the whole chain, glitch-free   |
+| `computed` — fine-grain (unread field changed)|      2.9 M | read-key tracking → memo hit, no re-run |
+| Guard fallthrough — 2 / 8 / 32 candidates     | 3.4 / 3.0 / 2.1 M | linear in candidate count        |
+| State-change churn (exit + entry every event) |      2.7 M | ~13% over a context-only mutate         |
+| Effect boot + cleanup every transition        |      2.7 M | `startEffects`/`stopEffects` per move   |
+| Subscriber set — stable vs churning ⁴         | 2.9 M vs 2.3 M | bus-snapshot rebuild costs ~21%    |
+
+- **⁴** "Churning" subscribes + unsubscribes around each event, so the bus
+  iteration snapshot is rebuilt every notify — the mount/unmount shape of a
+  virtualized list. A stable subscriber set reuses the snapshot.
 
 **When this matters: density × frequency** — many machines reacting to a
 high-frequency stream inside one frame budget. Trading terminals (thousands of
 ticker rows), canvas boards (`pointermove` fanning out to selected shapes),
 monitoring walls, multiplayer editors, game HUDs. Where machine work fights the
-frame, ~3–4× throughput plus surgical re-renders is the difference between smooth
+frame, ~3.6× throughput plus surgical re-renders is the difference between smooth
 and dropped frames.
 
 ### The machine never sees props
