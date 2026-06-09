@@ -89,6 +89,13 @@ So props enter only at the **edge**, never the machine:
   by the **connector / connect**, which observes the machine and calls back;
 - **initial state derived from props** → computed before `machine()` is built.
 
+**Controlled state is initial-only.** A controlled `open`/`value` resolves into
+the _initial_ state once, and the connector fires the prop callback on every
+intent — the engine does not live-reconcile a controlled value after mount. The
+consumer re-renders with the new value; the component never mutates it. ("It
+reports the intent and the consumer decides," not "the component obeys the
+controlled value frame-by-frame.")
+
 This is the rule that makes one machine run byte-for-byte identically on React,
 React Native, a canvas loop, or a test — each target varies only the thin
 connector/adapter layer around it. (It's the one place this engine diverges from
@@ -294,7 +301,7 @@ production (`pnpm build`) — there's no separate runtime path.
    READS
    ────────────────────────────────────────────────────────────────
    core/components/<comp>/src/                  (behavior + anatomy)
-   ├── index.ts                     names: <comp>Machine, connect<Comp>
+   ├── index.ts                     names: <comp>MachineConfig, connect<Comp>, <COMP>_DEFAULTS
    ├── types.ts                     types referenced by api.ts
    ├── machine.ts                   imported by the generated api
    ├── connect.ts                   imported by the generated api
@@ -319,6 +326,15 @@ production (`pnpm build`) — there's no separate runtime path.
    ├── api.ts          ← useXxxApi (imports core + native runtime)
    └── elements.ts     ← styled wrappers
 ```
+
+**Part name → element.** `emitElements` picks each part's element by its name:
+interactive parts (`trigger`, `item`, `close`) become a `<button>` / `Pressable`
+(focusable, keyboard-operable); text parts (`title`, `description`) become
+`<h2>` / `<p>` / `Text` (so the shared text style applies); everything else is a
+`<div>` / `View`. The name sets live in `scripts/build.ts` (`INTERACTIVE_PARTS`,
+`TEXT_PARTS`) — extend them there when a new component needs a clickable or text
+part with a new name. A clickable part left as a `<div>` is not focusable (it
+breaks focus traps); a native text part left as a `View` loses its text color.
 
 ## Vocabulary
 

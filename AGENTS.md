@@ -46,13 +46,21 @@ the layered model:
 ## Specs are intent, not API mirrors
 
 `SPEC.md` is the human-readable description of what the component is.
-It describes behavior in **human terms**, not in prop names.
+It describes behavior in **human terms** — never prop names, attribute
+names, or implementation mechanisms. Leaks to avoid:
 
-- Bad: `openDelay: number — ms before opening (default 400)`
-- Good: `Trigger hover continues for the open delay → tooltip opens`
+- ❌ prop names: `openDelay: number (default 400)`, "a controlled `open`
+  prop", "cancelable via `onEscapeKeyDown`"
+- ❌ platform attrs: `role="dialog"`, `aria-modal`, `aria-labelledby`,
+  `data-state`, `tabindex=-1`
+- ❌ mechanisms: "portals to `document.body`", "calls `preventDefault`"
+- ✅ behavior: "Trigger hover continues for the open delay → tooltip opens",
+  "Escape dismisses the dialog; a consumer can intercept and cancel this",
+  "the window is announced as a dialog", "focus returns to whatever opened it"
 
-The spec describes _what_ so the doc survives renames and refactors.
-SPECs are owned by the human — do not rewrite spec prose unless a
+The spec describes _what_ so the doc survives renames and refactors — it
+never names code. The tooltip and dialog `SPEC.md` files are the reference
+register. SPECs are owned by the human — do not rewrite spec prose unless a
 contradiction with code has been flagged and confirmed.
 
 **Behavior described in `SPEC.md` must be covered by automated tests
