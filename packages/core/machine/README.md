@@ -90,22 +90,23 @@ immutable snapshot per event (XState).
 | **Runs with no host framework / no DOM** | ❌ needs a framework + DOM   | ⚠️ statechart yes, fine-graining no    | 🟢 yes                                |
 | **Flat-ish memory in field/state count** | ❌ a reactive cell per field | 🟢 plain snapshot                      | 🟢 plain context, copy-on-write       |
 | Data model                               | reactive cell per field      | immutable snapshot per event           | one plain object, mutated in place    |
-| Serializable snapshot (persist/replay)   | ❌                           | 🟢 (the actor model — its whole point) | ❌ (the cost of mutating in place)    |
+| Serializable snapshot (persist/replay)   | ❌                           | 🟢 (the actor model — its whole point) | ⚠️ no built-in                        |
 | Nested / hierarchical states             | ❌ by design                 | ✅                                     | ❌ by design (flat)                   |
 | Parallel / orthogonal regions            | ❌ by design                 | ✅ (true parallel states)              | ⚠️ `compose` (peers, no shared event) |
 | Spawned child machines / actors          | ❌ by design                 | ✅ (`invoke` / `spawn`)                | ❌ by design                          |
 
-Reading the trade both ways: **XState** is built around the actor model — every
-transition allocates a serializable snapshot you can persist, replay, and inspect
-in a visualizer. Those are real features; each one taxes the hot path. machine-core
-drops the snapshot, so it can mutate in place and notify through a small notifier —
-the speed and flat memory come from a **narrower contract**, not better
-engineering. If you need to persist or time-travel a machine, XState is the right
-tool. **Zag** already runs framework-free (React/Vue/Solid/Svelte + a vanilla
-build), so this isn't "we did what Zag couldn't" — it's that Zag delegates
-reactivity to a host framework that must exist, whereas machine-core owns its
-reactivity internally and so extends the same idea onto surfaces with no DOM and
-no framework (canvas, WebGL, a TUI, React Native).
+Reading the trade both ways: **XState** allocates a serializable snapshot on every
+transition — that's what powers persist / replay / inspect, and it taxes the hot
+path whether or not you record. machine-core drops the always-on snapshot to mutate
+in place; the speed and flat memory come from a **narrower contract**, not better
+engineering. Narrower, not closed: context is a plain object, so an opt-in recorder
+middleware can add persist / replay / time-travel, paying the snapshot cost only
+while recording. It still won't match XState's built-in serialization and
+replay-determinism (here, keeping actions pure is on you, and effects/timers don't
+replay) — so for persistence- or time-travel-first work, reach for XState. **Zag**
+already runs framework-free, delegating reactivity to a host framework that must
+exist; machine-core owns its reactivity internally, extending the same idea onto
+surfaces with no DOM and no framework (canvas, WebGL, a TUI, React Native).
 
 Footnotes:
 

@@ -160,6 +160,27 @@ importers:
 
   packages/core/style-engine: {}
 
+  packages/native/components/dialog:
+    dependencies:
+      '@render-experiment/dialog-core':
+        specifier: workspace:*
+        version: link:../../../core/components/dialog
+      '@render-experiment/machine-core':
+        specifier: workspace:*
+        version: link:../../../core/machine
+      '@render-experiment/machine-native':
+        specifier: workspace:*
+        version: link:../../machine
+      '@render-experiment/style-engine-native':
+        specifier: workspace:*
+        version: link:../../style-engine
+      react:
+        specifier: '*'
+        version: 19.2.6
+      react-native:
+        specifier: '*'
+        version: 0.85.0(@babel/core@7.29.7)(@react-native/jest-preset@0.85.3(@babel/core@7.29.7)(react@19.2.6))(@types/react@19.2.15)(react@19.2.6)
+
   packages/native/components/dropdown-menu:
     dependencies:
       '@render-experiment/dropdown-menu-core':
@@ -320,6 +341,9 @@ importers:
 
   sandbox/native:
     dependencies:
+      '@render-experiment/dialog-native':
+        specifier: workspace:*
+        version: link:../../packages/native/components/dialog
       '@render-experiment/dropdown-menu-native':
         specifier: workspace:*
         version: link:../../packages/native/components/dropdown-menu
