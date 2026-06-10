@@ -80,14 +80,15 @@ presumes a DOM) and **performance under heavy fan-out**.
 
 **The differences:** The single
 cause underneath all of them is **how each engine holds a machine's data**.
-This lib keeps context as **one plain object, mutated in place (copy-on-write)** +
-a tiny notifier — no per-field reactive cell (Zag), no immutable snapshot per event (XState).
+This lib keeps context as **one plain object per machine, mutated in place**
+(copied once at construction; its identity never changes) + a tiny notifier — no
+per-field reactive cell (Zag), no immutable snapshot per event (XState).
 
 | What's different                | Zag                          | XState                       | machine-core                          |
 | ------------------------------- | ---------------------------- | ---------------------------- | ------------------------------------- |
 | State selection                 | ❌ host framework does it    | ⚠️ `actor.select` (coarse)   | 🟢 `select` (fine-grained)            |
 | Runs with no host framework     | ❌ needs a framework         | ⚠️ statechart yes            | 🟢 yes                                |
-| Flat-ish state memory           | ❌ a reactive cell per field | 🟢 plain snapshot            | 🟢 plain context (copy-on-write)      |
+| Flat-ish state memory           | ❌ a reactive cell per field | 🟢 plain snapshot            | 🟢 plain context (one object/machine) |
 | Data model                      | reactive cell per field      | immutable snapshot per event | one plain object, mutated in place    |
 | Serializable snapshot¹          | ❌ state too scattered       | 🟢 the actor model           | ⚠️ no built-in                        |
 | Nested / hierarchical states    | ❌ by design²                | ✅                           | ❌ flat                               |
@@ -120,13 +121,18 @@ React render arena (mount + re-render row-count).
 
 |                                 | **Agnostic Render** |  XState |        Zag |
 | ------------------------------- | ------------------: | ------: | ---------: |
-| **Events per second**           |         **3.1 M/s** | 870 K/s |      n/a ¹ |
-| **Spin up 10 000 machines**     |           **34 ms** |   52 ms |      92 ms |
-| **Memory at 64 fields/machine** |          **7.8 KB** |  9.3 KB | **133 KB** |
+| **Events per second**           |         **3.0 M/s** | 850 K/s |      n/a ¹ |
+| **Spin up 10 000 machines**     |               30 ms |   24 ms |      98 ms |
+| **Memory at 64 fields/machine** |              4.7 KB |  4.1 KB | **134 KB** |
 | **Bundle** (min + gzip)         |          **2.2 KB** | 15.8 KB |   0.5 KB ² |
 | **Bundle** + React adapter      |          **3.0 KB** | 18.6 KB |     3.6 KB |
 | **Render 1 000 rows** (mount)   |          **5.4 ms** |  5.9 ms |     5.7 ms |
 | **Re-render after a change** ³  |          **3.8 ms** |  7.0 ms |      n/a ¹ |
+
+Where the engine decisively wins is the hot path (~3.5× XState's event
+throughput) and per-field-cell memory (Zag's 64-field context is ~28× core's).
+Construction and memory against XState are roughly par — core's bet there is
+_flatness_, not a headline win.
 
 - ¹ Zag's `send` is async (microtask-batched), so it can't share a **synchronous** loop — neither the events/sec throughput nor the `flushSync` re-render timing. It IS measured where it runs sync: construction + memory (headless `VanillaMachine`), mount, and the re-render row-count (it wakes only 2 rows, same as the others — see the render table below).
 - ² Zag's `@zag-js/core` is config-only (the machine runtime lives in the framework adapter), so its 0.5 KB engine row isn't runnable on its own — the `+ React adapter` row (`@zag-js/react`) is the fair comparison.
@@ -138,39 +144,48 @@ React render arena (mount + re-render row-count).
 
 | Scenario                          | machine-core | XState |
 | --------------------------------- | -----------: | -----: |
-| Single machine, one event         |   **3.12 M** | 0.87 M |
+| Single machine, one event         |   **3.02 M** | 0.85 M |
 | Fine-grain (unobserved) 1 of 5000 |   **1.20 M** | 0.45 M |
 
 **Construction — µs / machine, and memory — KB / machine (5 000 live; lower is better)**
 
 Construction is synchronous for all three, so Zag's headless `VanillaMachine` is a
-fair contender here (and for memory):
+fair contender here (and for memory). All engines share one module-level config
+across instances — the shape a real app has:
 
 | Metric                        | machine-core | XState |     Zag |
 | ----------------------------- | -----------: | -----: | ------: |
-| Construct (µs/machine, ×10 K) |     **3.39** |   5.16 |    9.18 |
-| Memory, 2-field context       |     **4.81** |   6.26 |    8.78 |
-| Memory, 64-field context      |     **7.84** |   9.28 | **133** |
+| Construct (µs/machine, ×10 K) |         3.04 |   2.42 |    9.82 |
+| Memory, 2-field context       |         4.23 |   3.61 |    9.06 |
+| Memory, 64-field context      |         4.73 |   4.09 | **134** |
 
-2 → 64 fields adds only ~3 KB/machine for core: context is one plain object, so
-memory grows with the data you store, not with a per-field cell. It's not
+(Memory rows are the _written_ mode — every machine received one event, the
+footprint a real app pays. XState is marginally lighter per machine; core's
+claim here is flatness, not the smallest absolute number.)
+
+2 → 64 fields adds only ~0.5 KB/machine for core: context is one plain object,
+so memory grows with the data you store, not with a per-field cell. It's not
 perfectly flat — it grows linearly, just slowly. **Zag is the contrast that makes
 the point**: its context is one reactive cell per field, so 64 fields balloon to
-~133 KB/machine (~17×) — the per-field-cell cost this model avoids.
+~134 KB/machine (~28×) — the per-field-cell cost this model avoids.
 
-**Memory after a write (copy-on-write fired).** The numbers above are idle
-machines, which for core share the config's context object (copy-on-write hasn't
-triggered). Sending one event to each — the realistic churny-app case — makes
-each core machine own its context copy. The footprint barely moves, and the
-contrast with XState sharpens:
+**Idle vs written.** Each core machine copies the config's context once at
+construction and mutates it in place forever (the object's identity never
+changes — that's what lets effects and actions hold live references safely). So
+core's idle and written footprints are the same number by design, while a
+lazy-copy scheme shows a step once writes start:
 
 | Metric (64 fields, 5 000 machines) | machine-core | XState | Zag |
 | ---------------------------------- | -----------: | -----: | --: |
-| Idle (never written)               |     **7.84** |   9.28 | 133 |
-| Written (1 event each, COW fired)  |     **5.84** |  12.42 | 136 |
+| Idle (never written)               |         4.72 |   3.55 | 130 |
+| Written (1 event each)             |         4.73 |   4.09 | 134 |
 
-Core stays flat (the idle/written wobble is within GC noise); **XState's snapshot
-model doubles** (6.4 → 12.4 KB) once `assign` allocates a per-machine context.
+Core idle ≡ written; XState's first `assign` allocates a per-actor context, so
+its written row grows. (An earlier copy-on-write scheme in core shared the
+config's context until the first write — measured honestly, that sharing saved
+~40 B per idle machine on a component-sized context and ~0.5 KB at 64 fields,
+and its one-time reference swap silently stranded any context reference captured
+before the first write. Owning the copy from birth was the better trade.)
 
 **React rendering — list of 1 000 rows, 50 highlight moves.** Each library in its
 idiomatic fine-grained path (lower is better):
@@ -1092,4 +1107,4 @@ its full section.
 | **Cross-cutting concepts**       |                                                                                                                                                                            |
 | **the machine never sees props** | The defining rule: a machine is pure behavior; props live only at the edge. [→](#the-machine-never-sees-props)                                                             |
 | **the edge**                     | Where props/platform meet the machine — the connector (props, reactions) + the target's effects.ts (platform listeners). [→](#the-machine-never-sees-props)                                          |
-| **copy-on-write (COW)**          | The context memory model: share the config's object until the first write, then copy. [→](#how-it-compares)                                                                |
+| **context ownership**            | The context memory model: one plain object per machine, copied from the config at construction, mutated in place — its identity never changes. [→](#how-it-compares)       |

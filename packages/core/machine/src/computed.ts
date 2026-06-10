@@ -2,11 +2,11 @@ import type { ComputedDefs } from './types'
 
 /**
  * Live accessors into the host machine. Computed defs read the CURRENT context /
- * computed bag / state through these — never a snapshot — so they stay correct
- * after copy-on-write reassigns the context object. Supplied once at install.
+ * computed bag / state through these — never a snapshot. Supplied once at
+ * install.
  */
 export interface ComputedHost<State extends string, Context, Computed> {
-  /** The live context object (re-read every access; survives copy-on-write). */
+  /** The live context object (re-read every access). */
   context: () => Context
   /** The live computed bag (so a computed can depend on another computed). */
   computed: () => Computed
@@ -49,10 +49,9 @@ export function installComputed<State extends string, Context extends object, Co
     let stateSnapshot: State | undefined
 
     // The two tracking proxies are built ONCE per computed (not per recompute).
-    // Their targets read the host's context / computed LIVE through the trap, so
-    // they stay correct even after copy-on-write reassigns the context. Each
-    // `get` records the key into the CURRENT read-set, which the recompute swaps
-    // in before calling `def`.
+    // Their targets read the host's context / computed LIVE through the trap.
+    // Each `get` records the key into the CURRENT read-set, which the recompute
+    // swaps in before calling `def`.
     let ctxRead: Set<string> | null = null
     let computedRead: Set<string> | null = null
     // set true during a recompute so reading `params.state` records the

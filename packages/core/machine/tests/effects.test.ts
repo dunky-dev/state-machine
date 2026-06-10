@@ -298,11 +298,10 @@ describe('initial-state effects at start', () => {
     expect(seen).toBe(7)
   })
 
-  it('effect params read LIVE context across copy-on-write ($.context style)', () => {
-    // An effect's closures outlive its boot. This one boots BEFORE the first
-    // write — while context is still the shared config object — and reads
-    // later, after setContext has swapped in the machine's private copy. The
-    // read must see the post-write value (a captured plain ref would not).
+  it('effect closures read LIVE context across later writes', () => {
+    // An effect's closures outlive its boot: this one boots before any write
+    // and reads after several. The context object's identity is permanent
+    // (writes mutate it in place), so the late reads must see current values.
     let read: () => number = () => -1
     const m = machine<'idle', { n: number }, { type: 'bump' }>({
       initial: 'idle',
@@ -318,10 +317,10 @@ describe('initial-state effects at start', () => {
         },
       },
     })
-    m.start() // boots while context is the shared (never-written) object
-    m.send({ type: 'bump' }) // first write → copy-on-write fires
+    m.start() // boots before any write
+    m.send({ type: 'bump' })
     expect(read()).toBe(1)
-    m.send({ type: 'bump' }) // subsequent writes mutate in place
+    m.send({ type: 'bump' })
     expect(read()).toBe(2)
   })
 })

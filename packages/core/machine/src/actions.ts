@@ -39,16 +39,11 @@ export function act<Context extends object, Event, Computed = Record<string, nev
   ...patches: Array<Patch<NoInfer<Context>, Event, Computed, Send>>
 ): Action<Context, Event, Computed, Send> {
   return params => {
-    // `params.context` is the snapshot captured when this action started, and the
-    // engine swaps in a fresh context object on each setContext (copy-on-write) —
-    // so a later patch fn reading the captured reference would miss earlier writes.
-    // Track the running context locally and hand each fn a params view of it, so
-    // patches are truly sequential (a later one sees the earlier ones).
-    let context = params.context
+    // Sequential by construction: setContext mutates the context object in
+    // place (its identity never changes), so a later patch fn reading
+    // `params.context` sees the earlier patches' writes — no local tracking.
     for (const patch of patches) {
-      const next = typeof patch === 'function' ? patch({ ...params, context }) : patch
-      params.setContext(next)
-      context = { ...context, ...next }
+      params.setContext(typeof patch === 'function' ? patch(params) : patch)
     }
   }
 }
@@ -108,8 +103,8 @@ export function isOneOf<Context extends object, Event, Computed>(
  * Everything `runAction(s)` needs from the host machine to run an action: the
  * named registries (actions + guards, the latter for `oneOf` branch guards) and
  * live accessors for the params an action receives. Reads are LIVE — `context()`
- * and `computed()` re-read each call so an action (and a later action in the same
- * list) sees the current context after copy-on-write, not a stale snapshot.
+ * and `computed()` re-read each call, so an action (and a later action in the
+ * same list) always sees the current context, never a stale snapshot.
  */
 export interface ActionHost<Context extends object, Event, Computed> {
   actions: Record<string, Action<Context, Event, Computed>> | undefined

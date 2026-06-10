@@ -5,7 +5,7 @@
  * The reactivity kernel is a tiny coarse bus: a write (context or state change)
  * bumps `version` and notifies every listener; `select` re-evaluates + value-compares
  * so it fires only on a real change (O(changed) at the listener), and `computed`
- * memoizes against `version`.
+ * memoizes by snapshotting the inputs it actually read (see ./computed).
  */
 import { type ActionHost, runActions } from './actions'
 import { installComputed } from './computed'
@@ -80,11 +80,6 @@ class MachineClass<
   startListeners: Set<() => void> | null = null
   stopListeners: Set<() => void> | null = null
   computed: Computed
-  // Copy-on-write: share the config's context object until the first write, then
-  // own a private copy. An idle/never-written machine costs zero per-instance
-  // context bytes beyond a shared pointer — flat memory regardless of field
-  // count. `ownsCtx` flips on first setContext; the config object is never mutated.
-  ownsCtx = false
   // stable bound refs handed to actions/effects (the only per-instance closures)
   setContext: (patch: Partial<Context>) => void
   send: (event: Event) => void
@@ -93,15 +88,21 @@ class MachineClass<
 
   constructor(config: TransitionConfig<State, Context, Event, Computed>) {
     this.config = config
-    this.ctx = config.context // SHARED ref (copy-on-write below)
+    // Own copy from birth, identity PERMANENT: writes mutate it in place, so a
+    // reference captured anywhere (an effect's closure, action params) is a
+    // live view forever; the config's object is never mutated. This replaces
+    // copy-on-write — its one-time reference swap silently stranded refs
+    // captured before the first write, and the sharing it bought was ~40 B per
+    // idle machine on a component-sized context (see the memory bench).
+    this.ctx = { ...config.context }
     this.stateValue = config.initial
     // shared per-config tag sets (not rebuilt per instance) — see tagsForStates
     this.tagsOf = tagsForStates(config.states)
 
     // Computed bag with read-key tracking — see ./computed. The host accessors
-    // read this machine's live context / computed / state, so a def stays correct
-    // after copy-on-write reassigns `this.ctx`. `target` IS `this.computed`, so a
-    // computed→computed dep resolves in place against the same bag.
+    // read this machine's live context / computed / state. `target` IS
+    // `this.computed`, so a computed→computed dep resolves in place against the
+    // same bag.
     this.computed = {} as Computed
     if (config.computed) {
       installComputed(this.computed, config.computed, {
@@ -111,8 +112,7 @@ class MachineClass<
       })
     }
 
-    // Live action params (context/computed re-read each run, so a later action in
-    // a list sees an earlier one's writes after copy-on-write) + the named
+    // Live action params (context/computed re-read each run) + the named
     // registries. Built once; `runAction(s)` close over it.
     this.actionHost = {
       actions: config.implementations?.actions,
@@ -133,12 +133,7 @@ class MachineClass<
         }
       }
       if (!changed) return
-      // copy-on-first-write: stop sharing the config's object before mutating
-      if (!this.ownsCtx) {
-        this.ctx = { ...this.ctx } as Context
-        this.ownsCtx = true
-      }
-      Object.assign(this.ctx, patch)
+      Object.assign(this.ctx, patch) // in place — this.ctx identity never changes
       this.bump()
     }
     this.send = event => this.doSend(event)
@@ -312,9 +307,6 @@ class MachineClass<
     }
     const effects = this.config.states[state].effects
     if (!effects) return
-    // eslint-disable-next-line @typescript-eslint/no-this-alias -- the params
-    // getter below has its own `this` (the literal), so the machine is aliased
-    const self = this
     for (const effect of effects) {
       const fn =
         typeof effect === 'function' ? effect : this.config.implementations?.effects?.[effect]
@@ -325,13 +317,9 @@ class MachineClass<
         continue
       }
       const cleanup = fn({
-        // LIVE read, not a captured ref: an effect's closures outlive its boot,
-        // and the first setContext swaps in a private context copy (copy-on-
-        // write) — a plain `context: this.ctx` here would go permanently stale
-        // for effects booted before the machine's first write.
-        get context() {
-          return self.ctx
-        },
+        // handing the object itself is safe: its identity never changes (writes
+        // mutate in place), so an effect's long-lived closures read live values
+        context: this.ctx,
         setContext: this.setContext,
         event,
         send: this.send,

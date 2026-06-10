@@ -122,8 +122,8 @@ core                                  agnostic logic — no React, no DOM, no RN
 |   |                                 file per concern; public surface in index)
 |   +-- machine()                     builds a stopped service from a config;
 |   |                                 .start()/.stop()/.send()/.state/.select
-|   +-- context / state               one plain-object context (mutated in
-|   |                                 place, copy-on-write) + flat states
+|   +-- context / state               one plain-object context per machine
+|   |                                 (mutated in place) + flat states
 |   +-- guards / actions              and/or/not combinators · oneOf
 |   +-- connector                     connect() -> live, subscribable snapshot
 |   +-- compose                       run several machines as one (orthogonal

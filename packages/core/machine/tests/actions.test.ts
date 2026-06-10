@@ -349,3 +349,54 @@ describe('entry / exit', () => {
     expect(m.state).toBe('c')
   })
 })
+
+describe('context ownership', () => {
+  const config = () => ({
+    initial: 'idle' as const,
+    context: { n: 0 },
+    states: {
+      idle: {
+        on: {
+          inc: {
+            actions: [
+              ({
+                context,
+                setContext,
+              }: {
+                context: { n: number }
+                setContext: (p: { n: number }) => void
+              }) => setContext({ n: context.n + 1 }),
+            ],
+          },
+        },
+      },
+    },
+  })
+
+  it('never mutates the config context object', () => {
+    const cfg = config()
+    const m = machine<'idle', { n: number }, { type: 'inc' }>(cfg)
+    m.send({ type: 'inc' })
+    expect(m.context.n).toBe(1)
+    expect(cfg.context.n).toBe(0) // the config's object is untouched
+  })
+
+  it('machines built from one shared config are isolated from birth', () => {
+    const cfg = config()
+    const a = machine<'idle', { n: number }, { type: 'inc' }>(cfg)
+    const b = machine<'idle', { n: number }, { type: 'inc' }>(cfg)
+    a.send({ type: 'inc' })
+    expect(a.context.n).toBe(1)
+    expect(b.context.n).toBe(0) // no cross-instance bleed
+    expect(a.context).not.toBe(b.context) // each owns its copy
+  })
+
+  it('the context object identity is permanent across writes', () => {
+    const m = machine<'idle', { n: number }, { type: 'inc' }>(config())
+    const ref = m.context
+    m.send({ type: 'inc' })
+    m.send({ type: 'inc' })
+    expect(m.context).toBe(ref) // writes mutate in place — captured refs stay live
+    expect(ref.n).toBe(2)
+  })
+})

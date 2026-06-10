@@ -18,8 +18,8 @@ export { setup } from './setup'
 // Per-state node shape (used when annotating a config's `states`).
 export type { StateNode } from './types'
 // NOTE: state and context have no standalone modules — they're plain fields on
-// the machine instance (getter-free reads, inline dedup + copy-on-write writes);
-// see machine.ts. What IS factored into its own module is the logic with real
+// the machine instance (getter-free reads, inline-deduped in-place writes); see
+// machine.ts. What IS factored into its own module is the logic with real
 // complexity: computed tracking (./computed) and transition selection
 // (./transitions).
 
