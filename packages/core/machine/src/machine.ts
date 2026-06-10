@@ -289,6 +289,9 @@ class MachineClass<
     }
     const effects = this.config.states[state].effects
     if (!effects) return
+    // eslint-disable-next-line @typescript-eslint/no-this-alias -- the params
+    // getter below has its own `this` (the literal), so the machine is aliased
+    const self = this
     for (const effect of effects) {
       const fn =
         typeof effect === 'function' ? effect : this.config.implementations?.effects?.[effect]
@@ -299,7 +302,13 @@ class MachineClass<
         continue
       }
       const cleanup = fn({
-        context: this.ctx,
+        // LIVE read, not a captured ref: an effect's closures outlive its boot,
+        // and the first setContext swaps in a private context copy (copy-on-
+        // write) — a plain `context: this.ctx` here would go permanently stale
+        // for effects booted before the machine's first write.
+        get context() {
+          return self.ctx
+        },
         setContext: this.setContext,
         event,
         send: this.send,
