@@ -9,21 +9,21 @@ props, and owns the per-component substrate effects.
 
 Everything here is deliberately small — the behavior lives in the core machine
 and the component's `connect`; this layer only adapts them to React. There are
-five exports: one bridge hook (`useMachine`), one leaf-subscription hook
-(`useSelector`), the substrate-effect runner (`useEffects` + its types), and two
-prop helpers (`normalize`, `mergeProps`).
+four exports: one bridge hook (`useMachine`, which also runs the component's
+substrate effects), one leaf-subscription hook (`useSelector`), and two prop
+helpers (`normalize`, `mergeProps`) — plus the `ComponentEffect` types.
 
 ---
 
 ## `useMachine` — the one bridge hook
 
-Every component's generated `useXxxApi` calls this with the four agnostic pieces:
+Every component's generated `useXxxApi` calls this with the agnostic pieces:
 
 ```ts
 const { api, machine } = useMachine(
   tooltipMachineConfig, // (props) => config  — config factory, props seed it ONCE
   connectTooltip, // pure connect(): snapshot → view api
-  tooltipAdapter, // platform machine-effect impls (withAdapter)
+  tooltipEffects, // the component's substrate effects (ComponentEffect[])
   resolved, // props with defaults applied
 )
 ```
@@ -31,10 +31,9 @@ const { api, machine } = useMachine(
 It:
 
 - **builds once** (in `useMemo` with an empty dep array) —
-  `machine(withAdapter(createConfig(props), adapter))` +
-  `connector(service, connect, props)`. The first render's props seed context and
-  the initial state; recreating would lose state, so later prop changes flow
-  through `setProps`, not a rebuild.
+  `machine(createConfig(props))` + `connector(service, connect, props)`. The
+  first render's props seed context and the initial state; recreating would lose
+  state, so later prop changes flow through `setProps`, not a rebuild.
 - **keeps props fresh** via a passive effect (`connection.setProps(props)`) —
   never during render (writing the props signal mid-render would notify
   `useSyncExternalStore` and loop with _"cannot update a component while
@@ -43,22 +42,25 @@ It:
   _subsequent_ changes. `setProps` value-dedups, so a consumer that rebuilds an
   equal props object each render doesn't churn.
 - **runs the lifecycle**: `service.start()` on mount, `service.stop()` on unmount.
-  That's all the bridge does — the connector wired its
+  The connector wired its
   [reactions](../../core/machine#reactions--firing-prop-callbacks-without-the-machine-knowing)
   to the machine's own `start`/`stop`, so prop-callbacks follow automatically
   (StrictMode mount→unmount→mount included), with no teardown threading here.
+- **runs the component's substrate effects** — one `useEffect` per
+  `ComponentEffect` entry, each keyed on its named prop deps (see below). The
+  generated `useApi` no longer touches React directly; passing the effects list
+  here is all it does.
 - **drives React** via
   `useSyncExternalStore(connection.subscribe, () => connection.snapshot)` over the
   connector's stable, memoized snapshot — its identity only changes on a real
   change, so there's no infinite-loop / tearing.
 
 Returns `{ api, machine }`: `api` is the `connect()` output to spread onto
-elements; `machine` is the running service, handed to `useEffects` and
-`useSelector`.
+elements; `machine` is the running service (also handed to `useSelector`).
 
 ---
 
-## `useEffects` + `ComponentEffect` — substrate transport, without the boilerplate
+## `ComponentEffect` — substrate transport, without the boilerplate
 
 Some behavior can't live in the agnostic machine because it needs the **platform
 itself** — a DOM `keydown` listener for Escape, a `ResizeObserver` — and the
@@ -103,14 +105,14 @@ Named consts over inline tuples: each effect gets a label (`trackEscape`), the
 export is a flat readable list (no `[[…],[…]]` nesting), and each effect's deps
 sit next to it. The export type is inferred (`ComponentEffect[]`).
 
-The generated `useApi` runs the list through `useEffects`, which calls **one
-`useEffect` per entry**, each with a **precise dependency array** built from that
-entry's named props:
+`useMachine` runs the list — **one `useEffect` per entry**, each with a **precise
+dependency array** built from that entry's named props (so the component file
+never touches React):
 
 ```ts
-useEffects(tooltipEffects, machine, resolved)
-//  → for each [fn, deps]:
-//      useEffect(() => fn(machine, resolved), [machine, ...deps.map(k => resolved[k])])
+// inside useMachine, after start():
+//   for each [fn, deps] of effects:
+//     useEffect(() => fn(machine, resolved), [machine, ...deps.map(k => resolved[k])])
 ```
 
 **Why a list of per-effect deps** (not one combined set): each effect
@@ -123,7 +125,7 @@ props — typed `(keyof Props)[]`, so a typo is a compile error — re-runs an e
 _only when one of its values actually changes_, never stale. `machine` is always
 an implicit dep.
 
-> The list **must be a static module constant** — `useEffects` calls one hook per
+> The list **must be a static module constant** — `useMachine` calls one hook per
 > entry, so its length can't vary between renders (rules-of-hooks). Declaring it
 > as `export const xEffects = [...]` guarantees that; never build it conditionally
 > or per-render.
@@ -236,9 +238,8 @@ If the consumer passes no props, the library props are returned as-is.
 
 | Export                                        | What it is                                                                                                                    |
 | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `useMachine(config, connect, adapter, props)` | the bridge hook — build once + lifecycle + `useSyncExternalStore`; returns `{ api, machine }`                                 |
+| `useMachine(config, connect, effects, props)` | the bridge hook — build once + lifecycle + run the component effects + `useSyncExternalStore`; returns `{ api, machine }`     |
 | `useSelector(machine, selector, isEqual?)`    | fine-grained subscription to a derived slice (`O(readers)`)                                                                   |
-| `useEffects(effects, machine, props)`         | run a `ComponentEffects` list — one React effect per entry, each with a precise dep array                                     |
 | `normalize(bindings)`                         | agnostic bindings → DOM/ARIA props                                                                                            |
 | `mergeProps(consumer, library)`               | merge consumer + component props (handlers chained w/ `defaultPrevented` veto; `style`/`className` merged; else library wins) |
 | `ComponentEffect<M, P>`                       | `[ (machine, props) => cleanup, (keyof P)[] ]` — one substrate effect + its prop deps                                         |

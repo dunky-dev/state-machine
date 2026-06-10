@@ -288,11 +288,6 @@ whether it needs props/platform or not:
    (`resolveEscape`); only the platform listener is per-target. On accept it
    `send()`s a plain event the machine already understands.
 
-(There used to be a third, middle home — a prop-free but platform-specific
-machine effect plugged in via `withAdapter`. It's gone: every `adapter.ts` was
-empty, because the prop-free effects need no platform and the platform-touching
-ones need props.)
-
 ## The codegen pipeline
 
 The build script reads each component's agnostic spec from `core/` and

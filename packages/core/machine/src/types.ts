@@ -275,7 +275,7 @@ export type Delay<Context extends object, Event, Computed = Record<string, never
 // Config
 // -----------------------------------------------------------------------------
 
-/** The named-implementation registries a config (and an adapter) supply. */
+/** The named-implementation registries a config supplies. */
 export interface Implementations<Context extends object, Event, Computed = Record<string, never>> {
   /** Reusable named guards. Referenced by name in a transition `guard`. */
   guards?: Record<string, Guard<Context, Event, Computed>>

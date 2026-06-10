@@ -8,7 +8,7 @@ export interface PointerPayload {
   /**
    * Cancels the substrate's default action for the event (e.g. on web,
    * stops a synthetic click on Space-keyup, suppresses form submission on
-   * Enter, prevents the page from scrolling on Arrow keys). Adapters
+   * Enter, prevents the page from scrolling on Arrow keys). Targets
    * wire this to the native event's preventDefault when available;
    * substrates that have no concept of default action provide a no-op.
    */
@@ -82,7 +82,7 @@ export interface AttrBindings {
 
   /**
    * Whether the element participates in keyboard focus.
-   * Adapters map to `tabIndex` (web) / `accessible` (RN) / etc.
+   * Targets map to `tabIndex` (web) / `accessible` (RN) / etc.
    */
   focusable?: boolean
 
