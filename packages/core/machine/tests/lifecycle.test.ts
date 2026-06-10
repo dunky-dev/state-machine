@@ -1,8 +1,9 @@
 /**
  * Lifecycle — machine() returns a BUILT but STOPPED service: no effects run
- * until start(). start() boots the initial-state effects (MACHINE_INIT); stop()
- * runs their cleanups; start again re-boots. send() works regardless of running
- * (state is pure), but transition effects only boot/cleanup while running.
+ * until start(). start() boots the CURRENT state's effects (the initial state's
+ * on a fresh machine — MACHINE_INIT); stop() runs their cleanups; start again
+ * re-boots. send() works regardless of running (state is pure), but transition
+ * effects only boot/cleanup while running.
  */
 import { describe, expect, it, vi } from 'vitest'
 import { machine } from '../src'
@@ -68,6 +69,44 @@ describe('lifecycle — start / stop', () => {
     expect(m.state).toBe('b') // transition happened
     expect(m.context.n).toBe(1) // transition action ran
     expect(order).toEqual(['exit-action', 'entry-action']) // actions only; no effect start/cleanup
+  })
+
+  it('start() boots the CURRENT state effects when moved while stopped', () => {
+    const aFx = vi.fn()
+    const bFx = vi.fn()
+    const m = machine<'a' | 'b', object, { type: 'toB' }>({
+      initial: 'a',
+      context: {},
+      states: {
+        a: { effects: [aFx], on: { toB: { target: 'b' } } },
+        b: { effects: [bFx] },
+      },
+    })
+    m.send({ type: 'toB' }) // stopped: transition happens, no effects
+    m.start() // the machine sits in `b` — boot b's effects, not a's
+    expect(aFx).not.toHaveBeenCalled()
+    expect(bFx).toHaveBeenCalledTimes(1)
+  })
+
+  it('restart boots the state the machine is IN (StrictMode remount shape)', () => {
+    const aFx = vi.fn()
+    const bCleanup = vi.fn()
+    const bFx = vi.fn(() => bCleanup)
+    const m = machine<'a' | 'b', object, { type: 'toB' }>({
+      initial: 'a',
+      context: {},
+      states: {
+        a: { effects: [aFx], on: { toB: { target: 'b' } } },
+        b: { effects: [bFx] },
+      },
+    })
+    m.start() // boots a
+    m.send({ type: 'toB' }) // → b: a cleans up, b boots
+    m.stop() // b cleans up
+    expect(bCleanup).toHaveBeenCalledTimes(1)
+    m.start() // re-boot: still in b → b boots again, a does NOT
+    expect(aFx).toHaveBeenCalledTimes(1) // first start only
+    expect(bFx).toHaveBeenCalledTimes(2)
   })
 
   it('effects boot/cleanup only while running', () => {

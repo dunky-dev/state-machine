@@ -451,8 +451,9 @@ export interface Machine<
   /** Narrow to a value-deduped Selection. Callable for the function form
    * (select(fn)); typed named scopes (select.context/.computed/.state). */
   select: Select<State, Context, Computed>
-  /** Boot the machine: start the initial state's effects (and the watchers).
-   * Idempotent; a re-start after stop re-boots. */
+  /** Boot the machine: start the current state's effects (the initial state's
+   * on a fresh machine) and the watchers. Idempotent; a re-start after stop
+   * re-boots whatever state the machine is in. */
   start: () => void
   /** Run all active effect/watcher cleanups and mark stopped. Consumer
    * subscriptions (subscribe/select) are the consumer's to dispose. */

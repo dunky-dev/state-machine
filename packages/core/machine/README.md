@@ -516,9 +516,10 @@ states: {
 }
 ```
 
-The initial state's effects boot on `start()`; all active cleanups run on
-`stop()`. Effects can be named and resolved from `implementations.effects` (so
-they're reusable / overridable) or written inline.
+The current state's effects boot on `start()` (the initial state's, on a fresh
+machine); all active cleanups run on `stop()`. Effects can be named and resolved
+from `implementations.effects` (so they're reusable / overridable) or written
+inline.
 
 ### Where does a side-effect live? — the two homes
 

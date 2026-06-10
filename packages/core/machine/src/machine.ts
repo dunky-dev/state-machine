@@ -349,7 +349,10 @@ class MachineClass<
     if (this.running) return
     this.running = true
     this.startWatchers()
-    this.startEffects(this.config.initial, { type: MACHINE_INIT } as Event)
+    // Boot the CURRENT state's effects, not the initial state's: stop() doesn't
+    // reset stateValue and send() works while stopped, so a (re)start may find
+    // the machine in any state (e.g. StrictMode's mount→unmount→mount).
+    this.startEffects(this.stateValue, { type: MACHINE_INIT } as Event)
     if (this.startListeners) for (const fn of this.startListeners) fn()
   }
   stop = (): void => {
