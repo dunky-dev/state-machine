@@ -1,5 +1,5 @@
 {
-  "name": "@chimba-ui/benchmark",
+  "name": "benchmark",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -7,8 +7,8 @@
     "benchmark": "NODE_ENV=production node --expose-gc --import tsx index.ts"
   },
   "dependencies": {
-    "@chimba-ui/state-machine": "workspace:*",
-    "@chimba-ui/react-state-machine": "workspace:*"
+    "@chimba-ui/react-state-machine": "workspace:*",
+    "@chimba-ui/state-machine": "workspace:*"
   },
   "devDependencies": {
     "@xstate/react": "^6.1.0",

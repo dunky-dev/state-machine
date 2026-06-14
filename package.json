@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "test": "vitest",
+    "benchmark": "pnpm -C benchmark benchmark",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint .",
     "format": "oxfmt .",
