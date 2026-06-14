@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { composeHandlers } from '../src/compose-handlers'
+import { composeHandlers } from '../src/utils/compose-handlers'
 
 describe('composeHandlers', () => {
   it('overwrites props with handlers when consumer has none', () => {

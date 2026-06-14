@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@chimba-ui/state-machine": "workspace:*",
-    "@chimba-ui/utils": "workspace:*"
+    "@chimba-ui/shared-state-machine": "workspace:*"
   },
   "peerDependencies": {
     "react": "*"

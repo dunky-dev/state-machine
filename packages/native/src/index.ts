@@ -12,5 +12,5 @@ export {
 
 export { normalize, type Bindings } from './normalize'
 // RN-aware mergeProps (handler compose + style array) layered on the
-// substrate-agnostic mergeProps in @chimba-ui/utils.
+// substrate-agnostic mergeProps in @chimba-ui/shared-state-machine.
 export { mergeProps } from './merge-props'

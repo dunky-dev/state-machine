@@ -1,5 +1,5 @@
 {
-  "name": "@chimba-ui/utils",
+  "name": "@chimba-ui/shared-state-machine",
   "version": "0.0.0",
   "private": true,
   "type": "module",

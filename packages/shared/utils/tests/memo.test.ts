@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { memo } from '../src/memo'
+import { memo } from '../src/utils/memo'
 
 describe('memo', () => {
   it('returns the same result for identical args', () => {

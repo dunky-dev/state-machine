@@ -1,4 +1,4 @@
-import { mergeProps as baseMergeProps } from '@chimba-ui/utils'
+import { mergeProps as baseMergeProps } from '@chimba-ui/shared-state-machine'
 
 type AnyProps = Record<string, unknown>
 

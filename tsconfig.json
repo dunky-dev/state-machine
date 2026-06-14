@@ -17,7 +17,7 @@
       "@chimba-ui/state-machine": ["./packages/core/src"],
       "@chimba-ui/react-state-machine": ["./packages/react/src"],
       "@chimba-ui/native-state-machine": ["./packages/native/src"],
-      "@chimba-ui/utils": ["./packages/shared/utils/src"]
+      "@chimba-ui/shared-state-machine": ["./packages/shared/utils/src"]
     },
     "types": ["@types/node", "vitest/globals"]
   },
