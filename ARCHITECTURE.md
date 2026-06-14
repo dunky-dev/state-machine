@@ -83,11 +83,11 @@ Zag, whose machines read props directly.)
 
 ## Project structure
 
-| File / location              | What it owns                                                       |
-| ---------------------------- | ------------------------------------------------------------------ |
-| `packages/core/`     | State-machine engine (plain-mutation kernel) + bindings vocabulary |
-| `packages/shared/utils/`     | mergeProps, composeHandlers, positioning, memo                     |
-| `packages/<target>/` | Hook + normalize per substrate (react, native, ...)                |
+| File / location          | What it owns                                                       |
+| ------------------------ | ------------------------------------------------------------------ |
+| `packages/core/`         | State-machine engine (plain-mutation kernel) + bindings vocabulary |
+| `packages/shared/utils/` | mergeProps, composeHandlers, positioning, memo                     |
+| `packages/<target>/`     | Hook + normalize per substrate (react, native, ...)                |
 
 ## The map
 
@@ -160,11 +160,11 @@ whether it needs props/platform or not:
 
 ## Vocabulary
 
-| Term         | What it is                                                                                          |
-| ------------ | --------------------------------------------------------------------------------------------------- |
-| **host**     | The agnostic core — `packages/core/*`. Declares what behavior is.                                   |
+| Term         | What it is                                                                                                     |
+| ------------ | -------------------------------------------------------------------------------------------------------------- |
+| **host**     | The agnostic core — `packages/core/*`. Declares what behavior is.                                              |
 | **target**   | A substrate-specific bridge package and its render environment — `packages/<target>/*` (`react`, `native`, …). |
-| **machine**  | A state-graph config consumed by `machine()`; returns a startable service.                          |
-| **connect**  | A function returning the logical surface a view spreads onto elements.                              |
-| **bindings** | The substrate-agnostic event + attr vocabulary core's connect speaks.                               |
-| **compose**  | Run several machines as one unit (orthogonal regions): bundled `start`/`stop` + `sync` + `combine`. |
+| **machine**  | A state-graph config consumed by `machine()`; returns a startable service.                                     |
+| **connect**  | A function returning the logical surface a view spreads onto elements.                                         |
+| **bindings** | The substrate-agnostic event + attr vocabulary core's connect speaks.                                          |
+| **compose**  | Run several machines as one unit (orthogonal regions): bundled `start`/`stop` + `sync` + `combine`.            |

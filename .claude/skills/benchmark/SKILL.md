@@ -41,17 +41,19 @@ rendering 1000-row mount + re-render).
 After showing the numbers, ask the user — use the AskUserQuestion tool — whether
 to update the documented results. Offer at least:
 
-- **Update the benchmark README** — refresh the "Representative results" tables.
+- **Update the benchmark README** — refresh the per-section result tables.
 - **Don't update** — just keep the run output.
 
 Do not proceed to Step 3 unless the user says yes.
 
 ## Step 3 — update the results (only on a yes)
 
-`benchmark/README.md` is the **single source of truth** for result tables. Update
-its "Representative results" section and nothing else — the engine README
-(`packages/core/README.md`) deliberately carries only a short prose claim + a
-link, no tables, so leave it alone unless a headline ratio genuinely moved (see
+`benchmark/README.md` is the **single source of truth** for result tables. Each
+`## N.` section has its table inline, followed by a one-line `→` takeaway. Update
+the numbers in those tables and **recheck each takeaway's "X faster" claim** (e.g.
+"~3.5× the events/sec") against the fresh figures. Touch nothing else — the engine
+README (`packages/core/README.md`) deliberately carries only a short prose claim +
+a link, no tables, so leave it alone unless a headline ratio genuinely moved (see
 below).
 
 Update **only the numbers** — never reword prose, change column layouts, or alter

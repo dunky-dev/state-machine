@@ -9,9 +9,9 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@chimba-ui/state-machine": "workspace:*",
     "@chimba-ui/react-state-machine": "workspace:*",
-    "@chimba-ui/shared-state-machine": "workspace:*"
+    "@chimba-ui/shared-state-machine": "workspace:*",
+    "@chimba-ui/state-machine": "workspace:*"
   },
   "peerDependencies": {
     "react": "*",
