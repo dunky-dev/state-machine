@@ -42,7 +42,7 @@ Before merging, walk this checklist:
    or a target must be exercised by a test under the package's `tests/`.
 2. **Did `core/` change?** Verify the change is substrate-agnostic. If
    it depends on a React lifecycle, a DOM API, or an RN-only module,
-   move it to `packages/<target>/machine/`.
+   move it to `packages/<target>/`.
 
 ## Diagrams in docs
 

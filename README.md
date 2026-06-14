@@ -27,7 +27,7 @@ transitions, same accessibility intent. Only the render differs.
      same behavior, byte-for-byte — only the render differs
 ```
 
-> **Status: experimental.** The engine (`core/machine`) is stable and tested. The
+> **Status: experimental.** The engine (`packages/core`) is stable and tested. The
 > target bridges are NOT production-ready yet.
 >
 > This is an in-progress exploration.
@@ -52,7 +52,7 @@ one frame budget** — things like a trading terminal with live tickers, a monit
 canvas board, a game HUD. There the cost of each transition and the memory per
 machine, multiplied by thousands, is what decides whether you hold the frame. The
 engine is built for it — ~3–4× XState's event throughput, flat-ish memory, surgical
-re-renders; numbers + methodology in the [engine README](./packages/core/machine/README.md#performance).
+re-renders; numbers + methodology in the [engine README](./packages/core/README.md#performance).
 
 ## How it's built
 
@@ -84,7 +84,7 @@ agnostic                                                            substrate
 The full layered model and the "the machine never sees props" rule are in:
 
 - **[`ARCHITECTURE.md`](./ARCHITECTURE.md)** — the big-picture map and the layered model.
-- **[`packages/core/machine/README.md`](./packages/core/machine/README.md)** — the state machine and full benchmark results.
+- **[`packages/core/README.md`](./packages/core/README.md)** — the state machine and full benchmark results.
 - **[`AGENTS.md`](./AGENTS.md)** — the contributor / agent contract.
 
 ## Inspiration & prior art

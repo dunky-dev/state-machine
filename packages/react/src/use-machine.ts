@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useSyncExternalStore } from 'react'
-import { connector, machine, type Connect, type TransitionConfig } from '@chimba-ui/machine-core'
+import { connector, machine, type Connect, type TransitionConfig } from '@chimba-ui/state-machine'
 
 /**
  * One substrate-specific effect, declared as a plain setup/teardown function

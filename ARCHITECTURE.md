@@ -11,7 +11,7 @@ runtime: same machine, same behavior, same accessibility intent, different rende
 ```
 The host
 +----------------------------------------------------------------------+
-|  core/machine                                                      |
+|  packages/core                                                      |
 |  No runtime render — pure JS, runs anywhere                        |
 |  states, events, context, guards, actions, effects, select        |
 +----------------------------------------------------------------------+
@@ -24,7 +24,7 @@ The host
                                |  bridged per target
                                v
 +------------------------------------------------------------------------+
-|  <target>/machine   (react, native, …)                               |
+|  <target>   (react, native, …)                               |
 |  Runtime-specific bridge                                             |
 |  • lifecycle (build + start/stop)  • normalize bindings -> props     |
 |  • selector subscription                                             |
@@ -37,9 +37,9 @@ The host
 This repo is the **engine** — the agnostic machine plus its per-target bridges.
 The components that consume it (and their style/codegen pipeline) live elsewhere.
 
-> **Status: experimental, but it compiles and runs.** The `core/machine` engine
+> **Status: experimental, but it compiles and runs.** The `packages/core` engine
 > is a stable plain-mutation kernel (no signals; see
-> [`packages/core/machine/README.md`](./packages/core/machine/README.md)). The
+> [`packages/core/README.md`](./packages/core/README.md)). The
 > suite is green and `tsc` is clean. It's an in-progress exploration — the API may
 > still move — not a 1.0.
 
@@ -85,34 +85,34 @@ Zag, whose machines read props directly.)
 
 | File / location              | What it owns                                                       |
 | ---------------------------- | ------------------------------------------------------------------ |
-| `packages/core/machine/`     | State-machine engine (plain-mutation kernel) + bindings vocabulary |
+| `packages/core/`     | State-machine engine (plain-mutation kernel) + bindings vocabulary |
 | `packages/shared/utils/`     | mergeProps, composeHandlers, positioning, memo                     |
-| `packages/<target>/machine/` | Hook + normalize per substrate (react, native, ...)                |
+| `packages/<target>/` | Hook + normalize per substrate (react, native, ...)                |
 
 ## The map
 
 ```
-core                                  agnostic logic — no React, no DOM, no RN
-+-- machine                           plain-mutation state-machine engine (one
-    |                                 file per concern; public surface in index)
-    +-- machine()                     builds a stopped service from a config;
-    |                                 .start()/.stop()/.send()/.state/.select
-    +-- context / state               one plain-object context per machine
-    |                                 (mutated in place) + flat states
-    +-- guards / actions              and/or/not combinators · oneOf
-    +-- connector                     connect() -> live, subscribable snapshot
-    +-- compose                       run several machines as one (orthogonal
-    |                                 regions): start/stop + sync + combine
-    +-- bindings                      event + attr vocabulary (onPress, role, …)
+core                                  agnostic state-machine engine — no React,
+|                                     no DOM, no RN (one file per concern;
+|                                     public surface in index)
++-- machine()                         builds a stopped service from a config;
+|                                     .start()/.stop()/.send()/.state/.select
++-- context / state                   one plain-object context per machine
+|                                     (mutated in place) + flat states
++-- guards / actions                  and/or/not combinators · oneOf
++-- connector                         connect() -> live, subscribable snapshot
++-- compose                           run several machines as one (orthogonal
+|                                     regions): start/stop + sync + combine
++-- bindings                          event + attr vocabulary (onPress, role, …)
 
-shared                                cross-target, cross-component artifacts
-+-- utils                             pure helpers (composeHandlers, positioning, memo)
+shared/utils                          cross-target, cross-component helpers
++-- (composeHandlers, positioning, memo, mergeProps)
 
-<target>                              one substrate (react, native, …)
-+-- machine                           runtime, hooks, and props translator for this target
-    +-- use-machine                   lifecycle bridge (build + start/stop + useSyncExternalStore)
-    +-- use-selector                  fine-grained leaf subscription (O(readers))
-    +-- normalize                     bindings -> target props
+<target>                              one substrate (react, native, …) — the
+|                                     runtime, hooks, and props translator
++-- use-machine                       lifecycle bridge (build + start/stop + useSyncExternalStore)
++-- use-selector                      fine-grained leaf subscription (O(readers))
++-- normalize                         bindings -> target props
 ```
 
 Three package groups, three jobs:
@@ -135,7 +135,7 @@ reads props (see "the machine never sees props" above) and fires the consumer's
 callbacks. It changes when the API surface changes.
 
 Cross-instance singletons (e.g. "only one tooltip open at a time") use
-`createStore` from `machine-core` — a tiny reactive cell (plain value +
+`createStore` from `@chimba-ui/state-machine` — a tiny reactive cell (plain value +
 listeners) living outside any one machine. Per-machine state is the engine's own
 plain-object context.
 
@@ -152,7 +152,7 @@ whether it needs props/platform or not:
 
 2. **Component effect (`ComponentEffect`)** — **prop-aware** and
    **platform-specific** (a DOM `keydown` for Escape on web, an RN `BackHandler`).
-   The machine can't own it because [it never sees props](packages/core/machine/README.md#the-machine-never-sees-props).
+   The machine can't own it because [it never sees props](packages/core/README.md#the-machine-never-sees-props).
    It lives in the target as a plain `(machine, props) => cleanup` + the prop
    names it depends on. The agnostic _decision_ still lives in core; only the
    platform listener is per-target. On accept it `send()`s a plain event the

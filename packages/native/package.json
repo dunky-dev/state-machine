@@ -1,5 +1,5 @@
 {
-  "name": "@chimba-ui/machine-native",
+  "name": "@chimba-ui/native-state-machine",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -9,8 +9,8 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@chimba-ui/machine-core": "workspace:*",
-    "@chimba-ui/machine-react": "workspace:*",
+    "@chimba-ui/state-machine": "workspace:*",
+    "@chimba-ui/react-state-machine": "workspace:*",
     "@chimba-ui/utils": "workspace:*"
   },
   "peerDependencies": {

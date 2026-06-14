@@ -1,4 +1,4 @@
-# `@chimba-ui/machine-core`
+# `@chimba-ui/state-machine`
 
 A tiny, **renderer-agnostic state-machine engine** for building UI component
 logic once and running it anywhere. It owns _behavior_ — states, transitions,
@@ -8,7 +8,7 @@ It's pure JavaScript: it runs in any JS runtime (browser, Node, the React
 Native JS thread), but not in native platform code (e.g. Swift/Kotlin).
 
 ```ts
-import { machine, act } from '@chimba-ui/machine-core'
+import { machine, act } from '@chimba-ui/state-machine'
 
 const toggle = machine({
   initial: 'inactive',
@@ -63,7 +63,7 @@ presumes a DOM) and **performance under heavy fan-out**.
 
 **Shared baseline:**
 
-| Capability                     | Zag        | XState            | machine-core  |
+| Capability                     | Zag        | XState            | state-machine  |
 | ------------------------------ | ---------- | ----------------- | ------------- |
 | States / transitions / guards  | ✅         | ✅                | ✅            |
 | Guard combinators (and/or/not) | ✅         | ✅                | ✅            |
@@ -84,7 +84,7 @@ This lib keeps context as **one plain object per machine, mutated in place**
 (copied once at construction; its identity never changes) + a tiny notifier — no
 per-field reactive cell (Zag), no immutable snapshot per event (XState).
 
-| What's different                | Zag                          | XState                       | machine-core                          |
+| What's different                | Zag                          | XState                       | state-machine                          |
 | ------------------------------- | ---------------------------- | ---------------------------- | ------------------------------------- |
 | State selection                 | ❌ host framework does it    | ⚠️ `actor.select` (coarse)   | 🟢 `select` (fine-grained)            |
 | Runs with no host framework     | ❌ needs a framework         | ⚠️ statechart yes            | 🟢 yes                                |
@@ -96,10 +96,10 @@ per-field reactive cell (Zag), no immutable snapshot per event (XState).
 | Spawned child machines / actors | ❌ by design²                | ✅                           | ❌ by design²                         |
 
 - **XState** allocates a serializable snapshot on every transition, and it taxes the hot
-  path. machine-core drops mutates in place.
-- **Zag** can run framework-free, but presumes a host DOM framework, machine-core owns
+  path. state-machine drops mutates in place.
+- **Zag** can run framework-free, but presumes a host DOM framework, state-machine owns
   its reactivity internally, extending the same idea onto any JS enviroment (DOM, React Native, TUI, WebGL, ...).
-- **¹ Serializable snapshot** — only XState ships it (actor model). machine-core can
+- **¹ Serializable snapshot** — only XState ships it (actor model). state-machine can
   add one (context is one plain object); Zag can't easily (state is scattered React
   hook cells).
 - **² ❌-by-design** keep machines light-weight, avoid the heavy statechart concepts.
@@ -108,8 +108,8 @@ per-field reactive cell (Zag), no immutable snapshot per event (XState).
 
 Numbers below are from `pnpm benchmark` (Node 24, single clean run) — **disposable
 first-look** figures, reproduce them yourself. The root
-[README](../../../README.md#fast-at-scale) carries the headline summary; this
-section is the per-scenario detail. Contenders are `machine-core` and
+[README](../../README.md#fast-at-scale) carries the headline summary; this
+section is the per-scenario detail. Contenders are `@chimba-ui/state-machine` and
 XState in the synchronous ops/sec loops (both sync statecharts, fair); Zag's
 headless `send` is async (microtask-batched), so it can't share a synchronous
 loop — it appears where it runs synchronously: construction, memory, and the
@@ -142,7 +142,7 @@ _flatness_, not a headline win.
 
 **Throughput — events/sec (higher is better)**
 
-| Scenario                          | machine-core | XState |
+| Scenario                          | state-machine | XState |
 | --------------------------------- | -----------: | -----: |
 | Single machine, one event         |   **3.02 M** | 0.85 M |
 | Fine-grain (unobserved) 1 of 5000 |   **1.20 M** | 0.45 M |
@@ -153,7 +153,7 @@ Construction is synchronous for all three, so Zag's headless `VanillaMachine` is
 fair contender here (and for memory). All engines share one module-level config
 across instances — the shape a real app has:
 
-| Metric                        | machine-core | XState |     Zag |
+| Metric                        | state-machine | XState |     Zag |
 | ----------------------------- | -----------: | -----: | ------: |
 | Construct (µs/machine, ×10 K) |         3.04 |   2.42 |    9.82 |
 | Memory, 2-field context       |         4.23 |   3.61 |    9.06 |
@@ -175,7 +175,7 @@ changes — that's what lets effects and actions hold live references safely). S
 core's idle and written footprints are the same number by design, while a
 lazy-copy scheme shows a step once writes start:
 
-| Metric (64 fields, 5 000 machines) | machine-core | XState | Zag |
+| Metric (64 fields, 5 000 machines) | state-machine | XState | Zag |
 | ---------------------------------- | -----------: | -----: | --: |
 | Idle (never written)               |         4.72 |   3.55 | 130 |
 | Written (1 event each)             |         4.73 |   4.09 | 134 |
@@ -190,7 +190,7 @@ before the first write. Owning the copy from birth was the better trade.)
 **React rendering — list of 1 000 rows, 50 highlight moves.** Each library in its
 idiomatic fine-grained path (lower is better):
 
-| Metric                | machine-core | XState |          Zag |
+| Metric                | state-machine | XState |          Zag |
 | --------------------- | -----------: | -----: | -----------: |
 | Rows woken / move     |        **2** |      2 |            2 |
 | Mount (ms) ³          |      **5.4** |    5.9 |          5.7 |
@@ -224,7 +224,7 @@ A machine here is pure behavior — it has no `props` argument and no `prop()`
 accessor, so the _same_ machine runs byte-for-byte identically on every target.
 This is the engine's defining rule, and the one place it diverges from Zag/XState
 (whose machines read props directly). The full rationale + the layered model live
-in [`ARCHITECTURE.md`](../../../ARCHITECTURE.md#the-core-rule-the-machine-never-sees-props);
+in [`ARCHITECTURE.md`](../../ARCHITECTURE.md#the-core-rule-the-machine-never-sees-props);
 the engine-level summary: every job a prop does lands at the **edge**, never the
 machine —
 
@@ -293,7 +293,7 @@ const offStop = m.onStop(() => {
 > `TransitionConfig` constraint at the definition site. Two paths off one call:
 >
 > ```ts
-> import { setup, machine } from '@chimba-ui/machine-core'
+> import { setup, machine } from '@chimba-ui/state-machine'
 >
 > // lightweight — infers State / Context / Event from the literal, names loose:
 > const cfg = setup().createMachine({ initial: 'closed', context: {}, states: { closed: {} } })
@@ -415,7 +415,7 @@ on: {
 **Named guards + combinators** (`and` / `or` / `not`):
 
 ```ts
-import { and, not } from '@chimba-ui/machine-core'
+import { and, not } from '@chimba-ui/state-machine'
 
 machine({
   // ...
@@ -454,7 +454,7 @@ drops the `$ => $.setContext(...)` wrapper, so the patch reads as data, and take
 one or many patches (applied in order; a later patch fn sees earlier writes):
 
 ```ts
-import { act } from '@chimba-ui/machine-core'
+import { act } from '@chimba-ui/state-machine'
 
 on: {
   save: {
@@ -494,7 +494,7 @@ fallthrough):
 or a list. A guardless branch is the fallback (put it last):
 
 ```ts
-import { oneOf } from '@chimba-ui/machine-core'
+import { oneOf } from '@chimba-ui/state-machine'
 
 actions: [
   oneOf(
@@ -701,7 +701,7 @@ view-facing object (handlers + attributes a renderer spreads onto elements). The
 subscribable snapshot:
 
 ```ts
-import { connector } from '@chimba-ui/machine-core'
+import { connector } from '@chimba-ui/state-machine'
 
 const connect = ({ state, send }) => ({
   isOpen: state === 'open',
@@ -747,7 +747,7 @@ and, when it changes, calls the matching prop. (Same tuple shape as a React
 `ComponentEffect` — declare each as a named const, collect them in a list.)
 
 ```ts
-import { makeReaction } from '@chimba-ui/machine-core'
+import { makeReaction } from '@chimba-ui/state-machine'
 
 // fix the machine generics once per component; `Value` is then inferred per reaction:
 const reaction = makeReaction<TooltipState, TooltipContext, TooltipEvent, TooltipProps>()
@@ -814,7 +814,7 @@ each dimension is its own machine, and `compose` runs them as one unit
 (orthogonal regions, without nested states):
 
 ```ts
-import { compose } from '@chimba-ui/machine-core'
+import { compose } from '@chimba-ui/state-machine'
 
 const popup = machine({
   /* closed / open */
@@ -973,7 +973,7 @@ single active menu in a menubar." `createStore` is a tiny reactive cell for
 exactly that: a plain value plus a listener set.
 
 ```ts
-import { createStore } from '@chimba-ui/machine-core'
+import { createStore } from '@chimba-ui/state-machine'
 
 const store = createStore({ count: 0 })
 
@@ -1012,7 +1012,7 @@ const off = tooltipStore.subscribe(s => m.send({ type: 'activeChanged', openId: 
 ## Putting it together
 
 ```ts
-import { setup, machine, connector } from '@chimba-ui/machine-core'
+import { setup, machine, connector } from '@chimba-ui/state-machine'
 
 // 1. describe behavior (agnostic) — setup() type-checks the literal in place.
 //    Pure, props-free, platform-free, so it's the lightweight path.
@@ -1046,7 +1046,7 @@ view.subscribe(render)
 
 ## Glossary
 
-Every term and concept in `machine-core`, with a one-line meaning and a link to
+Every term and concept in `@chimba-ui/state-machine`, with a one-line meaning and a link to
 its full section.
 
 | Term                             | Meaning                                                                                                                                                                    |

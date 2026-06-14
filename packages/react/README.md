@@ -1,10 +1,10 @@
-# `@chimba-ui/machine-react`
+# `@chimba-ui/react-state-machine`
 
-The **React bindings** for [`@chimba-ui/machine-core`](../../core/machine).
+The **React bindings** for [`@chimba-ui/state-machine`](../core/README.md).
 The core engine is renderer-agnostic; this package is the thin React edge that
 drives it: it builds the machine + connector, runs the React lifecycle, bridges
 the connector's snapshot into React rendering, translates the agnostic
-[bindings](../../core/machine#connector--the-view-boundary) vocabulary into DOM
+[bindings](../core/README.md#connector--the-view-boundary) vocabulary into DOM
 props, and owns the per-component substrate effects.
 
 Everything here is deliberately small — the behavior lives in the core machine
@@ -43,7 +43,7 @@ It:
   equal props object each render doesn't churn.
 - **runs the lifecycle**: `service.start()` on mount, `service.stop()` on unmount.
   The connector wired its
-  [reactions](../../core/machine#reactions--firing-prop-callbacks-without-the-machine-knowing)
+  [reactions](../core/README.md#reactions--firing-prop-callbacks-without-the-machine-knowing)
   to the machine's own `start`/`stop`, so prop-callbacks follow automatically
   (StrictMode mount→unmount→mount included), with no teardown threading here.
 - **runs the component's substrate effects** — one `useEffect` per
@@ -74,7 +74,7 @@ the generated `useApi` owns the `useEffect`s:
 
 ```ts
 // a target component's effects.ts (illustrative — components live outside this repo)
-import type { ComponentEffect } from '@chimba-ui/machine-react'
+import type { ComponentEffect } from '@chimba-ui/react-state-machine'
 
 type TooltipEffect = ComponentEffect<TooltipMachine, TooltipMachineProps>
 
@@ -153,7 +153,7 @@ const isHL = useSelector(machine, () => machine.context.highlightedValue === val
 
 The selector reads from the machine directly, so it auto-subscribes to exactly
 the fields it touches (the same auto-tracking the core's
-[`select`](../../core/machine#subscriptions--observing-changes) gives you); the
+[`select`](../core/README.md#subscriptions--observing-changes) gives you); the
 component re-renders only when the selected value changes — `Object.is` by
 default, or pass a custom `isEqual` for object selections:
 
@@ -180,7 +180,7 @@ that whole-snapshot re-renders are wasteful.
 
 ## `normalize` — agnostic bindings → DOM props
 
-`connect` returns substrate-agnostic [bindings](../../core/machine#connector--the-view-boundary)
+`connect` returns substrate-agnostic [bindings](../core/README.md#connector--the-view-boundary)
 (`onPress`, `describedBy`, `role`). `normalize` translates them to real DOM/ARIA
 props so the same `connect` can target DOM, React Native, or canvas — each via its
 own `normalize`:

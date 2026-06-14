@@ -1,5 +1,5 @@
 {
-  "name": "@chimba-ui/machine-core",
+  "name": "@chimba-ui/state-machine",
   "version": "0.0.0",
   "private": true,
   "type": "module",

@@ -8,7 +8,7 @@ export {
   useSelector,
   type ComponentEffect,
   type ComponentEffects,
-} from '@chimba-ui/machine-react'
+} from '@chimba-ui/react-state-machine'
 
 export { normalize, type Bindings } from './normalize'
 // RN-aware mergeProps (handler compose + style array) layered on the
