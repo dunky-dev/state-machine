@@ -39,65 +39,42 @@ rendering 1000-row mount + re-render).
 ## Step 2 — ASK before updating docs
 
 After showing the numbers, ask the user — use the AskUserQuestion tool — whether
-to update the documented result tables. Offer at least:
+to update the documented results. Offer at least:
 
-- **Update both docs** — refresh the tables in `benchmark/README.md` and
-  `packages/core/README.md`.
-- **Update benchmark/README.md only**.
+- **Update the benchmark README** — refresh the "Representative results" tables.
 - **Don't update** — just keep the run output.
 
-Do not proceed to Step 3 unless the user picks an update option.
+Do not proceed to Step 3 unless the user says yes.
 
-## Step 3 — update the tables (only on a yes)
+## Step 3 — update the results (only on a yes)
 
-Update **only the numbers** — never reword the surrounding prose, change column
-layouts, or alter footnotes. Keep each table's existing formatting and alignment.
+`benchmark/README.md` is the **single source of truth** for result tables. Update
+its "Representative results" section and nothing else — the engine README
+(`packages/core/README.md`) deliberately carries only a short prose claim + a
+link, no tables, so leave it alone unless a headline ratio genuinely moved (see
+below).
 
-Two files hold result tables; keep them consistent:
+Update **only the numbers** — never reword prose, change column layouts, or alter
+footnotes. Keep each table's existing alignment. Map the run output:
 
-1. **`benchmark/README.md`** → the "Representative results" section. Tables:
-   throughput, construction (µs/machine), memory (KB/machine, 2-field + 64-field),
-   React rendering (rows woken / mount / re-render).
+- **Throughput → single machine, one event**: `core` + `xstate-raw` from section
+  C. Convert ops/sec to millions (`2,944,305` → `2.9 M`).
+- **Throughput → fine-grain 1/5000**: `core` + `xstate` from section B
+  ("Fine-grain … 5000 cells") — the diffed variant, to match the table.
+- **Construct 10k**: the `µs / machine` column of "Construct 10,000 machines".
+- **Memory**: the `KB / machine` column, **written** rows (thin = 2-field,
+  fat = 64-field).
+- **Rendering**: the "list of 1000" table — `mount (ms)` + `re-render wall (ms)`
+  for `core/instance`, `xstate/selector`, `zag`; rows-woken = `avg rows / move`.
 
-2. **`packages/core/README.md`** → the "Benchmark" / Performance section. More
-   tables, plus a headline "Overview" table and prose multipliers. Update:
-   - **Overview** table (events/sec, spin-up 10k, memory 64-field, render mount,
-     re-render).
-   - **Throughput** table (single-event, fine-grain 1/5000).
-   - **Construction + memory** table (construct µs/machine, 2-field, 64-field).
-   - **Idle vs written** memory table (64-field idle + written rows).
-   - **React rendering** table (rows woken, mount, re-render wall).
-   - Any **prose multipliers** that cite ratios (e.g. "~3.5× XState's throughput",
-     "~28× core's memory"). Recompute them from the fresh numbers and only change
-     the figure if it actually moved — don't churn a "~3.5×" to "~3.4×" unless it
-     genuinely crossed.
-
-### Mapping run output → table cells
-
-The run prints `core`, `xstate`, `xstate-raw`, `zag` rows per scenario. For the
-docs:
-
-- **Throughput → single machine, one event**: `core` and `xstate-raw` from
-  section C ("Throughput — single machine, one event"). Convert ops/sec to
-  millions (e.g. `2,944,305` → `2.94 M`).
-- **Throughput → fine-grain 1/5000**: `core` and `xstate` from section B
-  ("Fine-grain … 5000 cells"). (Use `xstate`, the diffed variant, to match the
-  existing table — note which variant the table already uses and stay consistent.)
-- **Construct 10k (µs/machine)**: the `µs / machine` column of "Construct 10,000
-  machines".
-- **Memory (KB/machine)**: the `KB / machine` column. Use the **written** rows
-  for the main construction+memory table (thin = 2-field, fat = 64-field). Use the
-  **idle** AND **written** 64-field rows for the idle-vs-written table.
-- **Rendering**: the "list of 1000" table — `mount (ms)` and `re-render wall (ms)`
-  for `core/instance` (the headline core row), `xstate/selector`, and `zag`. Rows
-  woken / move = the `avg rows / move` column (≈2 for the fine-grained strategies).
+If a fresh ratio clearly crossed a round number (e.g. throughput drops from ~4×
+to ~3×, or memory from ~28× to ~20×), also fix the one-line claim in
+`packages/core/README.md` ("up to ~4× …", "~28×"). Don't churn it for a rounding
+wobble.
 
 ### After updating
 
-- Re-read both edited tables to confirm columns still line up (markdown table
-  pipes aligned).
-- Run `pnpm format` (oxfmt) at the repo root so table formatting matches the
-  repo style, then `pnpm lint` if any `.ts` changed (docs-only edits don't need
-  it).
+- Re-read the edited tables to confirm the markdown pipes still line up.
+- Run `pnpm format` at the repo root so formatting matches the repo style.
 - Remind the user these are disposable first-look numbers from one machine — a
   single run is a snapshot, not a verdict.

@@ -249,7 +249,8 @@ _cost_, where Chimba UI and XState are directly comparable (both flush synchrono
 - ¹ Zag's `send` is microtask-batched, so a synchronous `flushSync` re-render loop
   can't time it fairly — only its row-count is reported.
 
-> The curated, prose version of these tables (with bundle sizes and the full
-> design rationale) lives in the engine's
-> [README → Performance](../packages/core/README.md#performance). When you refresh
-> numbers, update both.
+> This file is the single source of truth for benchmark tables. The engine
+> [README → Performance](../packages/core/README.md#performance) carries only a
+> short prose claim + a link here — when you refresh numbers, update this file,
+> and only touch the engine README's one-line claim if a headline ratio actually
+> shifted.

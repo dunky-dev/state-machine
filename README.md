@@ -52,7 +52,7 @@ one frame budget** — things like a trading terminal with live tickers, a monit
 canvas board, a game HUD. There the cost of each transition and the memory per
 machine, multiplied by thousands, is what decides whether you hold the frame. The
 engine is built for it — ~3–4× XState's event throughput, flat-ish memory, surgical
-re-renders; numbers + methodology in the [engine README](./packages/core/README.md#performance).
+re-renders; numbers + methodology in the [benchmark README](./benchmark/README.md).
 
 ## How it's built
 
@@ -84,7 +84,8 @@ agnostic                                                            substrate
 The full layered model and the "the machine never sees props" rule are in:
 
 - **[`ARCHITECTURE.md`](./ARCHITECTURE.md)** — the big-picture map and the layered model.
-- **[`packages/core/README.md`](./packages/core/README.md)** — the state machine and full benchmark results.
+- **[`packages/core/README.md`](./packages/core/README.md)** — the state machine engine and its full API.
+- **[`benchmark/README.md`](./benchmark/README.md)** — what's measured, the methodology, and results vs. XState & Zag.
 - **[`AGENTS.md`](./AGENTS.md)** — the contributor / agent contract.
 
 ## Inspiration & prior art

@@ -106,117 +106,18 @@ per-field reactive cell (Zag), no immutable snapshot per event (XState).
 
 ### Performance
 
-Numbers below are from `pnpm benchmark` (Node 24, single clean run) — **disposable
-first-look** figures, reproduce them yourself. The root
-[README](../../README.md#fast-at-scale) carries the headline summary; this
-section is the per-scenario detail. Contenders are `@chimba-ui/state-machine` and
-XState in the synchronous ops/sec loops (both sync statecharts, fair); Zag's
-headless `send` is async (microtask-batched), so it can't share a synchronous
-loop — it appears where it runs synchronously: construction, memory, and the
-React render arena (mount + re-render row-count).
+Chimba UI is built for **density × frequency** — many machines reacting to a
+high-frequency stream inside one frame budget (trading terminals, canvas boards,
+monitoring walls, game HUDs). Context is one plain object mutated in place behind
+a value-deduping bus, so a transition allocates nothing and an irrelevant write
+wakes no observers.
 
-### Benchmark
+In practice that's **up to ~4× the event throughput** of the alternatives, flat
+memory as context grows wide (where a cell-per-field engine balloons ~28×), and
+surgical re-renders that wake only the rows that actually changed.
 
-#### Overview
-
-|                                 | **Chimba UI** |  XState |        Zag |
-| ------------------------------- | ------------: | ------: | ---------: |
-| **Events per second**           |         **3.0 M/s** | 850 K/s |      n/a ¹ |
-| **Spin up 10 000 machines**     |               30 ms |   24 ms |      98 ms |
-| **Memory at 64 fields/machine** |              4.7 KB |  4.1 KB | **134 KB** |
-| **Bundle** (min + gzip)         |          **2.2 KB** | 15.8 KB |   0.5 KB ² |
-| **Bundle** + React adapter      |          **3.0 KB** | 18.6 KB |     3.6 KB |
-| **Render 1 000 rows** (mount)   |          **5.4 ms** |  5.9 ms |     5.7 ms |
-| **Re-render after a change** ³  |          **3.8 ms** |  7.0 ms |      n/a ¹ |
-
-Where the engine decisively wins is the hot path (~3.5× XState's event
-throughput) and per-field-cell memory (Zag's 64-field context is ~28× core's).
-Construction and memory against XState are roughly par — core's bet there is
-_flatness_, not a headline win.
-
-- ¹ Zag's `send` is async (microtask-batched), so it can't share a **synchronous** loop — neither the events/sec throughput nor the `flushSync` re-render timing. It IS measured where it runs sync: construction + memory (headless `VanillaMachine`), mount, and the re-render row-count (it wakes only 2 rows, same as the others — see the render table below).
-- ² Zag's `@zag-js/core` is config-only (the machine runtime lives in the framework adapter), so its 0.5 KB engine row isn't runnable on its own — the `+ React adapter` row (`@zag-js/react`) is the fair comparison.
-- ³ Each library using its idiomatic fine-grained path (Chimba UI & Zag: per-instance machine + `React.memo`; XState: shared actor + `@xstate/react`'s `useSelector`).
-
-#### In depth analyzis
-
-**Throughput — events/sec (higher is better)**
-
-| Scenario                          | state-machine | XState |
-| --------------------------------- | -----------: | -----: |
-| Single machine, one event         |   **3.02 M** | 0.85 M |
-| Fine-grain (unobserved) 1 of 5000 |   **1.20 M** | 0.45 M |
-
-**Construction — µs / machine, and memory — KB / machine (5 000 live; lower is better)**
-
-Construction is synchronous for all three, so Zag's headless `VanillaMachine` is a
-fair contender here (and for memory). All engines share one module-level config
-across instances — the shape a real app has:
-
-| Metric                        | state-machine | XState |     Zag |
-| ----------------------------- | -----------: | -----: | ------: |
-| Construct (µs/machine, ×10 K) |         3.04 |   2.42 |    9.82 |
-| Memory, 2-field context       |         4.23 |   3.61 |    9.06 |
-| Memory, 64-field context      |         4.73 |   4.09 | **134** |
-
-(Memory rows are the _written_ mode — every machine received one event, the
-footprint a real app pays. XState is marginally lighter per machine; core's
-claim here is flatness, not the smallest absolute number.)
-
-2 → 64 fields adds only ~0.5 KB/machine for core: context is one plain object,
-so memory grows with the data you store, not with a per-field cell. It's not
-perfectly flat — it grows linearly, just slowly. **Zag is the contrast that makes
-the point**: its context is one reactive cell per field, so 64 fields balloon to
-~134 KB/machine (~28×) — the per-field-cell cost this model avoids.
-
-**Idle vs written.** Each core machine copies the config's context once at
-construction and mutates it in place forever (the object's identity never
-changes — that's what lets effects and actions hold live references safely). So
-core's idle and written footprints are the same number by design, while a
-lazy-copy scheme shows a step once writes start:
-
-| Metric (64 fields, 5 000 machines) | state-machine | XState | Zag |
-| ---------------------------------- | -----------: | -----: | --: |
-| Idle (never written)               |         4.72 |   3.55 | 130 |
-| Written (1 event each)             |         4.73 |   4.09 | 134 |
-
-Core idle ≡ written; XState's first `assign` allocates a per-actor context, so
-its written row grows. (An earlier copy-on-write scheme in core shared the
-config's context until the first write — measured honestly, that sharing saved
-~40 B per idle machine on a component-sized context and ~0.5 KB at 64 fields,
-and its one-time reference swap silently stranded any context reference captured
-before the first write. Owning the copy from birth was the better trade.)
-
-**React rendering — list of 1 000 rows, 50 highlight moves.** Each library in its
-idiomatic fine-grained path (lower is better):
-
-| Metric                | state-machine | XState |          Zag |
-| --------------------- | -----------: | -----: | -----------: |
-| Rows woken / move     |        **2** |      2 |            2 |
-| Mount (ms) ³          |      **5.4** |    5.9 |          5.7 |
-| Re-render wall (ms) ¹ |      **3.8** |    7.0 | n/a (async)² |
-
-All three properly-set-up engines wake only the **2** rows that changed. The
-difference is per-render _cost_ — where core and XState are directly comparable
-(both flush synchronously); Zag's async send can't be timed under the same
-`flushSync` loop, but its **row-count is identical** (2), which is the metric
-that matters for "does it stay surgical at scale."
-
-- ¹ 50 highlight moves, median of 5.
-- ² Zag's `send` is microtask-batched, so a
-  synchronous `flushSync` re-render loop can't time it fairly (it balloons under
-  forced sync flushes) — only the row-count is reported for Zag.
-- ³ Mount (ms) is **not** apples-to-apples: each library mounts its idiomatic
-  per-row primitive (core/XState a `useSelector` subscription; Zag a full
-  `useMachine` + `React.memo` wrapper). It's "cost of this library's row", not a
-  shared primitive — the row-count and re-render wall are the comparable metrics.
-
-**When this matters: density × frequency** — many machines reacting to a
-high-frequency stream inside one frame budget. Trading terminals (thousands of
-ticker rows), canvas boards (`pointermove` fanning out to selected shapes),
-monitoring walls, multiplayer editors, game HUDs. Where machine work fights the
-frame, ~3.6× throughput plus surgical re-renders is the difference between smooth
-and dropped frames.
+**[See the benchmark →](../../benchmark/README.md)** for what's measured, how, and
+the full per-scenario tables vs. XState and Zag.
 
 ### The machine never sees props
 
