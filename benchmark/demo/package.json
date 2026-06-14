@@ -1,0 +1,25 @@
+{
+  "name": "benchmark-demo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@chimba-ui/react-state-machine": "workspace:*",
+    "@chimba-ui/state-machine": "workspace:*"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.0.2",
+    "@xstate/react": "^6.1.0",
+    "@zag-js/core": "^1.41.1",
+    "@zag-js/react": "^1.41.1",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "vite": "^8.0.14",
+    "xstate": "^5.32.0"
+  }
+}

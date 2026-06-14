@@ -8,6 +8,11 @@ Numbers below are from one clean run (Node 24, Apple Silicon). Absolute figures
 vary by machine, Node version, and thermal state — **run it yourself** — but the
 ranking and the scaling shape are what hold.
 
+> Want to _see_ it instead of read tables? **`pnpm benchmark:demo`** opens a live
+> side-by-side where each engine drives a grid of real per-cell machines under a
+> ramping load — watch them fall behind one by one (XState, then Zag, with Chimba
+> last). See [`demo/`](./demo/README.md).
+
 ## Running
 
 ```bash
