@@ -1,0 +1,25 @@
+{
+  "name": "@chimba-ui/benchmark",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "benchmark": "NODE_ENV=production node --expose-gc --import tsx index.ts"
+  },
+  "dependencies": {
+    "@chimba-ui/state-machine": "workspace:*",
+    "@chimba-ui/react-state-machine": "workspace:*"
+  },
+  "devDependencies": {
+    "@xstate/react": "^6.1.0",
+    "@zag-js/core": "^1.41.1",
+    "@zag-js/react": "^1.41.1",
+    "@zag-js/vanilla": "^1.41.1",
+    "jsdom": "^29.1.1",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "tinybench": "^2.9.0",
+    "tsx": "^4.22.3",
+    "xstate": "^5.32.0"
+  }
+}
