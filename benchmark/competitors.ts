@@ -120,12 +120,6 @@ export function makeXstateRawCell(observe = true): Cell {
   return { hit: () => a.send({ type: 'hit' }), miss: () => a.send({ type: 'miss' }) }
 }
 
-export const CONTENDERS: Record<string, (observe?: boolean) => Cell> = {
-  core: makeCoreCell,
-  xstate: makeXstateCell,
-  'xstate-raw': makeXstateRawCell,
-}
-
 // -----------------------------------------------------------------------------
 // SHARED-FANOUT models — the real fan-out test.
 //

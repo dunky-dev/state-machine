@@ -84,9 +84,6 @@ importers:
 
   benchmark/demo:
     dependencies:
-      '@chimba-ui/react-state-machine':
-        specifier: workspace:*
-        version: link:../../packages/react
       '@chimba-ui/state-machine':
         specifier: workspace:*
         version: link:../../packages/core
@@ -94,15 +91,12 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^6.0.2
         version: 6.0.2(vite@8.0.14(@types/node@22.19.19)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))
-      '@xstate/react':
-        specifier: ^6.1.0
-        version: 6.1.0(@types/react@19.2.15)(react@19.2.6)(xstate@5.32.1)
       '@zag-js/core':
         specifier: ^1.41.1
         version: 1.41.2
-      '@zag-js/react':
+      '@zag-js/vanilla':
         specifier: ^1.41.1
-        version: 1.41.2(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+        version: 1.41.2
       react:
         specifier: 19.2.6
         version: 19.2.6
