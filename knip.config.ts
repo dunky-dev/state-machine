@@ -12,8 +12,9 @@ const config: KnipConfig = {
       // installs it so `tsc`/`vitest` can resolve it. `@types/use-sync-external-store`
       // is a type-only dep knip can't attribute to a runtime import.
       ignoreDependencies: ['react', '@types/use-sync-external-store'],
-      // `pnpm -C <dir> dev` makes knip read `dev` as an unlisted binary.
-      ignoreBinaries: ['dev'],
+      // pnpm script names knip mistakes for binaries: `pnpm -C <dir> dev` and the
+      // `pnpm -C benchmark/demo build` step in the Pages deploy workflow.
+      ignoreBinaries: ['dev', 'build'],
     },
     // The native target re-exports the engine's hooks/types through
     // machine-react, so it never imports @chimba-ui/state-machine directly — but

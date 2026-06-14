@@ -3,8 +3,6 @@ dist
 .DS_Store
 *.log
 .vite
-.expo
-.expo-shared
-sandbox/native/dist
-sandbox/native/ios
-sandbox/native/android
+
+# local-only Claude settings (never committed; keep it out of format/lint too)
+.claude/settings.local.json

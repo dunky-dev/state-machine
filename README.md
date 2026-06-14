@@ -58,6 +58,8 @@ machine, multiplied by thousands, is what decides whether you hold the frame. Th
 engine is built for it — ~3–4× XState's event throughput, flat-ish memory, surgical
 re-renders; numbers + methodology in the [benchmark README](./benchmark/README.md).
 
+**▶ [Try the live benchmark demo](https://chimba-ui.github.io/state-machine/)** — watch all three engines run in your browser.
+
 ## How it's built
 
 The machine's behavior flows out through a few thin layers until it reaches real

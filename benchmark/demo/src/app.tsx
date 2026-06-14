@@ -248,9 +248,8 @@ export function App() {
         <b>updates/s</b> is the headline — how much engine work each clears under the same{' '}
         {DRAIN_BUDGET_MS}ms/frame budget (higher is better). The moment a panel can't keep up it
         latches a red <b>fell behind by N</b> flag (the backlog it had stacked up). They tip over
-        one by one — XState first, then Zag, with Chimba the last engine standing. <b>Vanilla</b> is
-        the control (no engine), so it leads; the comparison that matters is Chimba vs XState vs
-        Zag.
+        one by one. <b>Vanilla</b> is the control (no engine), so it leads; the comparison that
+        matters is Chimba vs XState vs Zag.
       </p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
