@@ -11,7 +11,7 @@
  *     accessibilityLabelledBy, id → nativeID.
  */
 import { describe, expect, it, vi } from 'vitest'
-import { normalize } from '@render-experiment/machine-native'
+import { normalize } from '@chimba-ui/machine-native'
 
 describe('native normalize — handlers', () => {
   it('keeps onPress as-is (RN Pressable.onPress)', () => {

@@ -1,5 +1,5 @@
 import { useMemo, useRef, useSyncExternalStore } from 'react'
-import type { EqualityFn, Machine } from '@render-experiment/machine-core'
+import type { EqualityFn, Machine } from '@chimba-ui/machine-core'
 
 /**
  * Fine-grained, selector-based subscription for leaf components.

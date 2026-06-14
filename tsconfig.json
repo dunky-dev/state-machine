@@ -14,10 +14,10 @@
     "skipLibCheck": true,
     "strict": true,
     "paths": {
-      "@render-experiment/*-core": ["./packages/core/*/src"],
-      "@render-experiment/*-react": ["./packages/react/*/src"],
-      "@render-experiment/*-native": ["./packages/native/*/src"],
-      "@render-experiment/utils": ["./packages/shared/utils/src"]
+      "@chimba-ui/*-core": ["./packages/core/*/src"],
+      "@chimba-ui/*-react": ["./packages/react/*/src"],
+      "@chimba-ui/*-native": ["./packages/native/*/src"],
+      "@chimba-ui/utils": ["./packages/shared/utils/src"]
     },
     "types": ["@types/node", "vitest/globals"]
   },

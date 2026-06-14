@@ -1,5 +1,5 @@
 {
-  "name": "@render-experiment/machine-core",
+  "name": "@chimba-ui/machine-core",
   "version": "0.0.0",
   "private": true,
   "type": "module",

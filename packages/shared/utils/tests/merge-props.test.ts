@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { mergeProps } from '@render-experiment/utils'
+import { mergeProps } from '@chimba-ui/utils'
 
 describe('mergeProps', () => {
   it('returns the library bag when consumer is undefined', () => {

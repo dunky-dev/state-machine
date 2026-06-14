@@ -46,13 +46,13 @@ importers:
 
   packages/native/machine:
     dependencies:
-      '@render-experiment/machine-core':
+      '@chimba-ui/machine-core':
         specifier: workspace:*
         version: link:../../core/machine
-      '@render-experiment/machine-react':
+      '@chimba-ui/machine-react':
         specifier: workspace:*
         version: link:../../react/machine
-      '@render-experiment/utils':
+      '@chimba-ui/utils':
         specifier: workspace:*
         version: link:../../shared/utils
       react:
@@ -64,10 +64,10 @@ importers:
 
   packages/react/machine:
     dependencies:
-      '@render-experiment/machine-core':
+      '@chimba-ui/machine-core':
         specifier: workspace:*
         version: link:../../core/machine
-      '@render-experiment/utils':
+      '@chimba-ui/utils':
         specifier: workspace:*
         version: link:../../shared/utils
       react:

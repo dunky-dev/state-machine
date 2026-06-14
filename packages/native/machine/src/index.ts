@@ -8,9 +8,9 @@ export {
   useSelector,
   type ComponentEffect,
   type ComponentEffects,
-} from '@render-experiment/machine-react'
+} from '@chimba-ui/machine-react'
 
 export { normalize, type Bindings } from './normalize'
 // RN-aware mergeProps (handler compose + style array) layered on the
-// substrate-agnostic mergeProps in @render-experiment/utils.
+// substrate-agnostic mergeProps in @chimba-ui/utils.
 export { mergeProps } from './merge-props'

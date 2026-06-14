@@ -1,5 +1,5 @@
 {
-  "name": "@render-experiment/machine-native",
+  "name": "@chimba-ui/machine-native",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -9,9 +9,9 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@render-experiment/machine-core": "workspace:*",
-    "@render-experiment/machine-react": "workspace:*",
-    "@render-experiment/utils": "workspace:*"
+    "@chimba-ui/machine-core": "workspace:*",
+    "@chimba-ui/machine-react": "workspace:*",
+    "@chimba-ui/utils": "workspace:*"
   },
   "peerDependencies": {
     "react": "*",

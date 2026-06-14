@@ -1,5 +1,5 @@
 {
-  "name": "@render-experiment/monorepo",
+  "name": "@chimba-ui/monorepo",
   "private": true,
   "type": "module",
   "scripts": {

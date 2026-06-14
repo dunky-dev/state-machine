@@ -1,4 +1,4 @@
-# `@render-experiment/machine-core`
+# `@chimba-ui/machine-core`
 
 A tiny, **renderer-agnostic state-machine engine** for building UI component
 logic once and running it anywhere. It owns _behavior_ — states, transitions,
@@ -8,7 +8,7 @@ It's pure JavaScript: it runs in any JS runtime (browser, Node, the React
 Native JS thread), but not in native platform code (e.g. Swift/Kotlin).
 
 ```ts
-import { machine, act } from '@render-experiment/machine-core'
+import { machine, act } from '@chimba-ui/machine-core'
 
 const toggle = machine({
   initial: 'inactive',
@@ -293,7 +293,7 @@ const offStop = m.onStop(() => {
 > `TransitionConfig` constraint at the definition site. Two paths off one call:
 >
 > ```ts
-> import { setup, machine } from '@render-experiment/machine-core'
+> import { setup, machine } from '@chimba-ui/machine-core'
 >
 > // lightweight — infers State / Context / Event from the literal, names loose:
 > const cfg = setup().createMachine({ initial: 'closed', context: {}, states: { closed: {} } })
@@ -415,7 +415,7 @@ on: {
 **Named guards + combinators** (`and` / `or` / `not`):
 
 ```ts
-import { and, not } from '@render-experiment/machine-core'
+import { and, not } from '@chimba-ui/machine-core'
 
 machine({
   // ...
@@ -454,7 +454,7 @@ drops the `$ => $.setContext(...)` wrapper, so the patch reads as data, and take
 one or many patches (applied in order; a later patch fn sees earlier writes):
 
 ```ts
-import { act } from '@render-experiment/machine-core'
+import { act } from '@chimba-ui/machine-core'
 
 on: {
   save: {
@@ -494,7 +494,7 @@ fallthrough):
 or a list. A guardless branch is the fallback (put it last):
 
 ```ts
-import { oneOf } from '@render-experiment/machine-core'
+import { oneOf } from '@chimba-ui/machine-core'
 
 actions: [
   oneOf(
@@ -701,7 +701,7 @@ view-facing object (handlers + attributes a renderer spreads onto elements). The
 subscribable snapshot:
 
 ```ts
-import { connector } from '@render-experiment/machine-core'
+import { connector } from '@chimba-ui/machine-core'
 
 const connect = ({ state, send }) => ({
   isOpen: state === 'open',
@@ -747,7 +747,7 @@ and, when it changes, calls the matching prop. (Same tuple shape as a React
 `ComponentEffect` — declare each as a named const, collect them in a list.)
 
 ```ts
-import { makeReaction } from '@render-experiment/machine-core'
+import { makeReaction } from '@chimba-ui/machine-core'
 
 // fix the machine generics once per component; `Value` is then inferred per reaction:
 const reaction = makeReaction<TooltipState, TooltipContext, TooltipEvent, TooltipProps>()
@@ -814,7 +814,7 @@ each dimension is its own machine, and `compose` runs them as one unit
 (orthogonal regions, without nested states):
 
 ```ts
-import { compose } from '@render-experiment/machine-core'
+import { compose } from '@chimba-ui/machine-core'
 
 const popup = machine({
   /* closed / open */
@@ -973,7 +973,7 @@ single active menu in a menubar." `createStore` is a tiny reactive cell for
 exactly that: a plain value plus a listener set.
 
 ```ts
-import { createStore } from '@render-experiment/machine-core'
+import { createStore } from '@chimba-ui/machine-core'
 
 const store = createStore({ count: 0 })
 
@@ -1012,7 +1012,7 @@ const off = tooltipStore.subscribe(s => m.send({ type: 'activeChanged', openId: 
 ## Putting it together
 
 ```ts
-import { setup, machine, connector } from '@render-experiment/machine-core'
+import { setup, machine, connector } from '@chimba-ui/machine-core'
 
 // 1. describe behavior (agnostic) — setup() type-checks the literal in place.
 //    Pure, props-free, platform-free, so it's the lightweight path.

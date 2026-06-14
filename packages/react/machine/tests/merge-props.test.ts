@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { mergeProps } from '@render-experiment/machine-react'
+import { mergeProps } from '@chimba-ui/machine-react'
 
 describe('mergeProps', () => {
   it('inherits handler composition from the agnostic base', () => {

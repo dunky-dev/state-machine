@@ -1,4 +1,4 @@
-import { mergeProps as baseMergeProps } from '@render-experiment/utils'
+import { mergeProps as baseMergeProps } from '@chimba-ui/utils'
 
 type AnyProps = Record<string, unknown>
 

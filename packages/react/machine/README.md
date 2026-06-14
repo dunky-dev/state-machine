@@ -1,6 +1,6 @@
-# `@render-experiment/machine-react`
+# `@chimba-ui/machine-react`
 
-The **React bindings** for [`@render-experiment/machine-core`](../../core/machine).
+The **React bindings** for [`@chimba-ui/machine-core`](../../core/machine).
 The core engine is renderer-agnostic; this package is the thin React edge that
 drives it: it builds the machine + connector, runs the React lifecycle, bridges
 the connector's snapshot into React rendering, translates the agnostic
@@ -74,7 +74,7 @@ the generated `useApi` owns the `useEffect`s:
 
 ```ts
 // a target component's effects.ts (illustrative — components live outside this repo)
-import type { ComponentEffect } from '@render-experiment/machine-react'
+import type { ComponentEffect } from '@chimba-ui/machine-react'
 
 type TooltipEffect = ComponentEffect<TooltipMachine, TooltipMachineProps>
 
