@@ -73,7 +73,7 @@ annotations short — and exports a flat list. **No React in the component file*
 the generated `useApi` owns the `useEffect`s:
 
 ```ts
-// react/components/tooltip/src/effects.ts
+// a target component's effects.ts (illustrative — components live outside this repo)
 import type { ComponentEffect } from '@render-experiment/machine-react'
 
 type TooltipEffect = ComponentEffect<TooltipMachine, TooltipMachineProps>

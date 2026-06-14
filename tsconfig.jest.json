@@ -1,9 +1,0 @@
-{
-  "extends": "./tsconfig.json",
-  "compilerOptions": {
-    "types": ["jest", "@types/node"]
-  },
-  "include": ["./packages/native/**/tests/*.test.ts", "./packages/native/**/tests/*.test.tsx"],
-  // Root tsconfig excludes these test files
-  "exclude": ["**/node_modules", "**/dist"]
-}

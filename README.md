@@ -28,7 +28,7 @@ transitions, same accessibility intent. Only the render differs.
 ```
 
 > **Status: experimental.** The engine (`core/machine`) is stable and tested. The
-> components and target bridges are NOT production-ready yet.
+> target bridges are NOT production-ready yet.
 >
 > This is an in-progress exploration.
 
@@ -81,13 +81,11 @@ agnostic                                                            substrate
 - **view** — the per-target render that spreads the normalized props onto the
   actual elements.
 
-The full layered model, the codegen pipeline, and the "the
-machine never sees props" rule are in:
+The full layered model and the "the machine never sees props" rule are in:
 
 - **[`ARCHITECTURE.md`](./ARCHITECTURE.md)** — the big-picture map and the layered model.
 - **[`packages/core/machine/README.md`](./packages/core/machine/README.md)** — the state machine and full benchmark results.
 - **[`AGENTS.md`](./AGENTS.md)** — the contributor / agent contract.
-- `packages/core/components/<comp>/SPEC.md` — per-component behavior specs.
 
 ## Inspiration & prior art
 

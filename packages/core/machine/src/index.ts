@@ -64,6 +64,3 @@ export type { Store, Listener, SetStateAction } from './store'
 
 // Bindings vocabulary (agnostic event + attr) connect() speaks.
 export type { AttrBindings, EventBindings, KeyboardPayload, PointerPayload } from './bindings'
-
-// (Style spec lives in @render-experiment/style-engine-core; components import
-// it from there. Cross-instance singletons use createStore, above.)

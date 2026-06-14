@@ -14,24 +14,13 @@
     "skipLibCheck": true,
     "strict": true,
     "paths": {
-      "@render-experiment/*-core": ["./packages/core/components/*/src", "./packages/core/*/src"],
-      "@render-experiment/*-react": ["./packages/react/components/*/src", "./packages/react/*/src"],
-      "@render-experiment/*-native": [
-        "./packages/native/components/*/src",
-        "./packages/native/*/src"
-      ],
-      "@render-experiment/*-shared": ["./packages/shared/components/*/src"],
-      "@render-experiment/utils": ["./packages/shared/utils/src"],
-      "@render-experiment/store": ["./packages/core/store/src"]
+      "@render-experiment/*-core": ["./packages/core/*/src"],
+      "@render-experiment/*-react": ["./packages/react/*/src"],
+      "@render-experiment/*-native": ["./packages/native/*/src"],
+      "@render-experiment/utils": ["./packages/shared/utils/src"]
     },
-    "types": ["@types/node", "vite/client", "vitest/globals"]
+    "types": ["@types/node", "vitest/globals"]
   },
-  "include": ["./*.ts", "./packages", "./sandbox", "./scripts"],
-  "exclude": [
-    "**/node_modules",
-    "**/dist",
-    // Native Jest tests are type-checked by tsconfig.jest.json
-    "./packages/native/**/tests/*.test.ts",
-    "./packages/native/**/tests/*.test.tsx"
-  ]
+  "include": ["./*.ts", "./packages"],
+  "exclude": ["**/node_modules", "**/dist"]
 }
