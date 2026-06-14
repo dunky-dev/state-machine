@@ -64,12 +64,22 @@ _machine construction_, not config-literal allocation.
 > it clears both rows' margins. The `(anti-DCE SINK: …)` lines in the raw output
 > are just proof the JIT didn't dead-code-eliminate the work — ignore them.
 
+**Every comparison table lists all three engines**, so you always see the full
+field. Where one can't run a given test, the cell is marked — same marker
+everywhere:
+
+- **`n/a ᵃ`** — _async._ Zag's `send` is microtask-batched, so it can't run in a
+  synchronous ops/sec or `flushSync` loop.
+- **`n/a ᶠ`** — _no equivalent feature._ The engine has no first-class primitive
+  for this scenario (e.g. XState has no lazy/memoized `computed`), so there's
+  nothing comparable to time.
+
 ---
 
 ## 1. Fan-out / fine-grain / throughput (`tests/fan-out.ts`)
 
 The selection layer at scale — the thing that decides whether thousands of
-machines stay cheap. Contenders: Chimba UI, XState.
+machines stay cheap. Zag can't run these (async `send`).
 
 **A. Propagation — change 1 of N.** ONE machine, N fields, N observers (one per
 field). Bump one field. Chimba UI's `select` is a coarse bus: every selection
@@ -78,11 +88,11 @@ field's _listener_ fires (downstream is O(changed)) — but the re-eval pass its
 is O(N observers) per write. The table shows _how_ that degrades with N versus
 XState's coarse `actor.subscribe`.
 
-| Change 1 of N | Chimba UI (ops/sec) | XState (ops/sec) |
-| ------------- | ------------------: | ---------------: |
-| 100           |             275,072 |          250,148 |
-| 1000          |               9,532 |           10,426 |
-| 5000          |           **4,193** |              709 |
+| Change 1 of N | Chimba UI (ops/sec) | XState (ops/sec) |   Zag |
+| ------------- | ------------------: | ---------------: | ----: |
+| 100           |               275 K |            250 K | n/a ᵃ |
+| 1000          |               9.5 K |           10.4 K | n/a ᵃ |
+| 5000          |           **4.2 K** |              709 | n/a ᵃ |
 
 → Roughly par at small N, but Chimba UI **~6× faster at 5000 observers** — XState's
 coarse subscribe degrades much faster as the observer set grows.
@@ -92,10 +102,10 @@ dedup layer re-evaluates and value-compares, so no listener fires — the
 subscriber-side cost is ~zero. This is the "irrelevant write" that a cell-per-field
 model gets for free and a coarse bus has to work to ignore.
 
-| Irrelevant write, N cells | Chimba UI (ops/sec) | XState (ops/sec) |
-| ------------------------- | ------------------: | ---------------: |
-| 1000                      |       **2,100,753** |          419,567 |
-| 5000                      |         **945,029** |          400,659 |
+| Irrelevant write, N cells | Chimba UI (ops/sec) | XState (ops/sec) |   Zag |
+| ------------------------- | ------------------: | ---------------: | ----: |
+| 1000                      |           **2.1 M** |            420 K | n/a ᵃ |
+| 5000                      |           **945 K** |            401 K | n/a ᵃ |
 
 → Chimba UI is **~5× faster** at shrugging off a write nobody is watching (1000
 cells); the value-deduping bus skips waking observers entirely.
@@ -103,29 +113,33 @@ cells); the value-deduping bus skips waking observers entirely.
 **C. Throughput — single machine, one event.** Per-transition cost with no
 selection scaling — the raw `send` price.
 
-| Single machine, one event |       ops/sec |
-| ------------------------- | ------------: |
-| Chimba UI                 | **3,038,317** |
-| XState (raw)              |       870,132 |
-| XState (diffed)           |       828,616 |
+| Single machine, one event |   ops/sec |
+| ------------------------- | --------: |
+| Chimba UI                 | **3.0 M** |
+| XState (raw)              |     870 K |
+| XState (diffed)           |     829 K |
+| Zag                       |     n/a ᵃ |
 
 → Chimba UI pushes **~3.5× the events/sec** of XState. Context is mutated in place,
 so a transition allocates nothing; XState builds a fresh snapshot per event.
 
 ## 2. Compose / synced machines (`tests/compose.ts`)
 
-The cross-region machinery `compose` adds, scaled by member count. Chimba UI-only.
+The cross-region machinery `compose` adds, scaled by member count. No competitor
+column: neither XState nor Zag has a first-class orthogonal-region primitive that
+maps to `combine`/`sync`, so there's nothing equivalent to time (**n/a ᶠ** for
+both).
 
 **A. combine** — one value-deduped `Selection` derived across M members but reading
 only `m0`. It re-evaluates on _any_ member change but fires its listener only when
 `m0` changes. **B. sync** — a coarse cross-region rule that wakes on _any_ member
 change (the O(members) path by design).
 
-| Members | combine (ops/sec) | sync (ops/sec) |
-| ------- | ----------------: | -------------: |
-| 2       |         2,980,282 |      3,042,450 |
-| 10      |         2,871,633 |      2,945,042 |
-| 50      |         2,648,950 |      2,631,769 |
+| Members | Chimba UI combine (ops/sec) | Chimba UI sync (ops/sec) | XState | Zag   |
+| ------- | --------------------------: | -----------------------: | ------ | ----- |
+| 2       |                       3.0 M |                    3.0 M | n/a ᶠ  | n/a ᶠ |
+| 10      |                       2.9 M |                    2.9 M | n/a ᶠ  | n/a ᶠ |
+| 50      |                       2.6 M |                    2.6 M | n/a ᶠ  | n/a ᶠ |
 
 → Cross-region coordination stays in the **~2.6–3.0 M ops/sec** band even at 50
 synced members — the O(M) re-eval pass costs ~12% going from 2 to 50.
@@ -138,16 +152,16 @@ synced members — the O(M) re-eval pass costs ~12% going from 2 to 50.
 ## 3. Computed (`tests/computed.ts`)
 
 The most machinery-heavy subsystem — read-key tracking via proxies, memoization
-against a dep snapshot, glitch-free computed→computed chains. Chimba UI-only (XState
-has no first-class lazy/memoized computed), so this is a subsystem profile, not a
-competitor table.
+against a dep snapshot, glitch-free computed→computed chains. This is a subsystem
+profile: XState has no first-class lazy/memoized `computed` (**n/a ᶠ**), and Zag's
+`send` is async (**n/a ᵃ**), so neither has a comparable primitive to time.
 
-| Scenario                             |        ops/sec |
-| ------------------------------------ | -------------: |
-| Cached read (no change)              | **16,074,792** |
-| Fine-grain (change unread, re-read)  |      2,889,203 |
-| Recompute (change read field)        |      1,473,307 |
-| 4-deep chain (change root, read tip) |        494,560 |
+| Scenario                             | Chimba UI (ops/sec) | XState | Zag   |
+| ------------------------------------ | ------------------: | ------ | ----- |
+| Cached read (no change)              |          **16.1 M** | n/a ᶠ  | n/a ᵃ |
+| Fine-grain (change unread, re-read)  |               2.9 M | n/a ᶠ  | n/a ᵃ |
+| Recompute (change read field)        |               1.5 M | n/a ᶠ  | n/a ᵃ |
+| 4-deep chain (change root, read tip) |               495 K | n/a ᶠ  | n/a ᵃ |
 
 → A cached read is **~16 M/sec** (near-free memo hit), and changing a field the
 computed _doesn't_ read stays a memo hit at ~2.9 M/sec — read-key tracking means
@@ -156,18 +170,19 @@ you only pay the recompute when an input you actually read changes.
 ## 4. Engine hot paths (`tests/engine.ts`)
 
 The parts of `send` that do real statechart work (everything else in the suite
-stays in one state and only mutates context). Chimba UI-only — engine-subsystem
-measurements.
+stays in one state and only mutates context). These probe Chimba UI internals in
+isolation — there's no comparable isolated path to time in XState (**n/a ᶠ**), and
+Zag's `send` is async (**n/a ᵃ**).
 
-| Scenario                               |   ops/sec |
-| -------------------------------------- | --------: |
-| Guard fallthrough — 2 candidates       | 3,344,337 |
-| Guard fallthrough — 8 candidates       | 2,954,340 |
-| Guard fallthrough — 32 candidates      | 2,003,349 |
-| State churn — exit+entry every event   | 2,639,253 |
-| Effect churn — boot+cleanup each trans | 2,587,574 |
-| Sub churn — stable set                 | 2,673,823 |
-| Sub churn — churning set (rebuild)     | 2,042,115 |
+| Scenario                               | Chimba UI (ops/sec) | XState | Zag   |
+| -------------------------------------- | ------------------: | ------ | ----- |
+| Guard fallthrough — 2 candidates       |               3.3 M | n/a ᶠ  | n/a ᵃ |
+| Guard fallthrough — 8 candidates       |               3.0 M | n/a ᶠ  | n/a ᵃ |
+| Guard fallthrough — 32 candidates      |               2.0 M | n/a ᶠ  | n/a ᵃ |
+| State churn — exit+entry every event   |               2.6 M | n/a ᶠ  | n/a ᵃ |
+| Effect churn — boot+cleanup each trans |               2.6 M | n/a ᶠ  | n/a ᵃ |
+| Sub churn — stable set                 |               2.7 M | n/a ᶠ  | n/a ᵃ |
+| Sub churn — churning set (rebuild)     |               2.0 M | n/a ᶠ  | n/a ᵃ |
 
 → Even the heavy paths hold **~2–3.3 M ops/sec**: a 32-candidate guard walk, full
 state transitions with entry/exit actions, and effect boot/cleanup every
@@ -233,7 +248,7 @@ List of 1000 rows:
 | Chimba UI/instance   |             **2** |        6.3 |             **4.4** |
 | Chimba UI/selector   |                 2 |        8.7 |                 7.0 |
 | xstate/selector      |                 2 |        6.5 |                 8.3 |
-| zag/instance         |                 2 |        9.9 |        n/a (async)¹ |
+| zag/instance         |                 2 |        9.9 |               n/a ᵃ |
 | naive (anti-pattern) |           **980** |        7.8 |                64.5 |
 
 → Every properly-set-up engine wakes only the **2** rows that changed (vs. the
@@ -241,8 +256,9 @@ naive whole-snapshot subscription, which re-renders all **980** — a ~490× gap
 ~15× the wall time). Among the surgical strategies Chimba UI re-renders **~1.9×
 faster than XState**.
 
-- ¹ Zag's `send` is microtask-batched, so a synchronous `flushSync` re-render loop
-  can't time it fairly — only its row-count is reported.
+Zag mounts and wakes the same **2** rows, but its re-render wall is **n/a ᵃ** — the
+microtask-batched `send` can't be timed under a synchronous `flushSync` loop, so
+only its row-count is comparable.
 
 ---
 

@@ -57,10 +57,21 @@ a link, no tables, so leave it alone unless a headline ratio genuinely moved (se
 below).
 
 Update **only the numbers** — never reword prose, change column layouts, or alter
-footnotes. Keep each table's existing alignment. Map the run output:
+footnotes. Keep each table's existing alignment. Two formatting rules to preserve:
+
+- **Every comparison table keeps all three engine columns** (Chimba UI, XState,
+  Zag). Where an engine can't run a test, keep the marker — `n/a ᵃ` (async: Zag in
+  any sync ops/sec or `flushSync` loop) or `n/a ᶠ` (no equivalent feature: e.g.
+  XState has no `compose`/`computed`). Never drop a column to "tidy up".
+- **ops/sec values use K/M notation**: ≥1,000,000 → `M` (e.g. `3,038,317` →
+  `3.0 M`), ≥1,000 → `K` (e.g. `9,532` → `9.5 K`), below that stay raw (`709`).
+  One decimal. The construction (µs), memory (KB), and rendering (ms) tables are
+  small decimals — leave those as-is, no K/M.
+
+Map the run output:
 
 - **Throughput → single machine, one event**: `core` + `xstate-raw` from section
-  C. Convert ops/sec to millions (`2,944,305` → `2.9 M`).
+  C (K/M notation as above).
 - **Throughput → fine-grain 1/5000**: `core` + `xstate` from section B
   ("Fine-grain … 5000 cells") — the diffed variant, to match the table.
 - **Construct 10k**: the `µs / machine` column of "Construct 10,000 machines".

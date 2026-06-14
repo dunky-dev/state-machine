@@ -113,8 +113,8 @@ a value-deduping bus, so a transition allocates nothing and an irrelevant write
 wakes no observers.
 
 In practice that's **up to ~4× the event throughput** of the alternatives, flat
-memory as context grows wide (where a cell-per-field engine balloons ~28×), and
-surgical re-renders that wake only the rows that actually changed.
+memory as context grows wide, and surgical re-renders that wake only the rows
+that actually changed.
 
 **[See the benchmark →](../../benchmark/README.md)** for what's measured, how, and
 the full per-scenario tables vs. XState and Zag.
