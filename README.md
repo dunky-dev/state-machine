@@ -55,8 +55,16 @@ The hard case is **many machines reacting to many events inside
 one frame budget** — things like a trading terminal with live tickers, a monitoring wall, a
 canvas board, a game HUD. There the cost of each transition and the memory per
 machine, multiplied by thousands, is what decides whether you hold the frame. The
-engine is built for it — ~3–4× XState's event throughput, flat-ish memory, surgical
-re-renders; numbers + methodology in the [benchmark README](./benchmark/README.md).
+engine is built for it:
+
+| At scale (thousands of machines) | Chimba UI | XState |     Zag |
+| -------------------------------- | --------: | -----: | ------: |
+| Event throughput (ops/s)         | **7.2 M** |  897 K |   n/a ᵃ |
+| Memory / machine, 2-field (KB)   |   **3.6** |    3.6 |     9.1 |
+| Memory / machine, 64-field (KB)  |   **4.1** |    4.1 | **134** |
+
+→ **~8× XState's throughput**, on par with XState for memory but at least **3× lighter than Zag** — and the gap widens as context grows, because memory stays ~flat in field count (no per-field cell). ᵃ Zag uses async ops, so a synchronous ops/s loop can't time it. Full methodology + per-scenario tables in the
+**[benchmark README](./benchmark/README.md)**.
 
 **▶ [Try the live benchmark demo](https://chimba-ui.github.io/state-machine/)** — watch all three engines run in your browser.
 

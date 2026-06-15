@@ -112,7 +112,7 @@ monitoring walls, game HUDs). Context is one plain object mutated in place behin
 a value-deduping bus, so a transition allocates nothing and an irrelevant write
 wakes no observers.
 
-In practice that's **up to ~4× the event throughput** of the alternatives, flat
+In practice that's **up to ~8× the event throughput** of the alternatives, flat
 memory as context grows wide, and surgical re-renders that wake only the rows
 that actually changed.
 

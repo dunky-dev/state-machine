@@ -162,7 +162,13 @@ class MachineClass<
       this.busSnapshot = [...this.bus]
       this.busDirty = false
     }
-    for (const l of this.busSnapshot) if (this.bus.has(l)) l()
+    // Until a listener (un)subscribes mid-pass, the snapshot IS live membership,
+    // so the per-listener has() check is pure overhead — skip it. The instant a
+    // listener mutates the bus during the pass, busAdd/busDelete flip busDirty and
+    // we resume checking for the remainder (the removed-mid-pass guarantee). This
+    // keeps the fan-out path (K selectors, one write) at K calls + 0 Set lookups
+    // in the steady state.
+    for (const l of this.busSnapshot) if (!this.busDirty || this.bus.has(l)) l()
   }
 
   // ---- reads ----
@@ -172,8 +178,12 @@ class MachineClass<
   get context(): Context {
     return this.ctx
   }
-  hasTag = (tag: string): boolean => this.tagsOf[this.stateValue].has(tag)
-  matches = (name: State): boolean => this.stateValue === name
+  hasTag(tag: string): boolean {
+    return this.tagsOf[this.stateValue].has(tag)
+  }
+  matches(name: State): boolean {
+    return this.stateValue === name
+  }
 
   private setState(next: State): void {
     if (next === this.stateValue) return
@@ -184,16 +194,33 @@ class MachineClass<
   // ---- guards / resolution ----
   // A guard resolver bound to THIS event's params + the config's guard registry,
   // handed to `resolve` (transition selection) so guard names resolve against the
-  // runtime's single registry. Params are built once per event and shared across
-  // the candidate list.
+  // runtime's single registry. Params are built LAZILY: a candidate list whose
+  // winner is guardless (the common UI case — `open → closed` on a click) never
+  // touches a guard, so `makeGuardParams` (an object + a self-referential closure)
+  // is deferred until the first guard actually runs, and memoized across the rest
+  // of the list. The hottest send shape skips it entirely (see `selectTransition`).
   private resolverFor(event: Event): (guard: GuardArg<Context, Event, Computed>) => boolean {
-    const params = makeGuardParams(
-      this.ctx,
-      event,
-      this.computed,
-      this.config.implementations?.guards,
-    )
-    return guard => params.guard(guard)
+    let params: ReturnType<typeof makeGuardParams<Context, Event, Computed>> | undefined
+    return guard =>
+      (params ??= makeGuardParams(
+        this.ctx,
+        event,
+        this.computed,
+        this.config.implementations?.guards,
+      )).guard(guard)
+  }
+  // Pick the transition for an event, fast-pathing the dominant shape: a single
+  // guardless `Transition` object resolves to itself with NO resolver built and
+  // NO array allocated (`resolve` wraps a bare entry in a 1-element array). Only a
+  // fn entry, an array (fallthrough), or a guarded object falls through to the
+  // general `resolve` — which then lazily builds the resolver above.
+  private selectTransition(
+    entry: ReturnType<typeof lookupOn<State, Context, Event, Computed>>,
+    event: Event,
+  ): Transition<State, Context, Event, Computed> | undefined {
+    if (entry === undefined) return undefined
+    if (typeof entry === 'object' && !Array.isArray(entry) && !entry.guard) return entry
+    return resolve(entry, this.resolverFor(event))
   }
   private runActions(actions: Actions<Context, Event, Computed> | undefined, event: Event): void {
     runActions(this.actionHost, actions, event)
@@ -247,7 +274,7 @@ class MachineClass<
         item()
         continue
       }
-      const t = resolve(lookupOn(this.config, this.stateValue, item.type), this.resolverFor(item))
+      const t = this.selectTransition(lookupOn(this.config, this.stateValue, item.type), item)
       if (t) this.applyTransition(t, item)
     }
   }
@@ -281,7 +308,7 @@ class MachineClass<
       queueMicrotask(() => this.dispatchAfter(scheduledIn, key, event, generation))
       return
     }
-    const t = resolve(this.config.states[scheduledIn].after?.[key], this.resolverFor(event))
+    const t = this.selectTransition(this.config.states[scheduledIn].after?.[key], event)
     if (!t) return
     this.flushing = true
     try {
