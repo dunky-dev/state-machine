@@ -259,12 +259,21 @@ export function App() {
       <p style={{ margin: '0 0 16px', fontSize: 12, opacity: 0.55, maxWidth: 1000 }}>
         <b>updates/s</b> is the headline — how much engine work each clears under the same{' '}
         {DRAIN_BUDGET_MS}ms/frame budget (higher is better). The moment a panel can't keep up it
-        latches a red <b>fell behind by N</b> flag (the backlog it had stacked up). They tip over
-        one by one. <b>Vanilla</b> is the control (no engine), so it leads; the comparison that
+        latches a red <b>fell behind by N</b> flag (the backlog it had stacked up). Watch the panels
+        diverge as the load ramps. <b>Vanilla</b> is the control (no engine); the comparison that
         matters is Chimba vs XState vs Zag.
       </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+      {/* auto-fit + minmax so the four panels wrap to fewer columns as the
+          viewport narrows (4 → 2 → 1) instead of overflowing past the edge on
+          phones/tablets. Pure CSS grid — no media query needed. */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+          gap: 12,
+        }}
+      >
         {PANELS.map(p => {
           const s = stats[p.id]
           const behind = s.overflowedAt !== null
