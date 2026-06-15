@@ -1,0 +1,591 @@
+---
+import Header from '../components/Header.astro'
+import '../styles/global.css'
+
+const base = import.meta.env.BASE_URL
+const repo = 'https://github.com/chimba-ui/state-machine'
+
+// The three machines, written out (set:html so literal braces survive the JSX
+// parser). The data-state spans carry the LIVE machine state, which glows.
+// compose() bundles them; tick() fans the shared step to all three.
+const pacmanCode = `<span class="cmt">// pacman — eats until the ghost gets him</span>
+<span class="kw">machine</span>({
+  initial: <span class="str">'eating'</span>,
+  context: { x, y, dir, mouth },
+  states: {
+    <span class="st" data-machine="pacman" data-state="eating">eating</span>: { on: { step, face, die } },
+    <span class="st" data-machine="pacman" data-state="dead">dead</span>:   { on: { revive } },
+  },
+})`
+
+const ghostCode = `<span class="cmt">// ghost — chases, stops on a catch</span>
+<span class="kw">machine</span>({
+  initial: <span class="str">'roaming'</span>,
+  context: { x, y, dir },
+  states: {
+    <span class="st" data-machine="ghost" data-state="roaming">roaming</span>: { on: { tick, stop } },
+    <span class="st" data-machine="ghost" data-state="stopped">stopped</span>: { on: { reset } },
+  },
+})`
+
+const boardCode = `<span class="cmt">// board — the shared/general info</span>
+<span class="kw">machine</span>({
+  initial: <span class="str">'playing'</span>,
+  context: { dots, cherry, score },
+  states: {
+    <span class="st" data-machine="board" data-state="playing">playing</span>: { on: { eat, caught } },
+    <span class="st" data-machine="board" data-state="caught">caught</span>:  { on: { reset } },
+  },
+})`
+
+const composeCode = `<span class="cmt">// one unit; tick() fans to all three</span>
+<span class="kw">const</span> game = <span class="fn">compose</span>({ pacman, ghost, board })`
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chimba UI — a state machine built for performance</title>
+    <link rel="icon" href={`${base}logo-symbol.svg`} type="image/svg+xml" />
+    <meta
+      name="description"
+      content="A state machine built for performance — inspired by XState and Zag. Define a behavior once, render it anywhere."
+    />
+  </head>
+  <body>
+    <Header />
+
+    <main class="mx-auto max-w-5xl px-4 pb-16 sm:px-6">
+      <section class="grid grid-cols-1 items-start gap-8 pt-12 sm:pt-20 lg:grid-cols-2 lg:gap-12">
+        <!-- left: big headline -->
+        <h1 class="text-5xl font-bold leading-[1.04] tracking-tight sm:text-6xl md:text-7xl">
+          Define states once.<br />Render it anywhere.
+        </h1>
+
+        <!-- right: description + install box + note -->
+        <div class="lg:pt-2">
+          <p class="max-w-md text-lg text-fg sm:text-xl">
+            Chimba is <strong>a state machine built for performance</strong> — behavior as pure,
+            serializable data you can plug into anything that renders. Inspired by
+            <a class="text-accent hover:underline" href="https://stately.ai/docs" target="_blank" rel="noreferrer">XState</a>
+            and
+            <a class="text-accent hover:underline" href="https://zagjs.com/" target="_blank" rel="noreferrer">Zag</a>.
+          </p>
+
+          <div
+            class="mt-5 flex max-w-md items-center justify-between gap-3 rounded-lg border border-border bg-panel px-4 py-3 font-mono text-sm"
+          >
+            <code id="install-cmd">npm i @chimba-ui/state-machine</code>
+            <button
+              id="install-copy"
+              type="button"
+              aria-label="Copy install command"
+              class="shrink-0 rounded-md p-1 text-muted transition-colors hover:bg-black/5 hover:text-fg"
+            >
+              ⧉
+            </button>
+          </div>
+          <p class="mt-3 max-w-md text-sm text-muted">
+            Experimental — the engine is stable and tested; the target bridges aren't
+            production-ready yet.
+          </p>
+
+          <div class="mt-6 flex flex-wrap gap-3.5">
+            <a
+              class="rounded-xl bg-fg px-5 py-2.5 font-semibold text-bg transition-opacity hover:opacity-90"
+              href={`${base}get-started`}>Get started →</a
+            >
+            <a
+              class="rounded-xl border border-border px-5 py-2.5 font-semibold text-fg transition-colors hover:border-fg"
+              href={repo}
+              target="_blank"
+              rel="noreferrer">GitHub</a
+            >
+          </div>
+        </div>
+      </section>
+
+      <!-- short explanation, leading into the live example -->
+      <section class="mx-auto mt-20 max-w-2xl text-center sm:mt-28">
+        <p class="text-lg text-muted">
+          One game, three machines composed — <code class="font-mono text-fg">pacman</code>,
+          <code class="font-mono text-fg">ghost</code> and <code class="font-mono text-fg">board</code> —
+          driving three renderers at the same time. Same behavior, byte-for-byte; only the render differs.
+        </p>
+      </section>
+
+      <!-- The heart-buyer: THREE machines (pacman · ghost · board) composed into
+           one game, rendered three ways at once. Live data shown above each panel;
+           the live direction glows in pacman's code. Arrow keys / WASD steer. -->
+      <section class="mt-8 sm:mt-10" aria-label="Three Chimba machines composed and rendered three ways">
+        <!-- the three machines, written out + the compose that unites them -->
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <figure class="dark-card">
+            <figcaption class="panel-head px-4 py-2.5 font-mono text-[12px]">
+              pacman.machine.ts
+            </figcaption>
+            <pre class="overflow-x-auto px-4 py-3 font-mono text-[12px] leading-relaxed"><code set:html={pacmanCode} /></pre>
+          </figure>
+          <figure class="dark-card">
+            <figcaption class="panel-head px-4 py-2.5 font-mono text-[12px]">
+              ghost.machine.ts
+            </figcaption>
+            <pre class="overflow-x-auto px-4 py-3 font-mono text-[12px] leading-relaxed"><code set:html={ghostCode} /></pre>
+          </figure>
+          <figure class="dark-card">
+            <figcaption class="panel-head px-4 py-2.5 font-mono text-[12px]">
+              board.machine.ts
+            </figcaption>
+            <pre class="overflow-x-auto px-4 py-3 font-mono text-[12px] leading-relaxed"><code set:html={boardCode} /></pre>
+          </figure>
+        </div>
+        <pre class="dark-card mt-3 overflow-x-auto px-4 py-3 font-mono text-[12px] leading-relaxed"><code set:html={composeCode} /></pre>
+
+        <!-- controls -->
+        <div class="mt-4 flex items-center justify-center">
+          <button
+            id="pac-toggle"
+            type="button"
+            class="rounded-xl border border-border bg-panel px-5 py-2 font-mono text-[13px] font-semibold text-fg transition-colors hover:border-fg"
+          >
+            ⏸ Pause
+          </button>
+        </div>
+
+        <!-- live data labels: machine state ↔ representation -->
+        <div class="mt-4 grid grid-cols-1 gap-2 font-mono text-[12px] sm:grid-cols-3">
+          <div class="dark-card rounded-lg px-3 py-2">
+            <span class="text-accent">pacman</span>
+            <span id="dbg-pacman" class="text-[#9a9aa2]"> · …</span>
+          </div>
+          <div class="dark-card rounded-lg px-3 py-2">
+            <span class="text-down">ghost</span>
+            <span id="dbg-ghost" class="text-[#9a9aa2]"> · …</span>
+          </div>
+          <div class="dark-card rounded-lg px-3 py-2">
+            <span class="text-up">board</span>
+            <span id="dbg-board" class="text-[#9a9aa2]"> · …</span>
+          </div>
+        </div>
+
+        <!-- three renderers, one composed game -->
+        <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <!-- WEB / DOM -->
+          <div class="dark-card">
+            <div class="panel-head flex items-center justify-between px-4 py-2.5">
+              <span class="font-mono text-[12px] text-fg">Web</span>
+              <span class="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] text-muted">DOM</span>
+            </div>
+            <div class="flex justify-center p-3">
+              <div id="render-web" class="pac-grid" aria-hidden="true"></div>
+            </div>
+          </div>
+
+          <!-- NATIVE (RN-style facsimile) -->
+          <div class="dark-card">
+            <div class="panel-head flex items-center justify-between px-4 py-2.5">
+              <span class="font-mono text-[12px] text-fg">Native</span>
+              <span class="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] text-muted">RN-style</span>
+            </div>
+            <div class="flex justify-center p-3">
+              <div class="rounded-[1.4rem] border-2 border-[#34343c] bg-black/40 p-2">
+                <div id="render-native" class="pac-grid" aria-hidden="true"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TERMINAL (TUI-style facsimile) -->
+          <div class="dark-card">
+            <div class="panel-head flex items-center justify-between px-4 py-2.5">
+              <span class="font-mono text-[12px] text-fg">Terminal</span>
+              <span class="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] text-muted">TUI-style</span>
+            </div>
+            <div class="p-3">
+              <pre id="render-tui" class="pac-tui m-0 overflow-x-auto text-center font-mono leading-[1.05]" aria-hidden="true"></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- alternating (zig-zag) feature rows, emoji on alternating sides -->
+      <section class="mt-20 flex flex-col gap-12 sm:mt-24 sm:gap-16">
+        <!-- 1: emoji left -->
+        <div class="flex flex-col items-center gap-6 sm:flex-row sm:gap-10">
+          <div class="text-6xl sm:text-7xl" aria-hidden="true">🧩</div>
+          <div class="text-center sm:text-left">
+            <h3 class="mb-2 text-xl font-semibold">Behavior, not render</h3>
+            <p class="text-muted">
+              The machine is a pure behavioral kernel — states, events, context, effects. It knows
+              nothing about a renderer, so the same machine runs on the DOM, React Native, or any JS
+              runtime.
+            </p>
+          </div>
+        </div>
+        <!-- 2: emoji right -->
+        <div class="flex flex-col items-center gap-6 sm:flex-row-reverse sm:gap-10">
+          <div class="text-6xl sm:text-7xl" aria-hidden="true">⚡</div>
+          <div class="text-center sm:text-right">
+            <h3 class="mb-2 text-xl font-semibold">Fast at scale</h3>
+            <p class="text-muted">
+              ~8× XState's event throughput, flat-ish memory per machine, surgical re-renders. Built
+              for the hard case: many machines reacting to many events in one frame.
+              <a class="text-accent hover:underline" href={`${base}benchmark`}>See the benchmark →</a>
+            </p>
+          </div>
+        </div>
+        <!-- 3: emoji left -->
+        <div class="flex flex-col items-center gap-6 sm:flex-row sm:gap-10">
+          <div class="text-6xl sm:text-7xl" aria-hidden="true">🌍</div>
+          <div class="text-center sm:text-left">
+            <h3 class="mb-2 text-xl font-semibold">Truly agnostic</h3>
+            <p class="text-muted">
+              Zag proved the headless, framework-agnostic component-as-a-machine idea. Chimba takes
+              it one step further: no environment assumption at all.
+              <a class="text-accent hover:underline" href={`${base}comparison`}>Compare →</a>
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="mt-20 border-t border-border sm:mt-24">
+      <div
+        class="mx-auto flex max-w-5xl flex-col items-center justify-between gap-3 px-4 py-8 text-sm text-muted sm:flex-row sm:px-6"
+      >
+        <span>Made with <span class="text-down">♥</span> by the Chimba UI team</span>
+        <a class="text-accent hover:underline" href={repo} target="_blank" rel="noreferrer">
+          github.com/chimba-ui/state-machine
+        </a>
+      </div>
+    </footer>
+
+    <script>
+      import { createGame, MAZE, ROWS, COLS, key, type Dir } from '../pacman'
+
+      // THREE machines (pacman · ghost · board) composed into one game. Three
+      // renderers read the SAME composed state and paint it three ways.
+      const game = createGame()
+      const { pacman, ghost, board } = game
+
+      // light each machine's live STATE in its code panel
+      const stateLines = document.querySelectorAll<HTMLElement>('[data-machine][data-state]')
+      const lightCode = () => {
+        const live: Record<string, string> = {
+          pacman: pacman.state,
+          ghost: ghost.state,
+          board: board.state,
+        }
+        for (const el of stateLines)
+          el.dataset.active = String(live[el.dataset.machine!] === el.dataset.state)
+      }
+
+      // --- mouth SVG: an open/closed wedge, rotated by direction ---------------
+      const ROT: Record<Dir, number> = { right: 0, down: 90, left: 180, up: 270 }
+      const pacSvg = (dir: Dir, mouth: 'open' | 'closed') => {
+        // open = wedge cut out of the disc; closed = full disc
+        const d =
+          mouth === 'open'
+            ? 'M50 50 L95 28 A50 50 0 1 0 95 72 Z'
+            : 'M50 50 m-48 0 a48 48 0 1 0 96 0 a48 48 0 1 0 -96 0 Z'
+        return `<svg viewBox="0 0 100 100" style="transform:rotate(${ROT[dir]}deg)"><path d="${d}" fill="#ffe66d"/></svg>`
+      }
+
+      // --- WEB + NATIVE renderers: CSS grids of cells --------------------------
+      const buildGrid = (id: string, extra = '') => {
+        const grid = document.getElementById(id)!
+        grid.style.setProperty('--cols', String(COLS))
+        const cells: HTMLElement[] = []
+        for (let y = 0; y < ROWS; y++) {
+          for (let x = 0; x < COLS; x++) {
+            const cell = document.createElement('div')
+            cell.className = 'pac-cell' + (extra ? ' ' + extra : '')
+            if (MAZE[y][x] === 1) cell.dataset.wall = 'true'
+            grid.appendChild(cell)
+            cells.push(cell)
+          }
+        }
+        return cells
+      }
+      const webCells = buildGrid('render-web')
+      const nativeCells = buildGrid('render-native', 'native')
+
+      const paintCells = (cells: HTMLElement[]) => {
+        const p = pacman.context
+        const dir = p.dir
+        const g = ghost.context
+        const b = board.context
+        for (let y = 0; y < ROWS; y++) {
+          for (let x = 0; x < COLS; x++) {
+            const cell = cells[y * COLS + x]
+            let kind = ''
+            let html = ''
+            if (x === p.x && y === p.y) {
+              kind = 'pac'
+              html = pacman.state === 'dead' ? '💀' : pacSvg(dir, p.mouth)
+            } else if (x === g.x && y === g.y) {
+              kind = 'ghost'
+              html = '👻'
+            } else if (b.cherry && x === b.cherry.x && y === b.cherry.y) {
+              kind = 'cherry'
+              html = '🍒'
+            } else if (b.dots.has(key(x, y))) {
+              kind = 'dot'
+            }
+            // re-render when the kind OR the glyph changes (pac alive↔dead, mouth)
+            const stamp = kind + ':' + html
+            if (cell.dataset.stamp !== stamp) {
+              cell.dataset.stamp = stamp
+              cell.dataset.kind = kind
+              cell.innerHTML = html
+            }
+          }
+        }
+      }
+
+      // --- TERMINAL renderer: emoji glyphs on a fixed monospace grid -----------
+      // Each cell is a fixed-width box (CSS), so double-width emoji can't stretch
+      // a row and resize the panel. Built once as spans; paint just swaps text.
+      const PAC_EMOJI: Record<Dir, string> = { right: '🟡', left: '🟡', up: '🟡', down: '🟡' }
+      const tui = document.getElementById('render-tui')!
+      const tuiCells: HTMLElement[] = []
+      for (let y = 0; y < ROWS; y++) {
+        const row = document.createElement('div')
+        row.className = 'tui-row'
+        for (let x = 0; x < COLS; x++) {
+          const c = document.createElement('span')
+          c.className = 'tui-cell'
+          row.appendChild(c)
+          tuiCells.push(c)
+        }
+        tui.appendChild(row)
+      }
+      const paintTui = () => {
+        const p = pacman.context
+        const g = ghost.context
+        const b = board.context
+        for (let y = 0; y < ROWS; y++) {
+          for (let x = 0; x < COLS; x++) {
+            const c = tuiCells[y * COLS + x]
+            let ch = ' '
+            if (x === p.x && y === p.y) ch = pacman.state === 'dead' ? '💀' : PAC_EMOJI[p.dir]
+            else if (x === g.x && y === g.y) ch = '👻'
+            else if (b.cherry && x === b.cherry.x && y === b.cherry.y) ch = '🍒'
+            else if (MAZE[y][x] === 1) ch = '🟦'
+            else if (b.dots.has(key(x, y))) ch = '·'
+            if (c.textContent !== ch) c.textContent = ch
+          }
+        }
+      }
+
+      // --- live debug labels: each machine's own data --------------------------
+      const dbgPacman = document.getElementById('dbg-pacman')!
+      const dbgGhost = document.getElementById('dbg-ghost')!
+      const dbgBoard = document.getElementById('dbg-board')!
+      const paintDebug = () => {
+        const p = pacman.context
+        const g = ghost.context
+        const b = board.context
+        dbgPacman.textContent = ` · ${pacman.state} { x:${p.x} y:${p.y} dir:${p.dir} mouth:${p.mouth} }`
+        dbgGhost.textContent = ` · ${ghost.state} { x:${g.x} y:${g.y} dir:${g.dir} }`
+        dbgBoard.textContent = ` · ${board.state} { score:${b.score} dots:${b.dots.size} }`
+      }
+
+      // --- one render pass paints all three renderers + labels + code ----------
+      const render = () => {
+        paintCells(webCells)
+        paintCells(nativeCells)
+        paintTui()
+        paintDebug()
+        lightCode()
+      }
+      // any member changing repaints everything (coarse, like the docs' sync)
+      game.group.sync(render)
+      game.group.start()
+      render()
+
+      // --- drive it: keyboard steering + the shared game tick ------------------
+      const KEYS: Record<string, Dir> = {
+        ArrowRight: 'right', ArrowLeft: 'left', ArrowUp: 'up', ArrowDown: 'down',
+        d: 'right', a: 'left', w: 'up', s: 'down',
+      }
+      // A keypress steers the next few ticks; after that the autopilot takes over.
+      let steer: Dir | null = null
+      let steerUntil = 0
+      addEventListener('keydown', (e) => {
+        const dir = KEYS[e.key]
+        if (!dir) return
+        e.preventDefault()
+        steer = dir
+        steerUntil = performance.now() + 4000
+        game.face(dir)
+      })
+
+      // tick() fans the shared step to all three machines; the autopilot's choice
+      // lives inside tick (nextDir), overridden by `steer` while the player drives.
+      let paused = false
+      setInterval(() => {
+        if (paused) return
+        const forced = steer && performance.now() < steerUntil ? steer : undefined
+        game.tick(forced ?? undefined)
+      }, 200)
+
+      // pause/resume button
+      const toggle = document.getElementById('pac-toggle')!
+      toggle.addEventListener('click', () => {
+        paused = !paused
+        toggle.textContent = paused ? '▶ Resume' : '⏸ Pause'
+        toggle.dataset.paused = String(paused)
+      })
+      // a steering keypress also resumes, so the player isn't stuck on a paused board
+      addEventListener('keydown', (e) => {
+        if (paused && KEYS[e.key]) {
+          paused = false
+          toggle.textContent = '⏸ Pause'
+          toggle.removeAttribute('data-paused')
+        }
+      })
+
+      // copy the install command
+      const copyBtn = document.getElementById('install-copy')
+      const cmd = document.getElementById('install-cmd')
+      copyBtn?.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(cmd?.textContent ?? '')
+          const prev = copyBtn.textContent
+          copyBtn.textContent = '✓'
+          setTimeout(() => (copyBtn.textContent = prev), 1200)
+        } catch {
+          /* clipboard blocked — no-op */
+        }
+      })
+    </script>
+
+    <!-- is:global because the code spans are injected via set:html and so don't
+         receive Astro's scope hash — scoped selectors wouldn't match them. -->
+    <style is:global>
+      /* Dark surface for code panels + demo cards, so source/glyphs stay legible
+         against the light page. Use class "dark-card" on the card element. */
+      .dark-card {
+        background: var(--color-code);
+        border: 1px solid var(--color-code-border);
+        color: var(--color-code-fg);
+        border-radius: 1rem;
+        overflow: hidden;
+        box-shadow:
+          0 1px 2px rgba(0, 0, 0, 0.08),
+          0 12px 30px rgba(0, 0, 0, 0.12);
+      }
+      .dark-card .panel-head {
+        border-bottom: 1px solid var(--color-code-border);
+        color: var(--color-code-muted);
+      }
+
+      /* --- code panel: lightweight syntax tokens (on the dark card) --- */
+      .cmt {
+        color: #6b6c75;
+      }
+      .kw {
+        color: #c89bff;
+      }
+      .str {
+        color: #e0a85a;
+      }
+      .fn {
+        color: #62b3ff;
+      }
+      /* the three state lines; the live one glows */
+      .st {
+        border-radius: 4px;
+        padding: 0 4px;
+        margin: 0 -4px;
+        transition:
+          background-color 0.25s ease,
+          color 0.25s ease,
+          box-shadow 0.25s ease;
+        color: var(--color-code-fg);
+      }
+      .st[data-active='true'] {
+        background: color-mix(in srgb, var(--color-accent) 38%, transparent);
+        color: #fff;
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 60%, transparent);
+      }
+
+      /* --- Pac-Man grids: same state, three renderers ------------------------ */
+      .pac-grid {
+        /* fixed cell size → the grid is rigid; a glyph can never push a cell */
+        --cell: 18px;
+        display: grid;
+        grid-template-columns: repeat(var(--cols), var(--cell));
+        grid-auto-rows: var(--cell);
+        gap: 0;
+      }
+      .pac-cell {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: var(--cell);
+        height: var(--cell);
+        overflow: hidden;
+        line-height: 1;
+        color: #ffe66d;
+      }
+      .pac-cell[data-wall='true'] {
+        background: color-mix(in srgb, var(--color-accent) 38%, #0a0a14);
+        border-radius: 2px;
+      }
+      .pac-cell.native[data-wall='true'] {
+        background: color-mix(in srgb, #62b3ff 34%, #0a0a14);
+      }
+      /* dots */
+      .pac-cell[data-kind='dot']::after {
+        content: '';
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        background: #6b6b78;
+      }
+      /* glyphs (ghost/cherry/dead) sized to sit comfortably INSIDE the cell */
+      .pac-cell[data-kind='cherry'],
+      .pac-cell[data-kind='ghost'],
+      .pac-cell[data-kind='pac'] {
+        font-size: 13px;
+      }
+      /* Pac-Man is an inline SVG wedge (open/closed mouth), rotated by direction */
+      .pac-cell[data-kind='pac'] svg {
+        width: 14px;
+        height: 14px;
+        flex: 0 0 auto;
+        filter: drop-shadow(0 0 4px rgba(255, 230, 109, 0.6));
+      }
+
+      /* terminal renderer — a FIXED pixel grid. Each cell is a rigid 16px box and
+         the glyph (emoji or dot) is scaled to fit, so nothing can widen a row. */
+      .pac-tui {
+        display: inline-block;
+        color: var(--color-up);
+        line-height: 0;
+      }
+      .tui-row {
+        display: flex;
+        height: 16px;
+      }
+      .tui-cell {
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        min-width: 16px;
+        max-width: 16px;
+        height: 16px;
+        flex: 0 0 16px;
+        overflow: hidden;
+        font-size: 12px;
+        line-height: 1;
+      }
+    </style>
+  </body>
+</html>

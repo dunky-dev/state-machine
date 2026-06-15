@@ -1,0 +1,27 @@
+---
+layout: ../layout.astro
+title: Comparison
+description: How Chimba UI compares to XState and Zag.
+---
+
+# Comparison
+
+How Chimba UI relates to the libraries that inspired it.
+
+|                                           | Chimba UI | XState  | Zag |
+| ----------------------------------------- | --------- | ------- | --- |
+| Statechart model                          | ✅        | ✅      | ✅  |
+| Framework-agnostic render                 | ✅        | partial | ✅  |
+| **Environment-agnostic** (no DOM assumed) | ✅        | ❌      | ❌  |
+| Built for thousands of machines/frame     | ✅        | —       | —   |
+
+- **XState** — the disciplined statechart model: queued run-to-completion
+  transitions, guards, entry/exit.
+- **Zag** — proving the headless, framework-agnostic component-as-a-machine approach.
+
+Chimba UI takes it one step further: the machine assumes _nothing_ about the
+environment, so the same machine runs unchanged on the DOM, React Native, or any
+other JS runtime.
+
+Numbers and methodology live in the
+[benchmark README](https://github.com/chimba-ui/state-machine/blob/main/benchmark/README.md).

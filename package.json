@@ -6,6 +6,8 @@
     "test": "vitest",
     "benchmark": "pnpm -C benchmark benchmark",
     "benchmark:demo": "pnpm -C benchmark/demo dev",
+    "website:dev": "pnpm -C website dev",
+    "website:prod": "pnpm -C website build",
     "typecheck": "tsc --noEmit && tsc --noEmit -p benchmark/tsconfig.json",
     "lint": "oxlint .",
     "format": "oxfmt .",

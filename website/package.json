@@ -1,0 +1,21 @@
+{
+  "name": "website",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@chimba-ui/state-machine": "workspace:*"
+  },
+  "devDependencies": {
+    "@astrojs/mdx": "^6.0.3",
+    "@tailwindcss/postcss": "^4.3.1",
+    "astro": "^6.4.6",
+    "tailwindcss": "^4.3.1"
+  }
+}

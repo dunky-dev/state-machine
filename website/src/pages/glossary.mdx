@@ -1,0 +1,19 @@
+---
+layout: ../layout.astro
+title: Glossary
+description: Terms used across the docs.
+---
+
+# Glossary
+
+> TODO: define the core vocabulary. Starting points:
+
+- **core** — the state-machine engine. Pure behavior; knows nothing about a renderer.
+- **connector** — turns machine state into agnostic _bindings_ and keeps them in sync.
+- **normalize** — per target, translates bindings into real props.
+- **effects** — per target, the platform listener the machine can't own itself.
+- **view** — the per-target render that spreads normalized props onto elements.
+- **binding** — an agnostic description of an interaction (e.g. `onPress`) before it
+  becomes a platform prop.
+- **substrate / target** — a concrete environment the behavior renders into (DOM,
+  React Native, TUI).

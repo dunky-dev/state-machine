@@ -2,3 +2,4 @@ packages:
   - packages/**/*
   - benchmark
   - benchmark/demo
+  - website

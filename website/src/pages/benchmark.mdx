@@ -1,0 +1,22 @@
+---
+layout: ../layout.astro
+title: Benchmark
+description: Throughput and memory vs. XState and Zag.
+---
+
+# Benchmark
+
+The hard case is **many machines reacting to many events inside one frame
+budget**. The engine is built for it.
+
+| At scale (thousands of machines) | Chimba UI | XState | Zag     |
+| -------------------------------- | --------: | -----: | ------: |
+| Event throughput (ops/s)         | **7.2 M** |  897 K | n/a     |
+| Memory / machine, 2-field (KB)   |   **3.6** |    3.6 | 9.1     |
+| Memory / machine, 64-field (KB)  |   **4.1** |    4.1 | **134** |
+
+**▶ [Try the live benchmark demo](https://chimba-ui.github.io/state-machine/)** —
+watch all three engines run in your browser.
+
+Full methodology + per-scenario tables in the
+[benchmark README](https://github.com/chimba-ui/state-machine/blob/main/benchmark/README.md).

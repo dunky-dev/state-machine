@@ -1,0 +1,98 @@
+@import 'tailwindcss';
+
+/* Clean WHITE theme, exposed as Tailwind colors (bg-bg, text-fg, border-border,
+   …). The "premium" feel comes from soft colored glows on the white, not a tint.
+   Code panels keep their own DARK tokens (--color-code-*) so source stays readable
+   on a dark card. */
+@theme {
+  --color-bg: #ffffff;
+  --color-panel: #f6f6f8;
+  --color-fg: #16161a;
+  --color-muted: #6a6a73;
+  --color-accent: #6d5cf0;
+  --color-border: #e7e7ec;
+  --color-up: #11a36b;
+  --color-down: #e0473a;
+
+  /* dark surface used inside code panels + the demo cards */
+  --color-code: #16161b;
+  --color-code-fg: #e8e8ea;
+  --color-code-border: #2a2a30;
+  --color-code-muted: #9a9aa2;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  color: var(--color-fg);
+  /* Premium white backdrop: soft colored glows (violet / cyan / warm) float over
+     pure white, fixed so they stay put as the page scrolls. */
+  background-color: var(--color-bg);
+  background-image:
+    radial-gradient(70rem 46rem at 82% -10rem, rgba(109, 92, 240, 0.13), transparent 64%),
+    radial-gradient(60rem 42rem at 8% 4rem, rgba(34, 197, 211, 0.1), transparent 62%),
+    radial-gradient(64rem 44rem at 50% 120%, rgba(240, 130, 80, 0.08), transparent 60%);
+  background-attachment: fixed;
+}
+
+/* Prose styling for the MDX docs body (the layout wraps content in .prose-doc). */
+.prose-doc :where(h1) {
+  font-size: 1.875rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0 0 1rem;
+}
+.prose-doc :where(h2) {
+  font-size: 1.375rem;
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 2rem 0 0.75rem;
+}
+.prose-doc :where(h3) {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 1.5rem 0 0.5rem;
+}
+.prose-doc :where(p, ul, ol, table) {
+  margin: 0 0 1rem;
+}
+.prose-doc :where(ul) {
+  list-style: disc;
+  padding-left: 1.25rem;
+}
+.prose-doc :where(a) {
+  color: var(--color-accent);
+}
+.prose-doc :where(a):hover {
+  text-decoration: underline;
+}
+.prose-doc :where(strong) {
+  color: var(--color-fg);
+}
+.prose-doc :where(code) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+}
+.prose-doc :where(pre) {
+  background: #15151a;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  overflow: auto;
+  margin: 0 0 1rem;
+}
+.prose-doc :where(table) {
+  width: 100%;
+  border-collapse: collapse;
+}
+.prose-doc :where(th, td) {
+  border: 1px solid var(--color-border);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+.prose-doc :where(th) {
+  color: var(--color-muted);
+  font-weight: 600;
+}

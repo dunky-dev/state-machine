@@ -1,0 +1,68 @@
+---
+import { nav } from './nav'
+import Header from './components/Header.astro'
+import './styles/global.css'
+
+interface Props {
+  title: string
+  description?: string
+}
+
+const { title, description } = Astro.props
+const base = import.meta.env.BASE_URL
+
+// Normalize the current path so the active link highlights regardless of the
+// base prefix or a trailing slash.
+const here = Astro.url.pathname.replace(base, '/').replace(/\/$/, '') || '/'
+const withBase = (href: string) => `${base}${href.replace(/^\//, '')}`
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title} · Chimba UI</title>
+    <link rel="icon" href={`${base}logo-symbol.svg`} type="image/svg+xml" />
+    {description && <meta name="description" content={description} />}
+  </head>
+  <body>
+    <Header />
+    <div class="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-8 sm:px-6 md:flex-row md:gap-10">
+      <aside class="shrink-0 md:w-56 md:border-r md:border-border md:pr-6">
+        <nav>
+          {
+            nav.map((group) => (
+              <section class="mb-6">
+                <h4 class="mb-2 text-xs font-medium uppercase tracking-wider text-muted">
+                  {group.title}
+                </h4>
+                <ul class="space-y-1">
+                  {group.items.map((item) => (
+                    <li>
+                      <a
+                        href={withBase(item.href)}
+                        aria-current={here === item.href ? 'page' : undefined}
+                        class:list={[
+                          'block text-sm transition-colors hover:text-fg',
+                          here === item.href ? 'font-semibold text-fg' : 'text-muted',
+                        ]}
+                      >
+                        {item.title}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))
+          }
+        </nav>
+      </aside>
+      <main class="min-w-0 flex-1">
+        <article class="prose-doc">
+          <slot />
+        </article>
+      </main>
+    </div>
+  </body>
+</html>
