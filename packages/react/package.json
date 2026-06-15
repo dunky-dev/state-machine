@@ -32,8 +32,12 @@
     "build": "tsdown"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.1.0",
     "@types/react": "^19.2.15",
-    "react": "^19.2.6"
+    "@types/react-dom": "^19.2.3",
+    "jsdom": "^29.1.1",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
   },
   "peerDependencies": {
     "@chimba-ui/shared-state-machine": "workspace:^",

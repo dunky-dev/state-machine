@@ -155,7 +155,11 @@ The selector reads from the machine directly, so it auto-subscribes to exactly
 the fields it touches (the same auto-tracking the core's
 [`select`](../core/README.md#subscriptions--observing-changes) gives you); the
 component re-renders only when the selected value changes — `Object.is` by
-default, or pass a custom `isEqual` for object selections:
+default. **A selector that returns a fresh object/array each call MUST pass a
+custom `isEqual`** — otherwise every evaluation yields a new identity that
+`Object.is` deems "changed", and `useSyncExternalStore` re-renders in a loop.
+Prefer selecting primitives; reach for `isEqual` when you genuinely need a
+composite:
 
 ```ts
 const pos = useSelector(
@@ -191,17 +195,31 @@ const domProps = normalize(api.triggerProps) // { onClick, aria-describedby, rol
 
 The mapping:
 
-| Agnostic binding                                              | DOM/ARIA prop                                                       |
-| ------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `onPress`                                                     | `onClick`                                                           |
-| `onPointerEnter/Leave/Move/Down`, `onFocus/Blur`, `onKeyDown` | same name (already DOM-shaped)                                      |
-| `describedBy` / `labelledBy`                                  | `aria-describedby` / `aria-labelledby`                              |
-| `expanded` / `selected` / `disabled` / `hidden`               | `aria-expanded` / `aria-selected` / `aria-disabled` / `aria-hidden` |
-| `focusable`                                                   | `tabIndex` (`true → 0`, `false → -1`)                               |
-| `role` / `id`                                                 | `role` / `id`                                                       |
+| Agnostic binding                                                                                | DOM/ARIA prop                                                                      |
+| ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `onPress`                                                                                       | `onClick`                                                                          |
+| `onValueChange`                                                                                 | `onChange` (wrapped → `ChangePayload`)                                             |
+| `onContextMenu` / `onDoublePress`                                                               | `onContextMenu` / `onDoubleClick`                                                  |
+| `onWheel` / `onScroll` / `onScrollEnd`                                                          | same name (wrapped → `WheelPayload` / `ScrollPayload`)                             |
+| `onPointerEnter/Leave/Move/Down/Up/Cancel`, `onFocus/Blur`, `onKeyDown/Up`                      | same name (already DOM-shaped)                                                     |
+| `describedBy` / `labelledBy` / `controls` / `label`                                             | `aria-describedby` / `aria-labelledby` / `aria-controls` / `aria-label`            |
+| `expanded` / `selected` / `disabled` / `hidden` / `modal`                                       | `aria-expanded` / `aria-selected` / `aria-disabled` / `aria-hidden` / `aria-modal` |
+| `checked` / `pressed` / `current` / `busy` / `invalid` / `required` / `readOnly`                | matching `aria-*` (value untransformed)                                            |
+| `valueMin/Max/Now/Text`                                                                         | `aria-valuemin` / `-valuemax` / `-valuenow` / `-valuetext`                         |
+| `orientation` / `sort` / `autoComplete` / `level` / `posInSet` / `setSize` / grid `col*`/`row*` | the matching `aria-*` attr                                                         |
+| `activeDescendant` / `errorMessage` / `owns` / `hasPopup`                                       | `aria-activedescendant` / `-errormessage` / `-owns` / `-haspopup`                  |
+| `live` / `atomic`                                                                               | `aria-live` / `aria-atomic`                                                        |
+| `focusable`                                                                                     | `tabIndex` (`true → 0`, `false → -1`)                                              |
+| `role` / `id`                                                                                   | `role` / `id`                                                                      |
 
-`undefined` values are dropped, and any key not in the map passes through
-unchanged — so a binding the renderer already understands needs no entry.
+The logical names are renderer-neutral by design — `onPress` not `onClick`,
+`onValueChange` not `onChange`, `checked` not `aria-checked` — so the same
+`connect` output drives DOM, React Native, or canvas, each through its own
+`normalize`. A few handlers whose agnostic payload differs from the raw event
+(`onValueChange`/`onWheel`/`onScroll`/`onScrollEnd`) are wrapped so the consumer
+receives the agnostic payload, not the DOM event. `undefined` values are
+dropped, and any key not in the map passes through unchanged — so a binding the
+renderer already understands needs no entry.
 
 ---
 

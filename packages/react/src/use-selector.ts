@@ -28,6 +28,14 @@ import type { EqualityFn, Machine } from '@chimba-ui/state-machine'
  * Selection, so a per-render-fresh `selector` (e.g. one closing over a `value`
  * prop) always evaluates its latest form WITHOUT re-creating the Selection or
  * re-subscribing every render. Only `m` changing rebuilds the subscription.
+ *
+ * getSnapshot returns a value cached in a ref, refreshed only when the selected
+ * value actually changes (Object.is, or the caller's `isEqual`). That stable
+ * identity is REQUIRED: useSyncExternalStore re-renders whenever successive
+ * getSnapshot results differ by Object.is, so an object selection that returned
+ * a fresh `{...}` each call would re-render forever. The cache makes object
+ * selections safe (and `isEqual` the way to dedup them); primitives are
+ * unaffected.
  */
 export function useSelector<
   State extends string,
@@ -49,21 +57,44 @@ export function useSelector<
   const selectorRef = useRef(selector)
   selectorRef.current = selector
 
+  // Keep the LATEST isEqual in a ref too: getSnapshot (below) consults it to
+  // decide whether a freshly-evaluated value is "the same" as the cached one.
+  // It can change identity per render (an inline arrow), so reading it through a
+  // ref keeps getSnapshot stable without re-subscribing.
+  const isEqualRef = useRef(isEqual)
+  isEqualRef.current = isEqual
+
   // One Selection over a stable wrapper that reads the current selector. Built
   // once per machine; re-evaluated on every machine notify and value-deduped
   // (coarse bus + value compare, not field-level dependency tracking).
   const selectorMemo = useMemo(() => machine.select(() => selectorRef.current()), [machine])
 
+  // Cache the last value getSnapshot returned. useSyncExternalStore compares
+  // successive getSnapshot results by Object.is and re-renders whenever they
+  // differ — so getSnapshot MUST stay referentially stable while the selected
+  // value is unchanged. A raw `selectorRef.current()` breaks that for object
+  // selections: a fresh `{...}` every call is never Object.is-equal to the last,
+  // so React would re-render forever. We hold the last value in a ref and only
+  // replace it when the newly-evaluated value actually changed — Object.is by
+  // default, or the caller's `isEqual` for object selections. Primitives are
+  // unaffected (Object.is on equal primitives is true, so the cache is a no-op).
+  const cache = useRef<{ value: T } | null>(null)
+  const getSnapshot = (): T => {
+    const next = selectorRef.current()
+    const eq = isEqualRef.current ?? Object.is
+    if (cache.current && eq(cache.current.value, next)) return cache.current.value
+    cache.current = { value: next }
+    return next
+  }
+
   return useSyncExternalStore(
+    // The Selection's value-dedup still gates the bus → React notification (so a
+    // change to an UNRELATED field doesn't even wake this leaf). getSnapshot's
+    // cache is the second line of defense: it keeps the returned identity stable
+    // so React itself doesn't re-render on an equal value. The two together give
+    // both "don't wake on unrelated changes" and "don't loop on object identity".
     onStoreChange => selectorMemo.subscribe(() => onStoreChange(), isEqual),
-    // getSnapshot evaluates the selector DIRECTLY rather than reading
-    // selectorMemo.value. `.value` lazily builds a preact computed on first
-    // read, and React calls getSnapshot during every leaf's mount render — so
-    // routing through `.value` would allocate a computed node per leaf at mount.
-    // The snapshot read doesn't need tracking (only `subscribe` does), so a
-    // plain eval is correct and skips that per-leaf allocation. The Selection's
-    // reactive node is still built lazily if anyone reads `.value` elsewhere.
-    () => selectorRef.current(),
-    () => selectorRef.current(),
+    getSnapshot,
+    getSnapshot,
   )
 }

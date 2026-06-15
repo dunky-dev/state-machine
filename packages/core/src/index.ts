@@ -63,4 +63,12 @@ export { createStore } from './store'
 export type { Store, Listener, SetStateAction } from './store'
 
 // Bindings vocabulary (agnostic event + attr) connect() speaks.
-export type { AttrBindings, EventBindings, KeyboardPayload, PointerPayload } from './bindings'
+export type {
+  AttrBindings,
+  ChangePayload,
+  EventBindings,
+  KeyboardPayload,
+  PointerPayload,
+  ScrollPayload,
+  WheelPayload,
+} from './bindings'
