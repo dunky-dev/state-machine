@@ -34,7 +34,10 @@ const ENGINE_FACTORY: Record<PanelId, (size: number, seed: (i: number) => number
 
 export interface PanelHandle {
   enqueue: (changes: CellChange[]) => void
-  drain: (budgetMs: number) => { applied: number; remaining: number }
+  // Async because an async engine (Zag) must await a flush so its deferred
+  // transitions actually execute before we count them. Sync engines resolve
+  // without ever yielding, so they pay nothing for the async signature.
+  drain: (budgetMs: number) => Promise<{ applied: number; remaining: number }>
   backlog: () => number
   paint: () => void
   /** drop the pending queue and wipe the canvas (Stop = reset) */
@@ -72,14 +75,25 @@ export const Panel = React.forwardRef<PanelHandle, { id: PanelId; side: number; 
     React.useImperativeHandle(ref, () => ({
       enqueue: c => queue.push(c),
       backlog: queue.size,
-      drain(budgetMs) {
+      async drain(budgetMs) {
         const t0 = performance.now()
         let applied = 0
-        // apply in chunks, re-checking the clock; each update is a guarded
-        // transition + computed through the engine (the measured cost)
+        // Apply in chunks, re-checking the wall clock; each update is a guarded
+        // transition + computed through the engine (the measured cost).
+        //
+        // SYNC engines (Chimba/XState/raw, `flush` absent): the work is done when
+        // `update` returns, so we count the chunk immediately — identical to the
+        // original synchronous loop, no yielding.
+        //
+        // ASYNC engines (Zag, `flush` present): `update` only SCHEDULES the
+        // transition, so we await `flush()` to let the chunk's transitions
+        // actually run, and only THEN count them. This measures real transition
+        // work against the same wall-clock budget — not `send()` calls that merely
+        // returned (which is what made the old loop count Zag's work as free).
         while (queue.size() > 0 && performance.now() - t0 < budgetMs) {
           const chunk = queue.take(512)
           for (const c of chunk) engine.update(c.index, c.value)
+          if (engine.flush) await engine.flush()
           applied += chunk.length
         }
         return { applied, remaining: queue.size() }

@@ -22,6 +22,12 @@ export interface CellEngine {
   update: (index: number, v: number) => void
   paintValue: (index: number) => number
   dispose: () => void
+  // Async engines (Zag) don't run a transition synchronously in `update` — they
+  // defer it to a microtask. `flush` resolves once every `update` issued so far
+  // has ACTUALLY executed, so the demo can measure real transition work under a
+  // wall-clock budget instead of counting `update` calls that merely returned.
+  // Absent ⇒ the engine is fully synchronous (work is done when `update` returns).
+  flush?: () => Promise<void>
 }
 
 // The derived computation every engine performs, so the work is identical —
@@ -175,6 +181,15 @@ export function makeZagEngine(size: number, seed: (i: number) => number): CellEn
     },
     paintValue(i) {
       return cells[i].context.get('out')
+    },
+    // Zag's send() schedules the transition in a microtask (see machine.js:
+    // `send = (e) => queueMicrotask(() => {...transition...})`). Every send issued
+    // before this point enqueued its microtask first, so a single microtask turn
+    // drains them ALL (FIFO, run-to-completion) — verified: 1000 sends ⇒ 1000
+    // transitions after one `await`. No coalescing, no timer latency to taint the
+    // wall-clock measurement.
+    flush() {
+      return Promise.resolve()
     },
     dispose() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
