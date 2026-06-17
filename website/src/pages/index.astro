@@ -418,17 +418,6 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
       </div>
       <!-- /HERO + FAST MACHINES grid -->
 
-      <!-- ORIGIN QUOTE — personal callout bridging the demo and the showcase -->
-      <blockquote class="origin-quote">
-        <p class="origin-quote-text">
-          "I got tired of rebuilding the same button for the fifth time.<br class="hidden sm:inline" />
-          So I built the last one."
-        </p>
-        <footer class="origin-quote-footer">
-          <a href={`${base}get-started`} class="origin-quote-link">Read the story →</a>
-        </footer>
-      </blockquote>
-
       <!-- SHOWCASE: one big premium panel that unifies the "One machine" copy
            and the device lineup below it — breaks the rigid left/right split.
            The game cassette overlaps its top-right edge. -->
@@ -587,6 +576,27 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
       </section>
       <!-- /showcase -->
     </main>
+
+    <!-- ORIGIN QUOTE — full-bleed dark strip -->
+    <section class="origin-section">
+      <div class="origin-inner">
+        <span class="origin-mark" aria-hidden="true">"</span>
+        <blockquote class="origin-body">
+          <p class="origin-line">I spent a decade rebuilding</p>
+          <p class="origin-line origin-line-accent">the same button.</p>
+          <p class="origin-line">New company. New stack.</p>
+          <p class="origin-line origin-line-dim">Same button.</p>
+        </blockquote>
+        <p class="origin-sub">
+          The behaviors never changed — focus, keyboard, ARIA, state.
+          All documented by the W3C. All rebuilt from scratch, every time.
+          The final boss was a canvas-based collaborative whiteboard that
+          needed the same primitives with zero DOM. That's when I stopped
+          rebuilding and started building <em>once</em>.
+        </p>
+        <a href={`${base}get-started`} class="origin-cta">Read the full story →</a>
+      </div>
+    </section>
 
     <!-- LAB SECTION: full-width dark strip with two live machine demos -->
     <section class="lab-section" aria-label="Live machine demos">
@@ -1569,64 +1579,62 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
       }
 
       /* ====================================================================
-      /* ====================================================================
-         ORIGIN QUOTE — personal callout between the lab demos and showcase
+         ORIGIN SECTION — full-bleed dark, big raw quote
          ==================================================================== */
-      .origin-quote {
-        margin: 4rem auto 0;
-        max-width: 52rem;
-        padding: 3rem 2.5rem 2.75rem;
-        border-radius: 1.5rem;
-        background:
-          radial-gradient(ellipse 80% 60% at 50% 100%, color-mix(in srgb, var(--color-accent) 8%, transparent), transparent 70%),
-          color-mix(in srgb, var(--color-fg) 3%, var(--color-bg));
-        border: 1px solid var(--color-border);
-        box-shadow:
-          inset 0 1px 0 rgba(255,255,255,0.6),
-          0 2px 4px rgba(0,0,0,0.04),
-          0 20px 48px -16px rgba(109,92,240,0.12);
-        position: relative;
-        text-align: center;
+      .origin-section {
+        background: #0b0c0f;
+        color: #f2fffc;
+        padding: 6rem 1.5rem;
       }
-      /* big decorative opening quote mark */
-      .origin-quote::before {
-        content: '\201C';
-        position: absolute;
-        top: -0.1em;
-        left: 2rem;
-        font-size: 6rem;
-        line-height: 1;
+      .origin-inner {
+        max-width: 52rem;
+        margin: 0 auto;
+        position: relative;
+      }
+      .origin-mark {
         font-family: Georgia, 'Times New Roman', serif;
+        font-size: 10rem;
+        line-height: 0.8;
         color: var(--color-accent);
-        opacity: 0.18;
-        pointer-events: none;
+        opacity: 0.22;
+        display: block;
+        margin-bottom: -1rem;
         user-select: none;
       }
-      .origin-quote-text {
-        font-size: 1.35rem;
-        font-weight: 600;
-        line-height: 1.5;
-        letter-spacing: -0.01em;
-        color: var(--color-fg);
+      .origin-body {
+        margin: 0 0 2.5rem;
+      }
+      .origin-line {
+        font-size: 2.75rem;
+        font-weight: 800;
+        line-height: 1.1;
+        letter-spacing: -0.025em;
+        color: #fff;
         margin: 0;
       }
       @media (min-width: 640px) {
-        .origin-quote-text { font-size: 1.6rem; }
+        .origin-line { font-size: 3.5rem; }
       }
-      .origin-quote-footer {
-        margin-top: 1.5rem;
+      .origin-line-accent { color: var(--color-accent); }
+      .origin-line-dim    { color: rgba(242,255,252,0.3); }
+      .origin-sub {
+        font-size: 1rem;
+        line-height: 1.75;
+        color: rgba(242,255,252,0.5);
+        max-width: 38rem;
+        margin: 0 0 2rem;
       }
-      .origin-quote-link {
+      .origin-sub em { color: rgba(242,255,252,0.8); font-style: normal; font-weight: 600; }
+      .origin-cta {
         display: inline-flex;
         align-items: center;
-        gap: 0.25rem;
         font-size: 0.9rem;
         font-weight: 500;
         color: var(--color-accent);
         text-decoration: none;
         transition: opacity 0.15s;
       }
-      .origin-quote-link:hover { opacity: 0.75; }
+      .origin-cta:hover { opacity: 0.7; }
 
       /* play / pause icon controls on the dark cassette deck: dim grey by
          default, bright + chip-highlighted for the ACTIVE one. data-paused on
