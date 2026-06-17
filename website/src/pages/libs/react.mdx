@@ -1,0 +1,136 @@
+---
+layout: ../../layout.astro
+title: React
+description: React bindings for @chimba-ui/state-machine.
+---
+
+# React
+
+```bash
+pnpm add @chimba-ui/react-state-machine
+```
+
+The React package is a thin edge layer. Behavior lives in the core machine and the component's `connect` function — this package only adapts them to React: lifecycle, rendering, prop translation, and platform effects.
+
+## `useMachine`
+
+The one bridge hook. Every component calls it with the four agnostic pieces and gets back the view API:
+
+```tsx
+import { useMachine, normalize } from '@chimba-ui/react-state-machine'
+import { createDisclosureConfig, connectDisclosure, disclosureEffects } from './disclosure'
+
+type Props = {
+  open?: boolean
+  onOpenChange?: (details: { open: boolean }) => void
+  closeOnEscape?: boolean
+}
+
+function Disclosure(props: Props) {
+  const { api } = useMachine(
+    createDisclosureConfig, // (props) => MachineConfig — seeds context once
+    connectDisclosure, // pure connect(): snapshot → view api
+    disclosureEffects, // ComponentEffect[] — DOM listeners, gated by props
+    props,
+  )
+
+  return (
+    <div>
+      <button {...normalize(api.triggerProps)}>Toggle</button>
+      {api.isOpen && <div {...normalize(api.panelProps)}>Content</div>}
+    </div>
+  )
+}
+```
+
+`useMachine` builds the machine and connector **once** (first render's props seed context; later changes flow through `setProps`, not a rebuild), starts on mount, stops on unmount, and drives React via `useSyncExternalStore` over the connector's stable snapshot.
+
+## `normalize` — bindings → DOM props
+
+`connect` returns substrate-agnostic bindings (`onPress`, `role`, `describedBy`). `normalize` translates them to real DOM/ARIA props:
+
+```ts
+normalize(api.triggerProps)
+// { onClick, aria-describedby, role, tabIndex, ... }
+```
+
+| Binding                                         | DOM prop                                                            |
+| ----------------------------------------------- | ------------------------------------------------------------------- |
+| `onPress`                                       | `onClick`                                                           |
+| `onPointerEnter/Leave/Move/Down`                | same name                                                           |
+| `onFocus` / `onBlur` / `onKeyDown`              | same name                                                           |
+| `describedBy`                                   | `aria-describedby`                                                  |
+| `labelledBy`                                    | `aria-labelledby`                                                   |
+| `expanded` / `selected` / `disabled` / `hidden` | `aria-expanded` / `aria-selected` / `aria-disabled` / `aria-hidden` |
+| `focusable`                                     | `tabIndex` (`true → 0`, `false → -1`)                               |
+| `role` / `id`                                   | `role` / `id`                                                       |
+
+`undefined` values are dropped. Unknown keys pass through unchanged.
+
+## `mergeProps` — consumer + component props
+
+When a consumer spreads their own props onto the same element the component controls:
+
+```tsx
+<button {...mergeProps(props, normalize(api.triggerProps))}>
+```
+
+- **Event handlers are chained, consumer-first.** If the consumer calls `e.preventDefault()`, the component's handler is skipped — a clean veto.
+- **`style` is merged** into a `[consumerStyle, libraryStyle]` array.
+- **`className` is concatenated** with a space.
+- **Everything else: component wins** — `id`, `role`, `aria-*`.
+
+## `useSelector` — fine-grained leaf subscription
+
+For a leaf component that should only re-render when one slice of the machine changes — useful when a single machine drives many rows and each row should only wake for its own value:
+
+```tsx
+import { useSelector } from '@chimba-ui/react-state-machine'
+
+function Row({ machine, value }) {
+  const isHighlighted = useSelector(machine, () => machine.context.highlightedValue === value)
+
+  return <div data-highlighted={isHighlighted}>{value}</div>
+}
+```
+
+For object selections, pass a custom equality function to avoid re-renders on reference changes:
+
+```tsx
+const pos = useSelector(
+  machine,
+  () => ({ x: machine.context.x, y: machine.context.y }),
+  (a, b) => a.x === b.x && a.y === b.y,
+)
+```
+
+## `ComponentEffect` — platform effects
+
+Some behavior can't live in the machine because it touches the DOM or reads props the machine never sees. Declare each as a `[setup/teardown, depPropNames]` tuple — `useMachine` runs one `useEffect` per entry, keyed on its named prop deps:
+
+```ts
+import type { ComponentEffect } from '@chimba-ui/react-state-machine'
+import type { DisclosureMachine, DisclosureProps } from './machine'
+
+type Effect = ComponentEffect<DisclosureMachine, DisclosureProps>
+
+const onEscapeKey: Effect = [
+  (machine, props) => {
+    if (!props.closeOnEscape) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') machine.send({ type: 'close' })
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  },
+  ['closeOnEscape'], // re-run only when this prop changes
+]
+
+// Must be a static module constant — useMachine runs one hook per entry,
+// so the list length must never change between renders.
+export const disclosureEffects = [onEscapeKey]
+```
+
+The machine only receives `send({ type: 'close' })` — it has no idea a keyboard event exists.
+
+See [Effects](/api/effects) for the full mental model of where each type of effect lives.

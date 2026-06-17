@@ -31,6 +31,12 @@
       }
     },
     {
+      "files": ["**/*.astro"],
+      "rules": {
+        "unicorn/filename-case": "off"
+      }
+    },
+    {
       "files": ["**/*.test.ts", "**/*.test.tsx"],
       "rules": {
         "vitest/require-mock-type-parameters": "off"

@@ -1,0 +1,50 @@
+---
+layout: ../layout.astro
+title: Install
+description: Add Chimba UI to your project.
+---
+
+# Install
+
+## Core
+
+The pure behavior engine — no renderer, no framework.
+
+```bash
+pnpm add @chimba-ui/state-machine
+```
+
+## React
+
+```bash
+pnpm add @chimba-ui/react-state-machine
+```
+
+## React Native
+
+```bash
+pnpm add @chimba-ui/native-state-machine
+```
+
+---
+
+## Your first machine
+
+```ts
+import { machine } from '@chimba-ui/state-machine'
+
+const toggle = machine({
+  initial: 'off',
+  context: {},
+  states: {
+    off: { on: { flip: { target: 'on' } } },
+    on: { on: { flip: { target: 'off' } } },
+  },
+})
+
+toggle.start()
+toggle.send({ type: 'flip' })
+toggle.state // 'on'
+```
+
+No renderer, no framework — just behavior. Plug it into React, React Native, or anything else; the machine is identical on every target.

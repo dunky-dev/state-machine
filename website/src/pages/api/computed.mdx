@@ -1,0 +1,62 @@
+---
+layout: ../../layout.astro
+title: Computed
+description: Lazy, memoized values derived from context.
+---
+
+# Computed
+
+Computeds are values derived from context (or other computeds). They are **lazy** — only evaluated when read — and **memoized** — only re-evaluated when an input they actually read changes.
+
+```ts
+import { machine } from '@chimba-ui/state-machine'
+
+const m = machine({
+  initial: 'idle',
+  context: { items: ['a', 'b', 'c'] },
+  computed: {
+    count: ({ context }) => context.items.length,
+    isEmpty: ({ computed }) => computed.count === 0, // derives from another computed
+  },
+  states: { idle: {} },
+})
+
+m.start()
+m.computed.count // 3
+m.computed.isEmpty // false
+```
+
+## Where computeds are available
+
+A computed value is accessible anywhere context is — guards, actions, effects, watchers — via `{ computed }` in the `$` argument:
+
+```ts
+states: {
+  idle: {
+    on: {
+      submit: {
+        guard:   ({ computed }) => !computed.isEmpty,
+        actions: ({ computed }) => console.log('items:', computed.count),
+      },
+    },
+  },
+}
+```
+
+## Derived lists
+
+The classic use case: filter or derive a list from context fields rather than keeping a parallel list in state.
+
+```ts
+const m = machine({
+  initial: 'idle',
+  context: { query: '', items: ALL_ITEMS, activeIndex: -1 },
+  computed: {
+    filtered: $ => $.context.items.filter(i => i.label.includes($.context.query)),
+    highlighted: $ => $.computed.filtered[$.context.activeIndex] ?? null,
+  },
+  states: { idle: {} },
+})
+```
+
+`filtered` only recomputes when `query` or `items` changes. `highlighted` only recomputes when `filtered` or `activeIndex` changes. The memoization is automatic — no `useMemo`, no manual deps.

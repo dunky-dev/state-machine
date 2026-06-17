@@ -1,0 +1,61 @@
+---
+layout: ../../layout.astro
+title: Store
+description: Singleton reactive state outside any one machine.
+---
+
+# Store
+
+Context lives _inside_ a machine. Some state belongs _outside_ any one machine — shared across instances. `createStore` is a tiny reactive cell for exactly that: a plain value plus a listener set.
+
+```ts
+import { createStore } from '@chimba-ui/state-machine'
+
+const store = createStore({ count: 0 })
+
+store.get() // { count: 0 }
+store.set({ count: 1 }) // shallow-merge a patch
+store.set(s => ({ count: s.count + 1 })) // or an updater function
+const off = store.subscribe(s => console.log(s.count))
+off() // unsubscribe
+```
+
+No-op writes don't notify — `set` compares the incoming patch against current values and skips unchanged fields.
+
+## Domain methods
+
+Pass a second `build` argument to add named methods on top. `build` receives the base store, so the methods read/write through it:
+
+```ts
+const tooltipStore = createStore({ openId: null as string | null }, s => ({
+  setOpen: (id: string | null) => s.set({ openId: id }),
+  isOpen: (id: string) => s.get().openId === id,
+}))
+
+tooltipStore.setOpen('tip-1')
+tooltipStore.isOpen('tip-1') // true
+tooltipStore.isOpen('tip-2') // false
+```
+
+## Bridging a store into a machine
+
+A store is not wired into a machine's `select` automatically. To make a machine react to a shared store, subscribe and forward a plain event:
+
+```ts
+machine({
+  initial: 'idle',
+  context: { id: 'tip-1' },
+  states: {
+    idle: {
+      effects: [
+        ({ context, send }) =>
+          tooltipStore.subscribe(s => {
+            send({ type: s.openId === context.id ? 'activate' : 'deactivate' })
+          }),
+      ],
+    },
+  },
+})
+```
+
+The machine handles the event; the store drives it from outside.

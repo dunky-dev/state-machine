@@ -1,0 +1,55 @@
+---
+layout: ../../layout.astro
+title: Subscriptions
+description: Observe machine changes from outside.
+---
+
+# Subscriptions
+
+Two ways to observe a machine from the outside: coarse `subscribe` for any change, fine-grained `select` for a specific slice.
+
+## `subscribe` — coarse
+
+Fires on any state or context change. The standard bridge for `useSyncExternalStore`:
+
+```ts
+const off = m.subscribe(() => rerender())
+off() // unsubscribe
+```
+
+## `select` — fine-grained
+
+Narrows to a slice and fires **only when that slice's value changes**. A subscriber wakes only for the data it reads:
+
+```ts
+// named field — typed and autocompleted
+m.select.context('count').subscribe(n => console.log('count is now', n))
+m.select.computed('isEmpty').subscribe(empty => toggle(empty))
+m.select.state().subscribe(s => console.log('state →', s))
+```
+
+For a derived or composite slice, pass a selector function:
+
+```ts
+const view = m.select(() => ({
+  open: m.matches('open'),
+  count: m.context.count,
+}))
+
+// optional equality — skip re-renders when neither field changed
+view.subscribe(render, (a, b) => a.open === b.open && a.count === b.count)
+
+view.value // read the current value without subscribing
+```
+
+## Selection identity
+
+A `select` re-evaluates on any machine change but only calls its listeners when the selected value actually changes. This makes it safe to use directly in React's `useSyncExternalStore` — no infinite-loop risk from returning a fresh object on every call.
+
+```ts
+// React bridge pattern
+const snapshot = useSyncExternalStore(
+  cb => m.select.context('count').subscribe(cb),
+  () => m.context.count,
+)
+```

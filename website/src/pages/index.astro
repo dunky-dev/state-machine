@@ -1,0 +1,2781 @@
+---
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import "../styles/global.css";
+
+const base = import.meta.env.BASE_URL;
+const repo = "https://github.com/chimba-ui/state-machine";
+
+// The three machines, written out (set:html so literal braces survive the JSX
+// parser) — faithful to the real @chimba-ui/state-machine API + the pacman demo:
+// `const x = machine({...})`, `on: { EVENT: { target, actions: act(...) } }`,
+// and compose() members driven independently via .send({ type }).
+const pacmanCode = `<span class="cmt">// 🟡 pacman — eats until the ghost gets him</span>
+<span class="kw">const</span> pacman = <span class="fn">machine</span>({
+  initial: <span class="str">'eating'</span>,
+  context: { x: <span class="num">1</span>, y: <span class="num">1</span>, dir: <span class="str">'right'</span>, mouth: <span class="str">'open'</span> },
+  states: {
+    <span class="st" data-machine="pacman" data-state="eating">eating</span>: { on: {
+      step: { actions: <span class="fn">act</span>($ => ({ x: $.event.x, y: $.event.y })) },
+      die:  { target: <span class="str">'dead'</span> },
+    } },
+    <span class="st" data-machine="pacman" data-state="dead">dead</span>: { on: { revive: { target: <span class="str">'eating'</span> } } },
+  },
+})`;
+
+const ghostCode = `<span class="cmt">// 👻 ghost — chases on each tick, stops on a catch</span>
+<span class="kw">const</span> ghost = <span class="fn">machine</span>({
+  initial: <span class="str">'roaming'</span>,
+  context: { x: <span class="num">11</span>, y: <span class="num">10</span>, dir: <span class="str">'up'</span> },
+  states: {
+    <span class="st" data-machine="ghost" data-state="roaming">roaming</span>: { on: {
+      tick: { actions: <span class="fn">act</span>($ => chase($.context, $.event)) },
+      stop: { target: <span class="str">'stopped'</span> },
+    } },
+    <span class="st" data-machine="ghost" data-state="stopped">stopped</span>: { on: { reset: { target: <span class="str">'roaming'</span> } } },
+  },
+})`;
+
+const boardCode = `<span class="cmt">// 🍒 board — dots, cherry, score</span>
+<span class="kw">const</span> board = <span class="fn">machine</span>({
+  initial: <span class="str">'playing'</span>,
+  context: { dots, cherry, score: <span class="num">0</span> },
+  states: {
+    <span class="st" data-machine="board" data-state="playing">playing</span>: { on: {
+      eat:    { actions: <span class="fn">act</span>($ => scoreAt($.context, $.event)) },
+      caught: { target: <span class="str">'caught'</span> },
+    } },
+    <span class="st" data-machine="board" data-state="caught">caught</span>: { on: { reset: { target: <span class="str">'playing'</span> } } },
+  },
+})`;
+
+const composeCode = `<span class="cmt">// ⏱️ a clock machine self-drives via \`after\` — no external loop</span>
+<span class="kw">const</span> clock = <span class="fn">machine</span>({
+  initial: <span class="str">'running'</span>,
+  states: { <span class="st">running</span>: { after: { <span class="num">200</span>: { target: <span class="str">'running'</span> } } } },
+})
+
+<span class="cmt">// 🎲 compose the four; sync() fans each beat to all regions in order</span>
+<span class="kw">const</span> game = <span class="fn">compose</span>({ clock, pacman, ghost, board })
+game.<span class="fn">sync</span>(() => {
+  <span class="kw">const</span> { x, y } = step(pacman.context)
+  pacman.<span class="fn">send</span>({ type: <span class="str">'step'</span>, x, y })
+  board.<span class="fn">send</span>({ type: <span class="str">'eat'</span>, x, y })
+  ghost.<span class="fn">send</span>({ type: <span class="str">'tick'</span>, targetX: x, targetY: y })
+})
+
+game.<span class="fn">start</span>()`;
+
+// the closing quick-start — a real, minimal machine (matches the README).
+const quickStartCode = `<span class="kw">import</span> { machine, act } <span class="kw">from</span> <span class="str">'@chimba-ui/state-machine'</span>
+
+<span class="kw">const</span> toggle = <span class="fn">machine</span>({
+  initial: <span class="str">'inactive'</span>,
+  context: { count: <span class="num">0</span> },
+  states: {
+    inactive: { on: { flip: { target: <span class="str">'active'</span>, actions: <span class="fn">act</span>($ => ({ count: $.context.count + <span class="num">1</span> })) } } },
+    active:   { on: { flip: { target: <span class="str">'inactive'</span> } } },
+  },
+})
+
+toggle.<span class="fn">start</span>()
+toggle.<span class="fn">send</span>({ type: <span class="str">'flip'</span> })
+toggle.state    <span class="cmt">// 'active'</span>
+toggle.context  <span class="cmt">// { count: 1 }</span>`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chimba UI — a state machine built for performance</title>
+    <link rel="icon" href={`${base}logo-symbol.svg`} type="image/svg+xml" />
+    <meta
+      name="description"
+      content="A state machine built for performance — inspired by XState and Zag. Define a behavior once, render it anywhere."
+    />
+  </head>
+  <body>
+    <Header revealOnScroll />
+
+    <main
+      class="mx-auto max-w-5xl px-4 pb-16 sm:px-6 xl:max-w-6xl 2xl:max-w-[88rem] min-[1800px]:max-w-[104rem]"
+    >
+      <!-- HERO + FAST MACHINES share ONE grid so the game panel can use native
+           `position: sticky` (no JS scroll transform → no flicker). On lg it's a
+           5-col grid: copy (3/5) over the code (3/5) on the left, and the game
+           (2/5) spanning BOTH rows on the right — that tall right cell is what
+           lets the sticky game ride down past the hero and through "Fast
+           machines", releasing at the grid's end. On mobile it's one column,
+           ordered copy → game → code. -->
+      <div
+        class="grid grid-cols-1 items-start gap-10 lg:items-stretch lg:grid-cols-5 lg:gap-x-12 lg:gap-y-0"
+      >
+        <!-- the polished DX-lib copy column (top-left) — fills the first screen -->
+        <section
+          class="order-1 flex flex-col lg:justify-center lg:col-span-3 lg:col-start-1 lg:row-start-1"
+        >
+          <!-- brand lockup: Chimba wordmark logo + STATE-MACHINE eyebrow. -->
+          <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <img
+              src={`${base}logo.svg`}
+              alt="Chimba"
+              class="h-7 w-auto sm:h-8"
+              width="554"
+              height="120"
+            />
+            <span class="select-none" aria-hidden="true">/</span>
+            <span class="mt-2 font-mono text-lg font-semibold uppercase">
+              State&#8209;Machine
+            </span>
+          </div>
+
+          <!-- headline -->
+          <h1
+            class="mt-8 text-5xl font-bold leading-[1.04] tracking-tight sm:text-6xl lg:text-6xl 2xl:text-7xl min-[1800px]:text-8xl"
+          >
+            Define states once.<br />
+            <span
+              class="bg-linear-to-r from-accent to-[#22c5d3] bg-clip-text text-transparent"
+              >Render it anywhere.</span
+            >
+          </h1>
+
+          <!-- subhead -->
+          <p
+            class="mt-6 max-w-xl text-lg text-muted sm:text-xl 2xl:max-w-2xl 2xl:text-2xl"
+          >
+            <strong class="font-semibold text-fg"
+              >A state machine built for performance</strong
+            >
+            <br />
+            States as pure, serializable data you can plug into anything that renders.
+            Inspired by
+            <a
+              class="text-accent hover:underline"
+              href="https://stately.ai/docs"
+              target="_blank"
+              rel="noreferrer">XState</a
+            >
+            and
+            <a
+              class="text-accent hover:underline"
+              href="https://zagjs.com/"
+              target="_blank"
+              rel="noreferrer">Zag</a
+            >.
+          </p>
+
+          <!-- CTAs -->
+          <div class="mt-9 flex flex-wrap items-center gap-3.5">
+            <a
+              class="rounded-xl bg-fg px-6 py-3 font-semibold text-bg transition-opacity hover:opacity-90"
+              href={`${base}get-started`}>Get started →</a
+            >
+            <a
+              class="rounded-xl border border-border bg-bg/60 px-6 py-3 font-semibold text-fg transition-colors hover:border-fg"
+              href={repo}
+              target="_blank"
+              rel="noreferrer">GitHub</a
+            >
+          </div>
+
+          <!-- install command -->
+          <div
+            class="mt-8 flex max-w-full items-center gap-3 self-start overflow-x-auto rounded-xl border border-border bg-panel/80 px-4 py-2.5 font-mono text-sm shadow-sm backdrop-blur"
+          >
+            <span class="select-none text-muted">$</span>
+            <code id="install-cmd" class="whitespace-nowrap text-fg"
+              >npm i @chimba-ui/state-machine</code
+            >
+            <button
+              id="install-copy"
+              type="button"
+              aria-label="Copy install command"
+              class="-mr-1 ml-1 shrink-0 rounded-md p-1.5 text-muted transition-colors hover:bg-black/5 hover:text-fg"
+            >
+              ⧉
+            </button>
+          </div>
+        </section>
+
+        <!-- FEATURE BAND — three value props, right after the hero. Sits in the
+             left column (row 2); its dark background bleeds to the LEFT viewport
+             edge while the text stays aligned with the rest of the left content.
+             Three lined up on lg, stacked on mobile. -->
+        <section
+          class="band-left order-2 mt-12 lg:mt-24 lg:col-span-3 lg:col-start-1 lg:row-start-2"
+        >
+          <div class="band-left-bg" aria-hidden="true"></div>
+          <div class="relative py-16 sm:py-20">
+            <p class="band-eyebrow">Why Chimba</p>
+            <ul class="mt-8 flex flex-col">
+              <li class="band-item">
+                <span class="band-num">🌎</span>
+                <div class="band-body">
+                  <h3 class="band-title">Truly agnostic</h3>
+                  <p class="band-muted">
+                    No environment assumption at all — one step beyond Zag's
+                    headless idea. <a
+                      class="band-link"
+                      href={`${base}comparison`}>Compare →</a
+                    >
+                  </p>
+                </div>
+              </li>
+              <li class="band-item">
+                <span class="band-num">⚡️</span>
+                <div class="band-body">
+                  <h3 class="band-title">Fast at scale</h3>
+                  <p class="band-muted">
+                    ~8× XState's throughput, flat-ish memory, surgical
+                    re-renders. <a class="band-link" href={`${base}benchmark`}
+                      >See the benchmark →</a
+                    >
+                  </p>
+                </div>
+              </li>
+              <li class="band-item">
+                <span class="band-num">🧠</span>
+                <div class="band-body">
+                  <h3 class="band-title">Behavior, not render</h3>
+                  <p class="band-muted">
+                    A pure behavioral kernel — states, events, context. Runs on
+                    the DOM, React Native, or any JS runtime.
+                  </p>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- FAST MACHINES: the machine configs behind the live demo. Left 60%
+             (row 3) so the game slides down the right 40% past the snippets. -->
+        <section
+          class="order-3 lg:col-span-3 lg:col-start-1 lg:row-start-3 mt-8 lg:mt-24"
+          aria-label="The Chimba machines behind the demo"
+        >
+          <div class="mb-8">
+            <h2 class="text-3xl font-bold tracking-tight sm:text-4xl">
+              Fast machines
+            </h2>
+            <p class="mt-3 text-lg text-muted">
+              Few bytes of state, events and context per machine. A tiny
+              footprint can spin up thousands of them
+              <br />
+              <br />
+              Built for <strong class="font-semibold text-fg"
+                >high density × high frequency</strong
+              >.
+            </p>
+          </div>
+
+          <!-- all four snippets in ONE dark "IDE" card — three machine files +
+               the compose that unites them — each with its own filename header,
+               separated by hairline dividers. An emoji prefix tells them apart. -->
+          <div class="dark-card ide-card">
+            <pre
+              class="overflow-x-auto px-4 py-3 font-mono text-[12px] leading-relaxed"><code set:html={pacmanCode} /></pre>
+
+            <pre
+              class="overflow-x-auto px-4 py-3 font-mono text-[12px] leading-relaxed"><code set:html={ghostCode} /></pre>
+
+            <pre
+              class="overflow-x-auto px-4 py-3 font-mono text-[12px] leading-relaxed"><code set:html={boardCode} /></pre>
+
+            <pre
+              class="overflow-x-auto px-4 py-3 font-mono text-[12px] leading-relaxed"><code set:html={composeCode} /></pre>
+          </div>
+        </section>
+
+        <!-- RIGHT cell (~40%): the LIVE machine panel, spanning ALL THREE grid
+             rows so its tall cell gives `position: sticky` room to ride down —
+             the game slides past the hero, the "Fast machines" snippets, and
+             comes to rest in the SNES dock beside "One machine". On mobile it
+             sits right after the hero copy (order-2). -->
+        <div
+          class="hidden lg:block lg:col-span-2 lg:col-start-4 lg:row-span-3 lg:row-start-1 z-10 -mb-[275px]"
+        >
+          <div
+            id="hero-live"
+            class="relative md:ml-auto md:w-[362px] lg:sticky lg:top-30 lg:w-[465px] 2xl:w-[540px] min-[1800px]:w-[600px]"
+          >
+            <!-- the running game, dressed up as a game CASSETTE TAPE that slides
+                 down and docks into the console near the frames below -->
+            <div id="pac-card" class="cassette dark-card relative">
+              <!-- the three machines' live state as a fixed-layout table -->
+              <table
+                class="pac-table hidden w-full font-mono text-[10px] sm:text-[11px] lg:table"
+              >
+                <thead>
+                  <tr
+                    class="panel-head text-left text-[9px] uppercase tracking-wider"
+                  >
+                    <th class="px-3 py-2 font-medium">machine</th>
+                    <th class="px-1 py-2 font-medium">state</th>
+                    <th class="px-2 py-2 font-medium">context</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr id="row-pacman" class="">
+                    <td class="px-3 py-1.5 text-[#ffe66d]"
+                      ><span aria-hidden="true">⚙️</span> pacman</td
+                    >
+                    <td id="st-pacman" class="px-1 py-1.5">…</td>
+                    <td id="cx-pacman" class="cx-cell px-3 py-1.5"> </td>
+                  </tr>
+                  <tr id="row-ghost" class="">
+                    <td class="px-3 py-1.5 text-[#62b3ff]"
+                      ><span aria-hidden="true">⚙️</span> ghost</td
+                    >
+                    <td id="st-ghost" class="px-1 py-1.5">…</td>
+                    <td id="cx-ghost" class="cx-cell px-3 py-1.5"> </td>
+                  </tr>
+                  <tr id="row-board" class="">
+                    <td class="px-3 py-1.5 text-[#ff5d52]"
+                      ><span aria-hidden="true">⚙️</span> board</td
+                    >
+                    <td id="st-board" class="px-1 py-1.5">…</td>
+                    <td id="cx-board" class="cx-cell px-3 py-1.5"> </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <!-- routing band: the wires bow out past the card edge and back.
+                   The game board + deck are hidden on mobile (lg+ only); the
+                   live state TABLE above stays visible everywhere. -->
+              <div class="hidden h-8 lg:block"></div>
+
+              <!-- the game (board), centered. The wires bow OUTSIDE the card on
+                   the right, then come back in to plug into the board's edge. -->
+              <div class="hidden justify-center px-3 pb-3 lg:flex">
+                <pre
+                  id="render-tui"
+                  class="pac-tui m-0 overflow-x-auto text-left font-mono leading-[1.05]"
+                  aria-hidden="true">
+                </pre>
+              </div>
+
+              <!-- the cassette's chunky BOTTOM SHELL — the play/pause sit on it -->
+              <div class="cassette-deck">
+                <!-- play / pause — two icon-only buttons on the cassette deck -->
+                <div id="pac-controls" class="flex gap-1.5" data-paused="false">
+                  <button
+                    id="pac-play"
+                    type="button"
+                    aria-label="Play"
+                    class="pac-ctrl rounded-lg p-2 text-muted transition-colors hover:text-fg"
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 16 16"
+                      fill="currentColor"
+                      aria-hidden="true"><path d="M4 2.5v11l9-5.5z"></path></svg
+                    >
+                  </button>
+                  <button
+                    id="pac-pause"
+                    type="button"
+                    aria-label="Pause"
+                    class="pac-ctrl rounded-lg p-2 text-muted transition-colors hover:text-fg"
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 16 16"
+                      fill="currentColor"
+                      aria-hidden="true"
+                      ><rect x="3.5" y="2.5" width="3" height="11" rx="1"
+                      ></rect><rect x="9.5" y="2.5" width="3" height="11" rx="1"
+                      ></rect></svg
+                    >
+                  </button>
+                </div>
+              </div>
+              <!-- /cassette-deck -->
+              <!-- the "connection" wires live on the (un-clipped) card so they can
+                 bow OUTSIDE the black card before returning to the board. -->
+              <svg
+                id="pac-wires"
+                class="pointer-events-none absolute inset-0 hidden h-full w-full overflow-visible lg:block"
+                aria-hidden="true"></svg>
+            </div>
+            <!-- /cassette card -->
+
+            <!-- FEED cable: from the cassette's bottom down to the console it
+                 docks into. Lives on #hero-live so it tracks the sticky game; it
+                 overflows downward to reach the console below. -->
+            <svg
+              id="feed-cable"
+              class="pointer-events-none absolute inset-0 z-10 h-full w-full overflow-visible"
+              aria-hidden="true"></svg>
+          </div>
+          <!-- /hero-live -->
+        </div>
+        <!-- /RIGHT column -->
+      </div>
+      <!-- /HERO + FAST MACHINES grid -->
+
+      <!-- SHOWCASE: one big premium panel that unifies the "One machine" copy
+           and the device lineup below it — breaks the rigid left/right split.
+           The game cassette overlaps its top-right edge. -->
+      <section class="showcase">
+        <h2
+          class="text-3xl font-bold leading-[1.08] tracking-tight sm:text-4xl 2xl:text-5xl"
+        >
+          One machine.<br />
+          Rendered on any JS runner.
+        </h2>
+        <p class="mt-4 max-w-xl text-lg text-muted 2xl:text-xl">
+          The machine is a <strong class="font-semibold text-fg"
+            >pure kernel</strong
+          > with no environment assumptions. Plug it into any JS UI. If JS runs it,
+          <strong class="font-semibold text-fg">the machine drives it</strong>.
+        </p>
+
+        <!-- MOBILE-ONLY live state table — sits here, after the "One machine" copy.
+             On lg+ the cassette card handles this; hidden there. -->
+        <div class="mt-6 lg:hidden">
+          <table
+            class="pac-table dark-card w-full font-mono text-[10px] border-none! bg-black!"
+          >
+            <thead>
+              <tr
+                class="panel-head text-left text-[9px] uppercase tracking-wider"
+              >
+                <th class="px-3 py-2 font-medium">machine</th>
+                <th class="px-1 py-2 font-medium">state</th>
+                <th class="px-2 py-2 font-medium">context</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="px-3 py-1.5 text-[#ffe66d]"
+                  ><span aria-hidden="true">⚙️</span> pacman</td
+                >
+                <td id="m-st-pacman" class="px-1 py-1.5">…</td>
+                <td id="m-cx-pacman" class="cx-cell px-3 py-1.5"> </td>
+              </tr>
+              <tr>
+                <td class="px-3 py-1.5 text-[#62b3ff]"
+                  ><span aria-hidden="true">⚙️</span> ghost</td
+                >
+                <td id="m-st-ghost" class="px-1 py-1.5">…</td>
+                <td id="m-cx-ghost" class="cx-cell px-3 py-1.5"> </td>
+              </tr>
+              <tr>
+                <td class="px-3 py-1.5 text-[#ff5d52]"
+                  ><span aria-hidden="true">⚙️</span> board</td
+                >
+                <td id="m-st-board" class="px-1 py-1.5">…</td>
+                <td id="m-cx-board" class="cx-cell px-3 py-1.5"> </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- BROADCAST: the cassette's cable runs down into the CONSOLE (hub),
+             which fans out to the three frames. The frames are always live. -->
+        <div id="broadcast" class="relative">
+          <!-- the console the cassette's cable plugs into — the hub feeding all 3.
+             SAME width as the cassette and right-aligned, so it sits perfectly
+             under it. lg+ only. -->
+          <div
+            id="dock"
+            class="console ml-auto hidden lg:block lg:w-[465px] 2xl:w-[540px] min-[1800px]:w-[600px]"
+          >
+            <span class="console-slot" aria-hidden="true"></span>
+            <span class="console-label">
+              <span class="console-led" aria-hidden="true"></span>
+              <span class="console-text">ON / CH-03</span>
+            </span>
+          </div>
+
+          <!-- black, rounded-corner cables: console → each frame, always connected
+             (drawn by JS into this SVG, with a plug at each end). lg+ only. -->
+          <svg
+            id="cables"
+            class="pointer-events-none absolute inset-0 z-10 h-full w-full overflow-visible"
+            aria-hidden="true"></svg>
+
+          <!-- mobile: all three stacked; md+: all three in one row -->
+          <section
+            class="mt-12 grid select-none grid-cols-1 items-end justify-items-center gap-10 sm:mt-24 md:grid-cols-3"
+            aria-label="The same machine rendered in three frames"
+          >
+            <!-- LAPTOP — the screen shows a BROWSER window (chrome bar + URL) -->
+            <figure id="frame-laptop" class="frame laptop">
+              <div class="laptop-screen">
+                <div class="browser-bar">
+                  <span class="browser-dots" aria-hidden="true"
+                    ><i></i><i></i><i></i></span
+                  >
+                  <span class="browser-url">chimba-ui.com</span>
+                </div>
+                <div class="browser-body">
+                  <pre
+                    class="frame-tui pac-tui m-0 text-left font-mono leading-[1.05]"
+                    aria-hidden="true">
+                  </pre>
+                </div>
+              </div>
+              <div class="laptop-base"></div>
+              <figcaption class="stage-label">
+                <b>Web</b>
+              </figcaption>
+            </figure>
+
+            <!-- IPHONE — rounded body, side rails, Dynamic Island, home bar.
+               Nudged 50px right on lg for better centring in its column. -->
+            <figure
+              id="frame-phone"
+              class="frame flex flex-col items-center lg:translate-x-[50px]"
+            >
+              <div class="iphone">
+                <span class="iphone-island" aria-hidden="true"></span>
+                <div class="iphone-screen">
+                  <pre
+                    class="frame-tui pac-tui m-0 text-left font-mono leading-[1.05]"
+                    aria-hidden="true">
+                  </pre>
+                </div>
+                <span class="iphone-home" aria-hidden="true"></span>
+              </div>
+              <figcaption class="stage-label">
+                <b>Devices</b>
+              </figcaption>
+            </figure>
+
+            <!-- TERMINAL -->
+            <figure
+              id="frame-terminal"
+              class="frame flex flex-col items-center"
+            >
+              <div class="terminal">
+                <div class="terminal-bar">
+                  <span style="background:#ff5d52"></span>
+                  <span style="background:#ffe66d"></span>
+                  <span style="background:#a2e57b"></span>
+                </div>
+                <div class="terminal-body">
+                  <pre
+                    class="frame-tui pac-tui m-0 text-left font-mono leading-[1.05]"
+                    aria-hidden="true">
+                  </pre>
+                </div>
+              </div>
+              <figcaption class="stage-label">
+                <b>Terminals</b>
+              </figcaption>
+            </figure>
+          </section>
+        </div>
+        <!-- /broadcast -->
+      </section>
+      <!-- /showcase -->
+    </main>
+
+    <!-- ORIGIN QUOTE -->
+    <section class="origin-section">
+      <div class="origin-inner">
+        <div class="origin-layout">
+          <!-- left: avatar -->
+          <a
+            href="https://x.com/ivanbanov"
+            target="_blank"
+            rel="noreferrer"
+            class="origin-avatar-link"
+            aria-label="Ivan Banov on X"
+          >
+            <img
+              src="https://avatars.githubusercontent.com/u/2953018?v=4"
+              alt="Ivan Banov"
+              class="origin-avatar"
+              width="80"
+              height="80"
+            />
+          </a>
+
+          <!-- right: quote + sub + cta -->
+          <div class="origin-content">
+            <blockquote class="origin-body">
+              <p class="origin-line">I spent a decade rebuilding</p>
+              <p class="origin-line">the same components,</p>
+              <p class="origin-line origin-line-dim">over and over again.</p>
+            </blockquote>
+            <p class="origin-sub">
+              New company, new stack, new design system — but the same button,
+              the same tooltip, the same dialog. The behaviors never changed.
+              All documented by the W3C. All rebuilt from scratch, every time.
+            </p>
+            <a href={`${base}get-started`} class="origin-cta"
+              >Read the full story →</a
+            >
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LAB SECTION: full-width dark strip with two live machine demos -->
+    <section class="lab-section" aria-label="Live machine demos">
+      <div class="lab-inner">
+        <!-- col 1: title + eyebrow -->
+        <div class="lab-title-col">
+          <h2 class="lab-heading">The stateful<br />machines lab.</h2>
+          <p class="lab-sub">
+            Different domains. Same engine.<br />
+            State, context, events. That's it.
+          </p>
+          <p class="lab-sub" style="margin-top:1rem">
+            Any stateful UI, is just a machine with states and transitions. The
+            rendering layer is irrelevant.
+          </p>
+        </div>
+
+        <!-- col 2: TRADING PANEL — 3 pairs, each its own machine -->
+        <div class="lab-demo" id="demo-trading">
+          <div class="lab-demo-header">
+            <span class="lab-demo-icon">📈</span>
+            <span class="lab-demo-title">Trading panel</span>
+            <span class="lab-demo-badge" id="trade-state-badge">watching</span>
+          </div>
+
+          <div class="lab-demo-body">
+            <!-- live symbol strip — all 3 pairs tick simultaneously; click to select -->
+            <div
+              class="trade-symbols"
+              role="tablist"
+              aria-label="Currency pairs"
+            >
+              <button
+                class="trade-sym trade-sym-active"
+                role="tab"
+                data-pair="0"
+                type="button"
+              >
+                <span class="trade-sym-name">USDEUR</span>
+                <span class="trade-sym-price" id="sym-price-0">—</span>
+                <span class="trade-sym-arrow" id="sym-arrow-0">—</span>
+              </button>
+              <button class="trade-sym" role="tab" data-pair="1" type="button">
+                <span class="trade-sym-name">USDJPY</span>
+                <span class="trade-sym-price" id="sym-price-1">—</span>
+                <span class="trade-sym-arrow" id="sym-arrow-1">—</span>
+              </button>
+              <button class="trade-sym" role="tab" data-pair="2" type="button">
+                <span class="trade-sym-name">BTCUSD</span>
+                <span class="trade-sym-price" id="sym-price-2">—</span>
+                <span class="trade-sym-arrow" id="sym-arrow-2">—</span>
+              </button>
+            </div>
+
+            <!-- selected pair big ticker -->
+            <div class="trade-ticker">
+              <span class="trade-price" id="trade-price">—</span>
+              <span class="trade-delta" id="trade-delta">+0.00</span>
+            </div>
+
+            <!-- sparkline -->
+            <svg
+              class="trade-chart"
+              viewBox="0 0 200 56"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              <polyline
+                id="trade-line"
+                points=""
+                fill="none"
+                stroke-width="1.5"
+                stroke-linejoin="round"
+                stroke-linecap="round"></polyline>
+            </svg>
+
+            <!-- position -->
+            <div class="trade-order">
+              <span class="trade-order-label">position</span>
+              <span class="trade-order-val" id="trade-position">—</span>
+            </div>
+
+            <!-- controls -->
+            <div class="trade-controls">
+              <button id="btn-buy" class="trade-btn trade-btn-buy" type="button"
+                >BUY</button
+              >
+              <button
+                id="btn-sell"
+                class="trade-btn trade-btn-sell"
+                type="button">SELL</button
+              >
+              <button
+                id="btn-cancel"
+                class="trade-btn trade-btn-cancel"
+                type="button">CANCEL</button
+              >
+            </div>
+          </div>
+
+          <!-- accordion: machine code -->
+          <div class="trade-accordion">
+            <button
+              class="trade-accordion-trigger"
+              type="button"
+              aria-expanded="false"
+              aria-controls="trade-code-panel"
+              id="trade-code-toggle"
+            >
+              <span>machine code</span>
+              <span class="trade-accordion-chevron" aria-hidden="true">▸</span>
+            </button>
+            <div
+              class="trade-accordion-panel"
+              id="trade-code-panel"
+              role="region"
+              aria-labelledby="trade-code-toggle"
+              hidden
+            >
+              <pre
+                class="trade-code"><code><span class="kw">const</span> &#123; createMachine &#125; = <span class="fn">setup</span>&lt;PairContext, PairEvent, PairComputed&gt;().<span class="fn">config</span>(&#123;
+  guards:  &#123; canBuy: $ =&gt; $.context.entryPrice === <span class="num">0</span>,
+              canSell: $ =&gt; $.context.entryPrice &gt; <span class="num">0</span> &#125;,
+  actions: &#123; recordEntry: <span class="fn">act</span>($ =&gt; (&#123; entryPrice: $.context.price &#125;)),
+              updatePrice: <span class="fn">act</span>($ =&gt; (&#123; prevPrice: $.context.price,
+                price: $.event.price, history: [...$.context.history.<span class="fn">slice</span>(-<span class="num">79</span>), $.event.price] &#125;)) &#125;,
+  effects: &#123; priceTicker: (&#123; send &#125;) =&gt; &#123;
+    <span class="kw">const</span> id = <span class="fn">setInterval</span>(() =&gt; send(&#123; type: <span class="str">'TICK'</span>, price: <span class="fn">randomWalk</span>() &#125;), <span class="num">350</span>)
+    <span class="kw">return</span> () =&gt; <span class="fn">clearInterval</span>(id)  <span class="cmt">// ← cleanup on state exit</span>
+  &#125; &#125;,
+&#125;)
+
+<span class="kw">const</span> pair = <span class="fn">createMachine</span>(&#123;
+  initial: <span class="str">'idle'</span>,
+  context: &#123; price, prevPrice: price, history: [price], entryPrice: <span class="num">0</span>, pnl: <span class="num">0</span> &#125;,
+  computed: &#123; pnl: $ =&gt; $.context.price - $.context.entryPrice,
+               delta: $ =&gt; $.context.price - $.context.prevPrice,
+               isUp: $ =&gt; $.context.price &gt;= $.context.prevPrice &#125;,
+  on: &#123; TICK: &#123; actions: [<span class="str">'updatePrice'</span>] &#125; &#125;,  <span class="cmt">// ← fires in all states</span>
+  watch: &#123; price: [$ =&gt; &#123; <span class="kw">if</span> ($.context.entryPrice &gt; <span class="num">0</span>)
+    $.setContext(&#123; pnl: $.context.price - $.context.entryPrice &#125;) &#125;] &#125;,
+  states: &#123;
+    <span class="st">idle</span>:    &#123; effects: [<span class="str">'priceTicker'</span>], on: &#123; BUY: &#123; guard: <span class="str">'canBuy'</span>, target: <span class="str">'buying'</span> &#125; &#125; &#125;,
+    <span class="st">buying</span>:  &#123; on: &#123; CANCEL: <span class="str">'idle'</span> &#125;,
+               after: &#123; <span class="num">600</span>: &#123; target: <span class="str">'holding'</span>, actions: [<span class="str">'recordEntry'</span>] &#125; &#125; &#125;,
+    <span class="st">holding</span>: &#123; on: &#123; SELL: &#123; guard: <span class="str">'canSell'</span>, target: <span class="str">'selling'</span> &#125; &#125; &#125;,
+    <span class="st">selling</span>: &#123; after: &#123; <span class="num">600</span>: &#123; target: <span class="str">'idle'</span>,
+               actions: [<span class="fn">act</span>(&#123; entryPrice: <span class="num">0</span>, pnl: <span class="num">0</span> &#125;)] &#125; &#125; &#125;,
+  &#125;,
+&#125;)</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- col 3: WHITEBOARD — 10 cursors + 2 sticky notes, autonomous -->
+        <div class="lab-demo" id="demo-whiteboard">
+          <div class="lab-demo-header">
+            <span class="lab-demo-icon">🖊️</span>
+            <span class="lab-demo-title">Collaborative whiteboard</span>
+            <span class="lab-demo-badge" id="wb-state-badge">live</span>
+          </div>
+
+          <div class="lab-demo-body">
+            <div class="wb-canvas" id="wb-canvas" aria-hidden="true">
+              <!-- cursors and stickies injected by JS -->
+            </div>
+          </div>
+
+          <!-- accordion: machine code -->
+          <div class="trade-accordion">
+            <button
+              class="trade-accordion-trigger"
+              type="button"
+              aria-expanded="false"
+              aria-controls="wb-code-panel"
+              id="wb-code-toggle"
+            >
+              <span>machine code</span>
+              <span class="trade-accordion-chevron" aria-hidden="true">▸</span>
+            </button>
+            <div
+              class="trade-accordion-panel"
+              id="wb-code-panel"
+              role="region"
+              aria-labelledby="wb-code-toggle"
+              hidden
+            >
+              <pre
+                class="trade-code"><code><span class="kw">const</span> &#123; createMachine &#125; = <span class="fn">setup</span>&lt;CursorCtx, CursorEv, CursorComputed&gt;().<span class="fn">config</span>(&#123;
+  guards:  &#123; arrived: $ =&gt; $.context.progress &gt;= <span class="num">1</span> &#125;,
+  actions: &#123; stepProgress: <span class="fn">act</span>($ =&gt; (&#123;
+               progress: <span class="fn">Math.min</span>(<span class="num">1</span>, $.context.progress + $.context.speed),
+               x: $.computed.ex, y: $.computed.ey &#125;)),
+             pickNewTarget: (&#123; context, setContext &#125;) =&gt; <span class="fn">setContext</span>(&#123;
+               x0: context.x, y0: context.y,
+               x1: <span class="num">6</span> + <span class="fn">Math.random</span>() * <span class="num">86</span>, y1: <span class="num">6</span> + <span class="fn">Math.random</span>() * <span class="num">86</span>,
+               progress: <span class="num">0</span> &#125;) &#125;,
+  delays:  &#123; idlePause: $ =&gt; $.context.pauseMs &#125;,
+&#125;)
+
+<span class="kw">const</span> cursor = <span class="fn">createMachine</span>(&#123;
+  computed: &#123; <span class="cmt">// eased position — rendered directly by subscribers</span>
+    ex: $ =&gt; $.context.x0 + ($.context.x1 - $.context.x0) * <span class="fn">easeInOut</span>($.context.progress),
+    ey: $ =&gt; $.context.y0 + ($.context.y1 - $.context.y0) * <span class="fn">easeInOut</span>($.context.progress) &#125;,
+  states: &#123;
+    <span class="st">idle</span>: &#123; entry: [<span class="str">'setPauseMs'</span>],
+            after: &#123; idlePause: &#123; target: <span class="str">'moving'</span>, actions: [<span class="str">'pickNewTarget'</span>] &#125; &#125; &#125;,
+    <span class="st">moving</span>: &#123; after: &#123; <span class="num">16</span>: [  <span class="cmt">// ≈60fps self-driving loop via after timer</span>
+      &#123; guard: <span class="str">'arrived'</span>, target: <span class="str">'idle'</span> &#125;,
+      &#123; actions: [<span class="str">'stepProgress'</span>], target: <span class="str">'moving'</span> &#125;,
+    ] &#125; &#125;,
+  &#125;,
+&#125;)
+
+<span class="kw">const</span> sticky = <span class="fn">createMachine</span>(&#123;
+  computed: &#123; normalizedX: $ =&gt; <span class="fn">Math.min</span>(<span class="num">85</span>, $.context.x),
+               normalizedY: $ =&gt; <span class="fn">Math.min</span>(<span class="num">80</span>, $.context.y) &#125;,
+  states: &#123;
+    <span class="st">placed</span>:   &#123; on: &#123; DRAG_START: &#123; target: <span class="str">'dragging'</span>, actions: [<span class="str">'startDrag'</span>] &#125; &#125; &#125;,
+    <span class="st">dragging</span>: &#123; on: &#123; DRAG_MOVE:  &#123; actions: [<span class="str">'moveTo'</span>] &#125;,
+                         DROP:      &#123; target: <span class="str">'placed'</span> &#125; &#125; &#125;,
+  &#125;,
+&#125;)
+
+<span class="fn">compose</span>(&#123; ...cursors, ...stickies &#125;).<span class="fn">start</span>()</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <!-- /lab section -->
+
+    <!-- CONTRIBUTE SECTION -->
+    <section class="contrib-section">
+      <div class="contrib-inner">
+        <p class="contrib-eyebrow">Open source</p>
+        <h2 class="contrib-heading">
+          Built in the open.<br />Improved together.
+        </h2>
+        <p class="contrib-sub">
+          Chimba UI is early and growing. If something feels off, a use case
+          isn't covered, or you just want to say hi — every issue, PR, and share
+          genuinely helps.
+        </p>
+
+        <div class="contrib-actions">
+          <a
+            href="https://github.com/chimba-ui/state-machine/issues/new"
+            target="_blank"
+            rel="noreferrer"
+            class="contrib-btn contrib-btn-primary"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"
+              ></path>
+            </svg>
+            Raise an issue
+          </a>
+          <a
+            href="https://x.com/ivanbanov"
+            target="_blank"
+            rel="noreferrer"
+            class="contrib-btn contrib-btn-secondary"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L2.25 2.25h6.988l4.26 5.634zm-1.161 17.52h1.833L7.084 4.126H5.117z"
+              ></path>
+            </svg>
+            Share on X
+          </a>
+        </div>
+
+        <p class="contrib-note">
+          <b>⭐ Star the repo if it helped you a tiny bit ⭐</b>
+        </p>
+      </div>
+    </section>
+    <!-- /contribute section -->
+
+    <Footer />
+
+    <script>
+      import { createGame, MAZE, ROWS, COLS, key, type Dir } from "../pacman";
+      import { createTradingDemo, type PairState } from "../demos/trading";
+      import {
+        createWhiteboardDemo,
+        CURSOR_COLORS,
+        CURSOR_NAMES,
+      } from "../demos/whiteboard";
+
+      // THREE machines (pacman · ghost · board) composed into one game. Three
+      // renderers read the SAME composed state and paint it three ways.
+      const game = createGame();
+      const { pacman, ghost, board } = game;
+
+      // --- TUI renderer FACTORY: same composed state, painted into ANY <pre>. ---
+      // This is the whole pitch (option B): one machine, many render targets. Each
+      // call builds a fixed monospace grid and returns a paint() that reads the
+      // SHARED game state. Cells are rigid CSS boxes so glyphs never widen a row.
+      const PAC = "🟡";
+      const makeTuiRenderer = (pre: HTMLElement) => {
+        const cells: HTMLElement[] = [];
+        for (let y = 0; y < ROWS; y++) {
+          const row = document.createElement("div");
+          row.className = "tui-row";
+          for (let x = 0; x < COLS; x++) {
+            const c = document.createElement("span");
+            c.className = "tui-cell";
+            row.appendChild(c);
+            cells.push(c);
+          }
+          pre.appendChild(row);
+        }
+        return () => {
+          const p = pacman.context;
+          const g = ghost.context;
+          const b = board.context;
+          for (let y = 0; y < ROWS; y++) {
+            for (let x = 0; x < COLS; x++) {
+              const c = cells[y * COLS + x];
+              let ch = " ";
+              if (x === p.x && y === p.y)
+                ch = pacman.state === "dead" ? "💀" : PAC;
+              else if (x === g.x && y === g.y && ghost.state !== "stopped")
+                ch = "👻";
+              else if (b.cherry && x === b.cherry.x && y === b.cherry.y)
+                ch = "🍒";
+              else if (MAZE[y][x] === 1) ch = "🟦";
+              else if (b.dots.has(key(x, y))) ch = "·";
+              if (c.textContent !== ch) c.textContent = ch;
+            }
+          }
+        };
+      };
+
+      // ONE machine, many render targets (the whole pitch). Mount a renderer on
+      // the hero board and on each device frame; they ALL read the shared state,
+      // so they stay byte-for-byte in sync. Static — no scroll effects.
+      const painters: Array<() => void> = [];
+      const heroPre = document.getElementById("render-tui");
+      if (heroPre) painters.push(makeTuiRenderer(heroPre));
+      document
+        .querySelectorAll<HTMLElement>(".frame-tui")
+        .forEach((pre) => painters.push(makeTuiRenderer(pre)));
+      const paintTui = () => {
+        for (const paint of painters) paint();
+      };
+
+      // --- live state TABLE: state + context per machine -----------------------
+      // Values are padded to fixed widths so the { … } never changes size and the
+      // table stays rock-still as numbers tick (no layout jitter).
+      const stPacman = document.getElementById("st-pacman")!;
+      const stGhost = document.getElementById("st-ghost")!;
+      const stBoard = document.getElementById("st-board")!;
+      const cxPacman = document.getElementById("cx-pacman")!;
+      const cxGhost = document.getElementById("cx-ghost")!;
+      const cxBoard = document.getElementById("cx-board")!;
+      // mobile duplicates
+      const mStPacman = document.getElementById("m-st-pacman")!;
+      const mStGhost = document.getElementById("m-st-ghost")!;
+      const mStBoard = document.getElementById("m-st-board")!;
+      const mCxPacman = document.getElementById("m-cx-pacman")!;
+      const mCxGhost = document.getElementById("m-cx-ghost")!;
+      const mCxBoard = document.getElementById("m-cx-board")!;
+      const n2 = (v: number) => String(v).padStart(2, " ");
+      const dir5 = (d: Dir) => d.padEnd(5, " ");
+      const paintDebug = () => {
+        const p = pacman.context;
+        const g = ghost.context;
+        const b = board.context;
+        const pacSt = pacman.state;
+        const ghSt = ghost.state;
+        const bdSt = board.state;
+        const pacCx = `{ x:${n2(p.x)} y:${n2(p.y)} dir:${dir5(p.dir)} }`;
+        const ghCx = `{ x:${n2(g.x)} y:${n2(g.y)} dir:${dir5(g.dir)} }`;
+        const bdCx = `{ score:${String(b.score).padStart(4, " ")} }`;
+        stPacman.textContent = pacSt;
+        mStPacman.textContent = pacSt;
+        stGhost.textContent = ghSt;
+        mStGhost.textContent = ghSt;
+        stBoard.textContent = bdSt;
+        mStBoard.textContent = bdSt;
+        cxPacman.textContent = pacCx;
+        mCxPacman.textContent = pacCx;
+        cxGhost.textContent = ghCx;
+        mCxGhost.textContent = ghCx;
+        cxBoard.textContent = bdCx;
+        mCxBoard.textContent = bdCx;
+      };
+
+      // --- one render pass paints all renderers + the live state table --------
+      const render = () => {
+        paintTui();
+        paintDebug();
+      };
+      // any member changing repaints everything (coarse, like the docs' sync)
+      game.group.sync(render);
+      game.group.start();
+      render();
+
+      // --- "connection" wires: one per machine row → into the board -----------
+      // Drawn as SVG paths from the right edge of each table row, out to a shared
+      // bus, down, and into the top of the running board. Each carries a flowing
+      // dot in the machine's color. Recomputed on load/resize so it stays exact.
+      const SVG_NS = "http://www.w3.org/2000/svg";
+      const card = document.getElementById("pac-card")!;
+      const wires = document.getElementById("pac-wires")!;
+      const tuiEl = document.getElementById("render-tui")!;
+      // line = the light cable tint; dot = the bright signal traveling it
+      const WIRE: { row: string; line: string; dot: string }[] = [
+        { row: "row-pacman", line: "#fff1a8", dot: "#ffe66d" }, // light yellow
+        { row: "row-ghost", line: "#a9d3ff", dot: "#62b3ff" }, // light blue
+        { row: "row-board", line: "#ffb0ab", dot: "#ff5d52" }, // light red/pink
+      ];
+      const drawWires = () => {
+        const cb = card.getBoundingClientRect();
+        if (!cb.width) return;
+        wires.setAttribute("viewBox", `0 0 ${cb.width} ${cb.height}`);
+        wires.innerHTML = "";
+        // board geometry, in card-local coords
+        const b = tuiEl.getBoundingClientRect();
+        const boardRight = b.right - cb.left; // board's right edge (plug line)
+        const boardTop = b.top - cb.top;
+        const boardH = b.height;
+        const LANE_STEP = 14; // how much further out each successive wire bows
+        const PLUG_STEP = boardH / 4; // vertical spacing of plugs on board edge
+        // Each wire leaves its row at the card's right edge, bows OUTSIDE the card
+        // (to x > card width), arcs down, then comes back IN to plug into the
+        // board's right edge. Outer wires bow further so the three nest cleanly.
+        WIRE.forEach((w, i) => {
+          const r = document.getElementById(w.row)!.getBoundingClientRect();
+          const ry = r.top - cb.top + r.height / 2; // row mid-height
+          const sx = cb.width; // exit exactly at the card's right edge
+          const outX = cb.width + 22 + i * LANE_STEP; // vertical lane, outside card
+          const plugY = boardTop + PLUG_STEP * (i + 1); // where it re-enters board
+          // SQUARED (orthogonal) out-and-back: exit right → out to lane → straight
+          // down → back in to the board's right edge. Right angles only.
+          const d =
+            `M ${sx} ${ry} ` + `H ${outX} ` + `V ${plugY} ` + `H ${boardRight}`;
+          // a single solid light-tint line for the cable
+          const line = document.createElementNS(SVG_NS, "path");
+          line.setAttribute("d", d);
+          line.setAttribute("fill", "none");
+          line.setAttribute("stroke", w.line);
+          line.setAttribute("stroke-width", "1.5");
+          line.setAttribute("stroke-linejoin", "miter");
+          line.setAttribute("stroke-linecap", "butt");
+          wires.appendChild(line);
+          // the "signal" dot: a solid bright dot with a glow, traveling the line
+          const dot = document.createElementNS(SVG_NS, "circle");
+          dot.setAttribute("r", "3");
+          dot.setAttribute("fill", w.dot);
+          const motion = document.createElementNS(SVG_NS, "animateMotion");
+          motion.setAttribute("path", d);
+          motion.setAttribute("dur", "2.2s");
+          motion.setAttribute("begin", `${i * 0.5}s`);
+          motion.setAttribute("repeatCount", "indefinite");
+          motion.setAttribute("rotate", "auto");
+          dot.appendChild(motion);
+          wires.appendChild(dot);
+        });
+      };
+      // always draw the cables; the CSS pauses the signal dot for reduced motion
+      drawWires();
+      addEventListener("resize", drawWires, { passive: true });
+      setTimeout(drawWires, 250); // redraw once fonts/layout settle
+
+      // --- drive it: the autopilot runs the game on a fixed tick --------------
+      // tick() fans the shared step to all three machines; the autopilot's choice
+      // (nextDir) decides Pac-Man's direction — no player input.
+      let paused = false;
+      setInterval(() => {
+        if (!paused) game.tick();
+      }, 200);
+
+      // play / pause — two icon buttons under the demo. Pausing also freezes the
+      // SVG signal dots traveling the wires, so game + wires stop together. The
+      // active control is highlighted via [data-paused] on the wrapper.
+      const controls = document.getElementById("pac-controls")!;
+      const wireSvg = document.getElementById(
+        "pac-wires",
+      ) as unknown as SVGSVGElement;
+      const setPaused = (next: boolean) => {
+        paused = next;
+        controls.dataset.paused = String(paused);
+        if (paused) wireSvg.pauseAnimations();
+        else wireSvg.unpauseAnimations();
+      };
+      document
+        .getElementById("pac-play")!
+        .addEventListener("click", () => setPaused(false));
+      document
+        .getElementById("pac-pause")!
+        .addEventListener("click", () => setPaused(true));
+
+      // The game panel rides down the page via native `position: sticky` (see
+      // the right column markup) — no JS scroll handler, so no render flicker.
+
+      // --- connector + cassette wiring --------------------------------------
+      // The connector is a permanent hub wired to the three (always-live) frames
+      // by black, rounded-corner orthogonal cables (plug at each end). The game
+      // cassette slides DOWN the right column on scroll and PARKS a bit above the
+      // connector; a feed cable joins the two.
+      const dock = document.getElementById("dock")!;
+      const cables = document.getElementById("cables")!;
+      const heroLive = document.getElementById("hero-live")!;
+      const FRAME_IDS = ["frame-laptop", "frame-phone", "frame-terminal"];
+      // cables only make sense on lg+, where the connector and frames sit apart;
+      // on mobile everything stacks, so we skip them.
+      const wideDock = matchMedia("(min-width: 1024px)");
+
+      // a small plug rectangle centred on (x, y)
+      const plug = (x: number, y: number) => {
+        const p = document.createElementNS(SVG_NS, "rect");
+        p.setAttribute("x", String(x - 4));
+        p.setAttribute("y", String(y - 3));
+        p.setAttribute("width", "8");
+        p.setAttribute("height", "6");
+        p.setAttribute("rx", "1.5");
+        p.setAttribute("class", "cable-plug");
+        return p;
+      };
+      // draw the three cables: cassette bottom → each frame top, orthogonal with
+      // rounded corners (drop straight down, run across, drop into the frame).
+      const R = 10; // corner radius
+      const drawCables = () => {
+        cables.innerHTML = "";
+        if (!wideDock.matches) return;
+        const base = broadcast.getBoundingClientRect();
+        if (!base.width) return;
+        cables.setAttribute("viewBox", `0 0 ${base.width} ${base.height}`);
+        const d = dock.getBoundingClientRect();
+        const sx = d.left + d.width / 2 - base.left; // console bottom-center
+        const sy = d.bottom - base.top;
+        const busY = sy + 26; // shared horizontal bus just below the console
+        for (const id of FRAME_IDS) {
+          const fig = document.getElementById(id);
+          if (!fig) continue;
+          // anchor to the device CHASSIS (not the figure, which also holds the
+          // caption) so the plug always lands on the device's top edge.
+          const el =
+            fig.querySelector<HTMLElement>(
+              ".laptop-screen, .iphone, .terminal",
+            ) ?? fig;
+          const r = el.getBoundingClientRect();
+          const ex = r.left + r.width / 2 - base.left; // device top-center
+          const ey = r.top - base.top;
+          let path: string;
+          if (Math.abs(ex - sx) < R * 2) {
+            // (near-)straight below the cassette — drop straight down, no jog
+            path = `M ${sx} ${sy} V ${ey}`;
+          } else {
+            // drop from the cassette, rounded turn onto the bus, run across,
+            // rounded turn, drop into the frame. Right angles + rounded corners.
+            const dir = Math.sign(ex - sx);
+            path =
+              `M ${sx} ${sy} ` +
+              `V ${busY - R} ` +
+              `Q ${sx} ${busY} ${sx + dir * R} ${busY} ` +
+              `H ${ex - dir * R} ` +
+              `Q ${ex} ${busY} ${ex} ${busY + R} ` +
+              `V ${ey}`;
+          }
+          const line = document.createElementNS(SVG_NS, "path");
+          line.setAttribute("d", path);
+          line.setAttribute("class", "cable");
+          cables.appendChild(line);
+          cables.appendChild(plug(sx, sy)); // plug at the console
+          cables.appendChild(plug(ex, ey)); // plug at the frame
+        }
+      };
+
+      // scroll-driven park: the cassette slides down and stops a bit ABOVE the
+      // connector (a gap), held there with a translateY clamp. No activation —
+      // the frames are always live. Negative gap parks it LOWER (onto the
+      // console) — move the stop point down a touch.
+      const PARK_GAP = -40; // px relative to the console top (− = lower/into it)
+      const parkCassette = () => {
+        if (!wideDock.matches) {
+          heroLive.style.transform = "";
+          return;
+        }
+        const stopY = dock.getBoundingClientRect().top - PARK_GAP;
+        // measure the cassette's UN-clamped bottom (ignore any park transform)
+        heroLive.style.transform = "";
+        const cassetteBottom = heroLive.getBoundingClientRect().bottom;
+        const overshoot = cassetteBottom - stopY;
+        if (overshoot > 0) {
+          heroLive.style.transform = `translateY(${-overshoot}px)`;
+        }
+      };
+
+      // the cassette can overflow its grid cell, so its right edge won't match
+      // the container edge the console aligns to. Nudge the console so its right
+      // edge sits exactly under the cassette's — perfectly aligned + same width.
+      const alignConsole = () => {
+        dock.style.transform = "";
+        if (!wideDock.matches) return;
+        const casRight = heroLive.getBoundingClientRect().right;
+        const conRight = dock.getBoundingClientRect().right;
+        const dx = casRight - conRight;
+        if (dx) dock.style.transform = `translateX(${dx}px)`;
+      };
+
+      // FEED cable: from the cassette's bottom down to the console. The cassette
+      // is sticky, so this MUST track scroll — but it's a single cheap path in
+      // its own SVG (#feed-cable), so it doesn't rebuild the frame cables.
+      const feed = document.getElementById(
+        "feed-cable",
+      )! as unknown as SVGSVGElement;
+      const drawFeed = () => {
+        feed.innerHTML = "";
+        if (!wideDock.matches) return;
+        const hb = heroLive.getBoundingClientRect();
+        const db = dock.getBoundingClientRect();
+        if (!hb.width || !db.width) return;
+        feed.setAttribute("viewBox", `0 0 ${hb.width} ${hb.height}`);
+        const cx = hb.width / 2; // cassette bottom-center (local X)
+        const cy = hb.height; // cassette bottom (local Y)
+        const tx = db.left + db.width / 2 - hb.left; // console top-center
+        const ty = db.top - hb.top;
+        if (ty <= cy) return; // console above/overlapping the cassette → no cable
+        let path: string;
+        if (Math.abs(tx - cx) < R * 2) {
+          path = `M ${cx} ${cy} V ${ty}`;
+        } else {
+          const midY = (cy + ty) / 2;
+          const dir = Math.sign(tx - cx);
+          path =
+            `M ${cx} ${cy} ` +
+            `V ${midY - R} ` +
+            `Q ${cx} ${midY} ${cx + dir * R} ${midY} ` +
+            `H ${tx - dir * R} ` +
+            `Q ${tx} ${midY} ${tx} ${midY + R} ` +
+            `V ${ty}`;
+        }
+        const line = document.createElementNS(SVG_NS, "path");
+        line.setAttribute("d", path);
+        line.setAttribute("class", "cable");
+        feed.appendChild(line);
+        feed.appendChild(plug(cx, cy)); // plug at the cassette
+        feed.appendChild(plug(tx, ty)); // plug at the console
+      };
+
+      // the console→frames cables are in normal flow — only redraw on RESIZE.
+      // The feed cable + dock toggle track scroll (both cheap).
+      addEventListener(
+        "scroll",
+        () => {
+          parkCassette();
+          drawFeed();
+        },
+        { passive: true },
+      );
+      addEventListener(
+        "resize",
+        () => {
+          alignConsole();
+          drawCables();
+          drawFeed();
+          parkCassette();
+        },
+        { passive: true },
+      );
+      alignConsole();
+      drawCables();
+      parkCassette();
+      drawFeed();
+      // redraw once after fonts/layout settle (one-off, not on every scroll)
+      setTimeout(() => {
+        alignConsole();
+        drawCables();
+        parkCassette();
+        drawFeed();
+      }, 250);
+
+      // =====================================================================
+      // TRADING PANEL — powered by demos/trading.ts real machines
+      // =====================================================================
+      {
+        const demo = createTradingDemo();
+        demo.group.start();
+
+        let activePair = 0;
+
+        const priceEl = document.getElementById("trade-price")!;
+        const deltaEl = document.getElementById("trade-delta")!;
+        const posEl = document.getElementById("trade-position")!;
+        const badge = document.getElementById("trade-state-badge")!;
+        const chartLine = document.getElementById(
+          "trade-line",
+        )! as SVGPolylineElement;
+        const btnBuy = document.getElementById("btn-buy") as HTMLButtonElement;
+        const btnSell = document.getElementById(
+          "btn-sell",
+        ) as HTMLButtonElement;
+        const btnCancl = document.getElementById(
+          "btn-cancel",
+        ) as HTMLButtonElement;
+
+        const BADGE_COLORS: Record<PairState, string> = {
+          idle: "#6b7678",
+          buying: "#ffe66d",
+          holding: "#a2e57b",
+          selling: "#ff5d52",
+        };
+
+        const decPlaces = (price: number) =>
+          price < 1 ? 4 : price < 200 ? 2 : 0;
+
+        const renderTrade = () => {
+          const m = demo.pairs[activePair]!;
+          const { price, prevPrice, history, entryPrice, pnl } = m.context;
+          const { isUp } = m.computed;
+          const state = m.state;
+          const dec = decPlaces(price);
+          const delta = price - prevPrice;
+
+          priceEl.textContent = price.toFixed(dec);
+          deltaEl.textContent = (delta >= 0 ? "+" : "") + delta.toFixed(dec);
+          deltaEl.className = "trade-delta " + (isUp ? "up" : "down");
+          badge.textContent = state;
+          badge.style.background = BADGE_COLORS[state];
+          badge.style.color = state === "buying" ? "#16161a" : "#fff";
+
+          // sparkline from machine's history
+          const pts = history.slice(-40);
+          const mn = Math.min(...pts),
+            mx = Math.max(...pts);
+          const range = mx - mn || 1;
+          chartLine.setAttribute(
+            "points",
+            pts
+              .map(
+                (v, i) =>
+                  `${(i / Math.max(pts.length - 1, 1)) * 200},${52 - ((v - mn) / range) * 48}`,
+              )
+              .join(" "),
+          );
+          chartLine.setAttribute("stroke", isUp ? "#a2e57b" : "#ff5d52");
+
+          if (state === "holding") {
+            posEl.textContent = `${entryPrice.toFixed(dec)} to ${price.toFixed(dec)} (${pnl >= 0 ? "+" : ""}${pnl.toFixed(dec)})`;
+            posEl.className = "trade-order-val " + (pnl >= 0 ? "up" : "down");
+          } else {
+            posEl.textContent = state === "idle" ? "—" : state + "…";
+            posEl.className = "trade-order-val";
+          }
+
+          btnBuy.disabled   = state !== "idle";
+          btnSell.disabled  = state !== "holding";
+          btnCancl.disabled = state !== "buying";
+        };
+
+        // symbol strip — subscribe to each pair machine for fine-grained updates
+        const symPriceEls = [0, 1, 2].map(
+          (i) => document.getElementById(`sym-price-${i}`)!,
+        );
+        const symArrowEls = [0, 1, 2].map(
+          (i) => document.getElementById(`sym-arrow-${i}`)!,
+        );
+
+        demo.pairs.forEach((m, i) => {
+          m.subscribe(() => {
+            const { price, prevPrice } = m.context;
+            const up = price >= prevPrice;
+            const dec = decPlaces(price);
+            symPriceEls[i]!.textContent = price.toFixed(dec);
+            symArrowEls[i]!.textContent = up ? "▲" : "▼";
+            symArrowEls[i]!.className =
+              "trade-sym-arrow " + (up ? "up" : "down");
+            const row = symPriceEls[i]!.closest<HTMLElement>(".trade-sym")!;
+            row.classList.remove("flash-up", "flash-down");
+            void row.offsetWidth;
+            row.classList.add(up ? "flash-up" : "flash-down");
+            if (i === activePair) renderTrade();
+          });
+        });
+
+        // BUY / SELL / CANCEL forward directly to the active pair machine
+        btnBuy.addEventListener("click", () => {
+          demo.pairs[activePair]!.send({ type: "BUY" });
+        });
+        btnSell.addEventListener("click", () => {
+          demo.pairs[activePair]!.send({ type: "SELL" });
+        });
+        btnCancl.addEventListener("click", () => {
+          demo.pairs[activePair]!.send({ type: "CANCEL" });
+        });
+
+        // pair selection
+        document
+          .querySelectorAll<HTMLButtonElement>(".trade-sym")
+          .forEach((btn) => {
+            btn.addEventListener("click", () => {
+              activePair = Number(btn.dataset.pair);
+              document
+                .querySelectorAll(".trade-sym")
+                .forEach((t) => t.classList.remove("trade-sym-active"));
+              btn.classList.add("trade-sym-active");
+              renderTrade();
+            });
+          });
+
+        // accordion
+        const tradeToggle = document.getElementById("trade-code-toggle")!;
+        const tradePanel = document.getElementById("trade-code-panel")!;
+        tradeToggle.addEventListener("click", () => {
+          const open = tradeToggle.getAttribute("aria-expanded") === "true";
+          tradeToggle.setAttribute("aria-expanded", String(!open));
+          tradePanel.hidden = open;
+          tradeToggle.querySelector(".trade-accordion-chevron")!.textContent =
+            open ? "▸" : "▾";
+        });
+
+        renderTrade();
+      }
+
+      // =====================================================================
+      // WHITEBOARD — powered by demos/whiteboard.ts real machines
+      // =====================================================================
+      {
+        const STICKY_DATA = [
+          { text: "Redesign header\nfor mobile", color: "#ffe66d" },
+          { text: "Fix tooltip on\ncanvas nodes", color: "#a2e57b" },
+        ];
+
+        const canvas = document.getElementById("wb-canvas")!;
+        const wbBadge = document.getElementById("wb-state-badge")!;
+
+        const demo = createWhiteboardDemo();
+        demo.group.start();
+
+        // build cursor DOM elements, keyed to their machine
+        const cursorEls: HTMLElement[] = demo.cursors.map((m, i) => {
+          const color = CURSOR_COLORS[i]!;
+          const el = document.createElement("div");
+          el.className = "wb-cursor";
+          el.innerHTML = `<svg width="14" height="18" viewBox="0 0 14 18" fill="none"><path d="M0 0l14 10-6.5 1.5L5 18z" fill="${color}"/></svg>`;
+          const label = document.createElement("span");
+          label.className = "wb-cursor-label";
+          label.textContent = CURSOR_NAMES[i]!;
+          label.style.background = color;
+          el.appendChild(label);
+          canvas.appendChild(el);
+          // subscribe: re-render this cursor whenever its machine changes
+          m.subscribe(() => {
+            el.style.left = m.computed.ex + "%";
+            el.style.top = m.computed.ey + "%";
+          });
+          return el;
+        });
+        void cursorEls; // used via subscribe side-effects
+
+        // build sticky DOM elements, wire pointer events to machine events
+        demo.stickies.forEach((m, i) => {
+          const d = STICKY_DATA[i]!;
+          const el = document.createElement("div");
+          el.className = "wb-sticky";
+          el.style.background = d.color;
+          const txt = document.createElement("p");
+          txt.className = "wb-sticky-text";
+          txt.textContent = d.text;
+          const stEl = document.createElement("span");
+          stEl.className = "wb-sticky-state";
+          el.appendChild(txt);
+          el.appendChild(stEl);
+          canvas.appendChild(el);
+
+          // subscribe: sync DOM from machine context
+          m.subscribe(() => {
+            el.style.left = m.computed.normalizedX + "%";
+            el.style.top = m.computed.normalizedY + "%";
+            stEl.textContent = m.state;
+            el.classList.toggle("wb-sticky-dragging", m.state === "dragging");
+          });
+
+          // pointer events → machine events
+          el.addEventListener("pointerdown", (e) => {
+            const r = canvas.getBoundingClientRect();
+            const offsetX = e.clientX - r.left - (m.context.x / 100) * r.width;
+            const offsetY = e.clientY - r.top - (m.context.y / 100) * r.height;
+            m.send({ type: "DRAG_START", offsetX, offsetY });
+            el.setPointerCapture(e.pointerId);
+            e.preventDefault();
+          });
+          el.addEventListener("pointermove", (e) => {
+            if (m.state !== "dragging") return;
+            m.send({
+              type: "DRAG_MOVE",
+              clientX: e.clientX,
+              clientY: e.clientY,
+              canvasRect: canvas.getBoundingClientRect(),
+            });
+          });
+          el.addEventListener("pointerup", () => {
+            m.send({ type: "DROP" });
+          });
+
+          // initial position
+          el.style.left = m.context.x + "%";
+          el.style.top = m.context.y + "%";
+        });
+
+        // accordion
+        const wbToggle = document.getElementById("wb-code-toggle")!;
+        const wbPanel = document.getElementById("wb-code-panel")!;
+        wbToggle.addEventListener("click", () => {
+          const open = wbToggle.getAttribute("aria-expanded") === "true";
+          wbToggle.setAttribute("aria-expanded", String(!open));
+          wbPanel.hidden = open;
+          wbToggle.querySelector(".trade-accordion-chevron")!.textContent = open
+            ? "▸"
+            : "▾";
+        });
+
+        wbBadge.textContent = "live";
+      }
+
+      // copy the install command
+      const copyBtn = document.getElementById("install-copy");
+      const cmd = document.getElementById("install-cmd");
+      copyBtn?.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(cmd?.textContent ?? "");
+          const prev = copyBtn.textContent;
+          copyBtn.textContent = "✓";
+          setTimeout(() => (copyBtn.textContent = prev), 1200);
+        } catch {
+          /* clipboard blocked — no-op */
+        }
+      });
+    </script>
+
+    <!-- is:global because the code spans are injected via set:html and so don't
+         receive Astro's scope hash — scoped selectors wouldn't match them. -->
+    <style is:global>
+      /* feature band: dark background that bleeds to the LEFT viewport edge
+         while the content stays aligned with the rest of the left column. The
+         .band-left-bg layer paints from the content's left edge out to -100vw. */
+      .band-left {
+        position: relative;
+        color: var(--color-code-fg);
+      }
+      .band-left-bg {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        right: 0;
+        left: -100vw;
+        background: #f5f5f5;
+        z-index: 0;
+        border-radius: 0 16px 16px;
+      }
+      /* premium typography for the light feature band */
+      .band-eyebrow {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: color-mix(in srgb, var(--color-fg) 45%, transparent);
+      }
+      /* SHOWCASE — one large, soft premium panel unifying the "One machine"
+         statement and the device lineup. The dark game cassette overlaps its
+         top edge (negative margin pulls the panel up under it). */
+      .showcase {
+        position: relative;
+        margin-top: 3rem;
+        padding: 2.5rem 1.5rem 3rem;
+        border: 1px solid var(--color-border);
+        border-radius: 1.75rem;
+        background:
+          radial-gradient(
+            120% 80% at 20% 0%,
+            color-mix(in srgb, var(--color-fg) 4%, transparent),
+            transparent 60%
+          ),
+          color-mix(in srgb, var(--color-fg) 2%, var(--color-bg));
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.5),
+          0 1px 2px rgba(0, 0, 0, 0.04),
+          0 40px 80px -48px rgba(0, 0, 0, 0.3);
+      }
+      @media (min-width: 1024px) {
+        .showcase {
+          padding: 3.5rem;
+        }
+      }
+
+      .band-item {
+        display: flex;
+        gap: 1.25rem;
+        padding: 1.6rem 0;
+        border-top: 1px solid
+          color-mix(in srgb, var(--color-fg) 10%, transparent);
+      }
+      .band-item:first-child {
+        border-top: 0;
+        padding-top: 0;
+      }
+      .band-item:last-child {
+        padding-bottom: 0;
+      }
+      .band-num {
+        flex: none;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 36px;
+        font-weight: 600;
+        line-height: 2.1;
+        font-variant-numeric: tabular-nums;
+      }
+      .band-title {
+        font-size: 1.35rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        line-height: 1.15;
+        color: var(--color-fg);
+      }
+      .band-left .band-muted {
+        margin-top: 0.4rem;
+        max-width: 42ch;
+        line-height: 1.6;
+        color: color-mix(in srgb, var(--color-fg) 62%, transparent);
+      }
+      .band-link {
+        color: var(--color-accent);
+        font-weight: 500;
+        white-space: nowrap;
+      }
+      .band-link:hover {
+        text-decoration: underline;
+      }
+
+      /* ====================================================================
+         ORIGIN SECTION — pure typography, no background
+         ==================================================================== */
+      .origin-section {
+        background: radial-gradient(
+          120% 80% at 10% 0%,
+          #15171c 0%,
+          #0b0c0f 60%,
+          #050507 100%
+        );
+        color: #f2fffc;
+        padding: 6rem 1.5rem 5rem;
+      }
+      .origin-inner {
+        max-width: 56rem;
+        margin: 0 auto;
+      }
+      .origin-layout {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+        align-items: flex-start;
+      }
+      @media (min-width: 640px) {
+        .origin-layout {
+          flex-direction: row;
+          gap: 3rem;
+        }
+      }
+      .origin-avatar-link {
+        flex-shrink: 0;
+        display: block;
+        margin-top: 0.5rem;
+      }
+      .origin-avatar {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        border: 2px solid #fff;
+        display: block;
+        transition: border-color 0.2s;
+      }
+      .origin-avatar-link:hover .origin-avatar {
+        border-color: var(--color-accent);
+      }
+      .origin-content {
+        position: relative;
+      }
+      /* big decorative opening quote */
+      .origin-content::before {
+        content: "\201C";
+        position: absolute;
+        top: -2rem;
+        left: -0.25rem;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 9rem;
+        line-height: 1;
+        color: var(--color-accent);
+        opacity: 0.22;
+        pointer-events: none;
+        user-select: none;
+      }
+      .origin-body {
+        margin: 0 0 2rem;
+        position: relative;
+      }
+      .origin-line {
+        font-size: 2.75rem;
+        font-weight: 800;
+        line-height: 1.1;
+        letter-spacing: -0.025em;
+        color: #fff;
+        margin: 0;
+      }
+      @media (min-width: 640px) {
+        .origin-line {
+          font-size: 3.5rem;
+        }
+      }
+      .origin-line-dim {
+        color: var(--color-accent);
+      }
+      .origin-sub {
+        font-size: 1rem;
+        line-height: 1.75;
+        color: rgba(242, 255, 252, 0.5);
+        max-width: 38rem;
+        margin: 0 0 2rem;
+      }
+      .origin-cta {
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: var(--color-accent);
+        text-decoration: none;
+        transition: opacity 0.15s;
+      }
+      .origin-cta:hover {
+        opacity: 0.7;
+      }
+
+      /* ====================================================================
+         CONTRIBUTE SECTION
+         ==================================================================== */
+      .contrib-section {
+        padding: 6rem 1.5rem 7rem;
+        text-align: center;
+        border-top: 1px solid var(--color-border);
+        box-shadow: inset 0 12px 40px -16px rgba(109, 92, 240, 0.1);
+      }
+      .contrib-inner {
+        max-width: 48rem;
+        margin: 0 auto;
+      }
+      .contrib-eyebrow {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--color-accent);
+        margin-bottom: 1.25rem;
+      }
+      .contrib-heading {
+        font-size: 2.5rem;
+        font-weight: 800;
+        line-height: 1.08;
+        letter-spacing: -0.02em;
+        color: var(--color-fg);
+        margin: 0 0 1.25rem;
+      }
+      @media (min-width: 640px) {
+        .contrib-heading {
+          font-size: 3rem;
+        }
+      }
+      .contrib-sub {
+        font-size: 1.0625rem;
+        line-height: 1.75;
+        color: var(--color-muted);
+        margin: 0 0 2.5rem;
+      }
+      .contrib-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.75rem;
+        margin-bottom: 2rem;
+      }
+      .contrib-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        padding: 0.65rem 1.25rem;
+        border-radius: 0.75rem;
+        text-decoration: none;
+        transition:
+          opacity 0.15s,
+          transform 0.15s;
+        white-space: nowrap;
+      }
+      .contrib-btn:hover {
+        opacity: 0.85;
+        transform: translateY(-1px);
+      }
+      .contrib-btn-primary {
+        background: var(--color-fg);
+        color: var(--color-bg);
+      }
+      .contrib-btn-secondary {
+        background: transparent;
+        color: var(--color-fg);
+        border: 1px solid var(--color-border);
+      }
+      .contrib-note {
+        font-size: 0.875rem;
+        color: var(--color-muted);
+      }
+
+      /* play / pause icon controls on the dark cassette deck: dim grey by
+         default, bright + chip-highlighted for the ACTIVE one. data-paused on
+         the wrapper flips which is "on": playing → play active; paused → pause. */
+      #pac-controls .pac-ctrl {
+        color: #6b7079;
+      }
+      #pac-controls .pac-ctrl:hover {
+        color: #c9ccd6;
+      }
+      #pac-controls[data-paused="false"] #pac-play,
+      #pac-controls[data-paused="true"] #pac-pause {
+        color: #fff;
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      /* Dark surface for code panels + demo cards, so source/glyphs stay legible
+         against the light page. Use class "dark-card" on the card element. */
+      .dark-card {
+        background: var(--color-code);
+        border: 1px solid var(--color-code-border);
+        color: var(--color-code-fg);
+        border-radius: 1rem;
+        box-shadow:
+          0 1px 2px rgba(0, 0, 0, 0.08),
+          0 12px 30px rgba(0, 0, 0, 0.12);
+      }
+      .dark-card .panel-head {
+        border-bottom: 1px solid var(--color-code-border);
+        color: var(--color-code-muted);
+      }
+
+      /* IDE card: one dark surface holding several files, divided by hairlines */
+      .ide-card > figure + figure {
+        border-top: 1px solid var(--color-code-border);
+      }
+
+      /* --- code panel: syntax tokens, Monokai Pro (Filter Machine) palette --- */
+      .cmt {
+        color: #6b7678; /* comment */
+      }
+      .kw {
+        color: #ff6d7e; /* red — keyword */
+      }
+      .str {
+        color: #ffed72; /* yellow — string */
+      }
+      .fn {
+        color: #a2e57b; /* green — function */
+      }
+      .num {
+        color: #ffb86b; /* orange — number */
+      }
+      /* the three state lines render as plain code — no live highlight */
+      .st {
+        color: var(--color-code-fg);
+      }
+
+      /* live state table — fixed layout so columns never reflow as values tick */
+      .pac-table {
+        table-layout: fixed;
+        border-collapse: collapse;
+        /* tabular figures: every digit is the same width, so numbers never shift */
+        font-variant-numeric: tabular-nums;
+      }
+      /* context cell: preserve the padding spaces + lock the width so the closing
+         "}" never moves (no "dancing" brackets as values tick) */
+      .cx-cell {
+        white-space: pre;
+        font-variant-numeric: tabular-nums;
+      }
+      /* give the context column the room it needs; machine/state stay compact */
+      .pac-table th:nth-child(1),
+      .pac-table td:nth-child(1) {
+        width: 30%;
+      }
+      .pac-table th:nth-child(2),
+      .pac-table td:nth-child(2) {
+        width: 22%;
+      }
+      .pac-table th:nth-child(3),
+      .pac-table td:nth-child(3) {
+        width: 48%;
+      }
+      .pac-table th {
+        color: var(--color-code-muted);
+      }
+      .pac-table thead th {
+        border-bottom: 1px solid var(--color-code-border);
+      }
+      .pac-table td {
+        vertical-align: top;
+        white-space: nowrap;
+      }
+      /* "connection" wires (SVG): a single solid light-tint cable per machine,
+         with a bright solid "signal" dot traveling it. */
+      @media (prefers-reduced-motion: reduce) {
+        #pac-wires animateMotion {
+          display: none;
+        }
+      }
+
+      /* terminal renderer — a FIXED pixel grid. Each cell is a rigid box sized by
+         --tui (so a frame can scale the whole board); the glyph is scaled to fit,
+         so nothing can widen a row. */
+      .pac-tui {
+        --tui: 16px;
+        display: inline-block;
+        color: var(--color-up);
+        line-height: 0;
+        user-select: none;
+      }
+      .tui-row {
+        display: flex;
+        height: var(--tui);
+      }
+      .tui-cell {
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: var(--tui);
+        min-width: var(--tui);
+        max-width: var(--tui);
+        height: var(--tui);
+        flex: 0 0 var(--tui);
+        overflow: hidden;
+        font-size: calc(var(--tui) * 0.75);
+        line-height: 1;
+      }
+
+      /* ====================================================================
+         THREE FRAMES: the same machine state, rendered into three device
+         chassis (laptop · iPhone · terminal). Static — the whole pitch in one
+         glance: one behavior, many renderers.
+         ==================================================================== */
+      .stage-label {
+        margin-top: 0.75rem;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px;
+        color: var(--color-muted);
+        text-align: center;
+      }
+      .stage-label b {
+        color: var(--color-fg);
+        font-weight: 600;
+      }
+
+      /* the game inside a frame renders smaller than the hero board. Each device
+         picks its own --tui so the LAPTOP reads biggest, the TERMINAL mid, the
+         iPHONE smallest. Each screen wraps the game snugly — no dead space. */
+      .frame {
+        user-select: none;
+      }
+      .frame .frame-tui {
+        --tui: 11px;
+      }
+      /* sized so the board fits each screen: laptop 350×270 → ~17px; terminal
+         square → 13px; iPhone 75px wide → ~5px. */
+      .laptop .frame-tui {
+        --tui: 17px;
+      }
+      .terminal .frame-tui {
+        --tui: 13px;
+      }
+      /* LAPTOP: a lid holding a BROWSER window, on a tapered base bar */
+      .laptop {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .laptop-screen {
+        display: flex;
+        flex-direction: column;
+        /* smaller on mobile so it fits the screen; full size at md+ */
+        width: 280px;
+        height: 216px;
+        background: #0c0d10;
+        border: 8px solid #1c1e24;
+        border-bottom-width: 14px;
+        border-radius: 0.9rem 0.9rem 0.4rem 0.4rem;
+        overflow: hidden;
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
+      }
+      @media (min-width: 768px) {
+        .laptop-screen {
+          width: 350px;
+          height: 270px;
+        }
+      }
+      /* the browser chrome inside the screen */
+      .browser-bar {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.4rem 0.6rem;
+        background: #2a2d35;
+        border-bottom: 1px solid #14161b;
+      }
+      .browser-dots {
+        display: flex;
+        gap: 4px;
+      }
+      .browser-dots i {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #4a4d57;
+      }
+      .browser-dots i:nth-child(1) {
+        background: #ff5d52;
+      }
+      .browser-dots i:nth-child(2) {
+        background: #ffe66d;
+      }
+      .browser-dots i:nth-child(3) {
+        background: #a2e57b;
+      }
+      .browser-url {
+        flex: 1;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: #16181e;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 9px;
+        color: #8a8f9a;
+        text-align: center;
+      }
+      /* the page area below the chrome bar fills the rest of the 350×270 screen,
+         the game centred inside it. */
+      .browser-body {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #0c0d10;
+      }
+      .laptop-base {
+        position: relative;
+        width: 128%;
+        height: 13px;
+        background: linear-gradient(#d7d7de, #aeaeb8);
+        border-radius: 0 0 0.4rem 0.4rem;
+        box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.18);
+      }
+      /* the trackpad notch on the laptop hinge */
+      .laptop-base::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 16%;
+        height: 5px;
+        background: #9b9ba6;
+        border-radius: 0 0 6px 6px;
+      }
+      /* IPHONE: rounded titanium body, side rails, Dynamic Island + home bar */
+      .iphone {
+        position: relative;
+        background: #0c0d10;
+        border: 3px solid #2c2e35;
+        border-radius: 1.1rem;
+        padding: 0.25rem;
+        box-shadow:
+          inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+          0 18px 40px rgba(0, 0, 0, 0.22);
+      }
+      /* side rails (volume + power buttons) */
+      .iphone::before,
+      .iphone::after {
+        content: "";
+        position: absolute;
+        width: 2px;
+        border-radius: 2px;
+        background: #2c2e35;
+      }
+      .iphone::before {
+        left: -4px;
+        top: 28%;
+        height: 14%;
+      }
+      .iphone::after {
+        right: -4px;
+        top: 24%;
+        height: 22%;
+      }
+      /* Dynamic Island */
+      .iphone-island {
+        position: absolute;
+        top: 0.5rem;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 40%;
+        height: 9px;
+        background: #000;
+        border-radius: 999px;
+        z-index: 2;
+      }
+      /* portrait phone screen: tall (9 : 19.5), game centred and large enough
+         to read. */
+      .iphone-screen {
+        width: 116px;
+        aspect-ratio: 9 / 19.5;
+        border-radius: 1.1rem;
+        overflow: hidden;
+        background: #0c0d10;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .iphone .frame-tui {
+        --tui: 8px; /* 13 × 8 = 104px, fits the 116px screen */
+        width: 104px;
+      }
+      /* home indicator bar */
+      .iphone-home {
+        position: absolute;
+        bottom: 0.45rem;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 36%;
+        height: 3px;
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.55);
+        z-index: 2;
+      }
+      /* TERMINAL: title bar with traffic-light dots */
+      .terminal {
+        background: var(--color-code);
+        border: 1px solid var(--color-code-border);
+        border-radius: 0.7rem;
+        overflow: hidden;
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
+      }
+      .terminal-bar {
+        display: flex;
+        gap: 6px;
+        padding: 0.55rem 0.75rem;
+        border-bottom: 1px solid var(--color-code-border);
+      }
+      .terminal-bar span {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+      }
+      /* the terminal body wraps the game snugly — the game fills it */
+      .terminal-body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.75rem;
+      }
+
+      /* HUGE screens: scale the three device frames up so they fill the wider
+         container instead of floating small. Boards grow with their --tui. */
+      @media (min-width: 1800px) {
+        .laptop-screen {
+          width: 440px;
+          height: 340px;
+        }
+        .laptop .frame-tui {
+          --tui: 22px;
+        }
+        .iphone-screen {
+          width: 150px;
+        }
+        .iphone .frame-tui {
+          --tui: 10px;
+          width: 130px;
+        }
+        .terminal .frame-tui {
+          --tui: 17px;
+        }
+        .stage-label {
+          font-size: 14px;
+        }
+      }
+
+      /* ====================================================================
+         CASSETTE — the running game is dressed as a chunky game cartridge: a
+         thick dark shell around the screen and a BIG bottom deck that the
+         play/pause buttons sit on (like a cassette's lower half).
+         ==================================================================== */
+      .cassette {
+        position: relative;
+        border: 6px solid #0c0d10;
+        border-radius: 1rem;
+        background: #15171c; /* shell colour shows around the screen */
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.06),
+          0 1px 2px rgba(0, 0, 0, 0.1),
+          0 16px 40px rgba(0, 0, 0, 0.22);
+      }
+      /* the BIG bottom deck — the cartridge's lower shell; play/pause ride here.
+         Hidden on mobile (the game it controls is hidden there too). */
+      .cassette-deck {
+        position: relative;
+        margin-top: 0.25rem;
+        padding: 1.1rem 1rem 1.25rem;
+        background: linear-gradient(180deg, #20232b 0%, #15171c 100%);
+        border-top: 2px solid #0c0d10;
+        /* twin reel hubs hinting at a cassette tape */
+        display: none;
+        justify-content: center;
+      }
+      @media (min-width: 1024px) {
+        .cassette-deck {
+          display: flex;
+        }
+      }
+
+      /* ====================================================================
+         CONSOLE — the hub the cassette's cable plugs into, sitting just above
+         the lined-up frames. Permanently wired to all three (always live).
+         ==================================================================== */
+      .console {
+        position: relative;
+        padding: 1rem 1.1rem 0.85rem;
+        border-radius: 0.5rem 0.5rem 0.65rem 0.65rem;
+        background: linear-gradient(180deg, #2a2c33 0%, #1d1f25 100%);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.08),
+          inset 0 -3px 6px rgba(0, 0, 0, 0.4);
+      }
+      /* the cartridge slot the cassette's cable enters */
+      .console-slot {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 62%;
+        height: 12px;
+        border-radius: 3px;
+        background: #0c0d10;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.7);
+      }
+      .console-label {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+      }
+      .console-text {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        color: #c9ccd6;
+      }
+      /* power LED — steady green (the demo is always live) */
+      .console-led {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #a2e57b;
+        box-shadow: 0 0 6px 1px rgba(162, 229, 123, 0.7);
+      }
+
+      /* ====================================================================
+         LAB SECTION — dark full-width strip with two live demos
+         ==================================================================== */
+      .lab-section {
+        padding: 5rem 1.5rem 5.5rem;
+      }
+      .lab-inner {
+        max-width: 80rem;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 3rem;
+      }
+      @media (min-width: 1024px) {
+        .lab-inner {
+          grid-template-columns: 1fr 1.4fr 1.4fr;
+          gap: 3rem;
+          align-items: start;
+        }
+      }
+
+      /* title column */
+      .lab-eyebrow {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: rgba(242, 255, 252, 0.4);
+        margin-bottom: 1.25rem;
+      }
+      .lab-heading {
+        font-size: 2.5rem;
+        font-weight: 800;
+        line-height: 1.06;
+        letter-spacing: -0.02em;
+      }
+      @media (min-width: 1800px) {
+        .lab-heading {
+          font-size: 3.25rem;
+        }
+      }
+      .lab-sub {
+        margin-top: 1.25rem;
+        font-size: 1rem;
+        line-height: 1.65;
+        max-width: 26ch;
+      }
+
+      /* demo card shared */
+      .lab-demo {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 1.25rem;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background: radial-gradient(
+          120% 80% at 10% 0%,
+          #15171c 0%,
+          #0b0c0f 60%,
+          #050507 100%
+        );
+        color: #f2fffc;
+      }
+      .lab-demo-header {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+        background: rgba(255, 255, 255, 0.03);
+      }
+      .lab-demo-icon {
+        font-size: 1rem;
+        line-height: 1;
+      }
+      .lab-demo-title {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: rgba(242, 255, 252, 0.6);
+        flex: 1;
+      }
+      .lab-demo-badge {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: #6b7678;
+        color: #fff;
+        transition:
+          background 0.25s ease,
+          color 0.25s ease;
+      }
+      .lab-demo-body {
+        padding: 1.25rem;
+        flex: 1;
+      }
+      #demo-whiteboard .lab-demo-body {
+        padding: 0;
+      }
+      .lab-demo-footer {
+        padding: 0.75rem 1.25rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      .lab-code-hint {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 10px;
+        color: rgba(242, 255, 252, 0.3);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: block;
+      }
+
+      /* ---- TRADING PANEL ---- */
+      .trade-symbols {
+        display: flex;
+        gap: 0;
+        margin-bottom: 1rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 0.6rem;
+        overflow: hidden;
+      }
+      .trade-sym {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.1rem;
+        padding: 0.55rem 0.7rem 0.5rem;
+        background: transparent;
+        border: none;
+        border-right: 1px solid rgba(255, 255, 255, 0.08);
+        cursor: pointer;
+        transition: background 0.15s;
+        text-align: left;
+      }
+      .trade-sym:last-child {
+        border-right: none;
+      }
+      .trade-sym:hover {
+        background: rgba(255, 255, 255, 0.05);
+      }
+      .trade-sym-active {
+        background: rgba(255, 255, 255, 0.09) !important;
+      }
+      .trade-sym-name {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: rgba(242, 255, 252, 0.4);
+        line-height: 1;
+      }
+      .trade-sym-active .trade-sym-name {
+        color: rgba(242, 255, 252, 0.75);
+      }
+      .trade-sym-price {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        color: #f2fffc;
+        line-height: 1.2;
+        white-space: nowrap;
+      }
+      .trade-sym-arrow {
+        font-size: 8px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        line-height: 1;
+      }
+      .trade-sym-arrow.up {
+        color: #a2e57b;
+      }
+      .trade-sym-arrow.down {
+        color: #ff5d52;
+      }
+
+      @keyframes flash-up {
+        0% {
+          background: rgba(162, 229, 123, 0.18);
+        }
+        100% {
+          background: transparent;
+        }
+      }
+      @keyframes flash-down {
+        0% {
+          background: rgba(255, 93, 82, 0.18);
+        }
+        100% {
+          background: transparent;
+        }
+      }
+      .flash-up {
+        animation: flash-up 0.35s ease-out forwards;
+      }
+      .flash-down {
+        animation: flash-down 0.35s ease-out forwards;
+      }
+      .trade-sym-active.flash-up {
+        animation: flash-up 0.35s ease-out forwards;
+      }
+      .trade-sym-active.flash-down {
+        animation: flash-down 0.35s ease-out forwards;
+      }
+
+      .trade-ticker {
+        display: flex;
+        align-items: baseline;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+      }
+      .trade-price {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 1.85rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        color: #f2fffc;
+        letter-spacing: -0.02em;
+      }
+      .trade-delta {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.8rem;
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+      }
+      .trade-delta.up {
+        color: #a2e57b;
+      }
+      .trade-delta.down {
+        color: #ff5d52;
+      }
+
+      .trade-chart {
+        display: block;
+        width: 100%;
+        height: 52px;
+        margin-bottom: 0.85rem;
+        opacity: 0.9;
+      }
+
+      .trade-order {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.85rem;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 11px;
+      }
+      .trade-order-label {
+        color: rgba(242, 255, 252, 0.3);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        font-size: 9px;
+      }
+      .trade-order-val {
+        font-variant-numeric: tabular-nums;
+        color: rgba(242, 255, 252, 0.65);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .trade-order-val.up {
+        color: #a2e57b;
+      }
+      .trade-order-val.down {
+        color: #ff5d52;
+      }
+
+      .trade-controls {
+        display: flex;
+        gap: 0.4rem;
+      }
+      .trade-btn {
+        flex: 1;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        padding: 0.5rem 0.2rem;
+        border-radius: 0.5rem;
+        border: 1px solid transparent;
+        cursor: pointer;
+        transition: filter 0.15s ease;
+      }
+      .trade-btn:disabled {
+        opacity: 0.22;
+        cursor: not-allowed;
+      }
+      .trade-btn-buy {
+        background: #a2e57b;
+        color: #0a1a06;
+        border-color: #a2e57b;
+      }
+      .trade-btn-sell {
+        background: #ff5d52;
+        color: #fff;
+        border-color: #ff5d52;
+      }
+      .trade-btn-cancel {
+        background: transparent;
+        color: rgba(242, 255, 252, 0.45);
+        border-color: rgba(255, 255, 255, 0.14);
+      }
+      .trade-btn:not(:disabled):hover {
+        filter: brightness(1.14);
+      }
+
+      /* ---- ACCORDION (shared by both demos) ---- */
+      .trade-accordion {
+        border-top: 1px solid rgba(255, 255, 255, 0.07);
+      }
+      .trade-accordion-trigger {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.65rem 1.25rem;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: rgba(242, 255, 252, 0.35);
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        transition: color 0.15s;
+      }
+      .trade-accordion-trigger:hover {
+        color: rgba(242, 255, 252, 0.65);
+      }
+      .trade-accordion-chevron {
+        font-size: 9px;
+        transition: transform 0.2s;
+      }
+      .trade-accordion-panel {
+        padding: 0;
+      }
+      .trade-code {
+        margin: 0;
+        padding: 0.9rem 1.25rem 1rem;
+        font-size: 11px;
+        line-height: 1.7;
+        background: rgba(0, 0, 0, 0.25);
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        overflow-x: auto;
+      }
+
+      /* ---- WHITEBOARD DEMO ---- */
+      .wb-canvas {
+        position: relative;
+        width: 100%;
+        height: 295px;
+        background:
+          radial-gradient(
+            ellipse 80% 60% at 60% 40%,
+            rgba(109, 92, 240, 0.06),
+            transparent 70%
+          ),
+          #f8f9fc;
+        border-radius: 0.75rem 0.75rem 0 0;
+        overflow: hidden;
+        /* dot grid */
+        background-image:
+          radial-gradient(
+            circle,
+            rgba(109, 92, 240, 0.18) 1px,
+            transparent 1px
+          ),
+          radial-gradient(
+            ellipse 80% 60% at 60% 40%,
+            rgba(109, 92, 240, 0.04),
+            transparent 70%
+          );
+        background-size:
+          22px 22px,
+          100% 100%;
+        background-color: #f8f9fc;
+        cursor: default;
+        user-select: none;
+      }
+
+      .wb-cursor {
+        position: absolute;
+        pointer-events: none;
+        transform: translate(-2px, -2px);
+        z-index: 2;
+      }
+      .wb-cursor svg {
+        display: block;
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.18));
+      }
+      .wb-cursor-label {
+        position: absolute;
+        top: 16px;
+        left: 10px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 9px;
+        font-weight: 600;
+        color: #fff;
+        padding: 1px 5px;
+        border-radius: 3px;
+        white-space: nowrap;
+        pointer-events: none;
+      }
+
+      .wb-sticky {
+        position: absolute;
+        width: 120px;
+        min-height: 72px;
+        border-radius: 4px;
+        padding: 0.55rem 0.65rem 0.45rem;
+        box-shadow:
+          2px 3px 8px rgba(0, 0, 0, 0.14),
+          0 1px 2px rgba(0, 0, 0, 0.08);
+        cursor: grab;
+        z-index: 3;
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        transition:
+          box-shadow 0.15s,
+          transform 0.15s;
+        touch-action: none;
+      }
+      .wb-sticky:hover {
+        box-shadow: 3px 5px 14px rgba(0, 0, 0, 0.18);
+      }
+      .wb-sticky-dragging {
+        cursor: grabbing !important;
+        box-shadow: 6px 10px 24px rgba(0, 0, 0, 0.22) !important;
+        transform: rotate(1.5deg) scale(1.03) !important;
+        z-index: 10 !important;
+      }
+      .wb-sticky-text {
+        font-size: 11px;
+        line-height: 1.45;
+        color: rgba(22, 22, 26, 0.82);
+        white-space: pre-line;
+        pointer-events: none;
+        flex: 1;
+      }
+      .wb-sticky-state {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 8px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: rgba(22, 22, 26, 0.38);
+        pointer-events: none;
+      }
+
+      /* the three frames are always live — black, always-connected cables */
+      .cable {
+        fill: none;
+        stroke: #15171c;
+        stroke-width: 2.5;
+        stroke-linejoin: round;
+        stroke-linecap: round;
+      }
+      .cable-plug {
+        fill: #15171c;
+      }
+    </style>
+  </body>
+</html>

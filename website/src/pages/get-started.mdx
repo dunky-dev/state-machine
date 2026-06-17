@@ -1,0 +1,39 @@
+---
+layout: ../layout.astro
+title: Get started
+description: Define a behavior once. Render it anywhere.
+---
+
+# Get started
+
+## Same component, different hammer 🔨
+
+I've spent the last decade building design systems. New company, new tech stack, new framework, but always the same story: rebuild the button, the tooltip, the dialog, the combobox. From scratch. Again.
+
+The behaviors never really changed. Focus management, keyboard navigation, ARIA roles, state transitions, it's all been documented by the W3C for years. The [ARIA Authoring Practices Guide](https://www.w3.org/WAI/ARIA/apg/) literally has the recipe. Yet every new project meant reinventing the same wheel, just with whatever fancy hammer was trending that quarter.
+
+The final boss? Trying to port a full component library to a **collaborative whiteboard running on a canvas engine**. 🎨
+
+No DOM, yet, a tooltip is still a tooltip. A menu still needs arrow-key navigation. A dialog still needs to trap focus. The primitives don't care about your rendering layer. The behaviors are the same. They always are.
+
+That's when I finally got fed up and started **ChimbaUI**.
+
+## Three layers, one truth 🧅
+
+ChimbaUI splits the problem into three independent layers:
+
+| Layer             | Package                          | Job                     |
+| ----------------- | -------------------------------- | ----------------------- |
+| **Behavior**      | `@chimba-ui/state-machine`       | _What_ a component does |
+| **Customization** | `@chimba-ui/style-engine`        | _How_ it looks          |
+| **Presentation**  | `@chimba-ui/react` (and friends) | _Where_ it renders      |
+
+You're here for layer one.
+
+**The state machine defines behavior once**, keyboard interactions, focus, ARIA, transitions, and that logic runs identically whether the consumer is a React app, a React Native screen, or a canvas node inside Miro. No rewrite required. Ever. 🎉
+
+## Why now? Well... AI 🤖
+
+The "write it once, run it everywhere" dream isn't new. What _is_ new is that AI-assisted development makes behavior-driven primitives dramatically more powerful. When your components are pure state machines with typed inputs and outputs, an AI can reason about them precisely, generate implementations, write tests, migrate between versions, without hallucinating framework-specific magic.
+
+Properly specified behavior is a gift to AI tooling. And properly driven AI is a gift back.

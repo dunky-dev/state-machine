@@ -1,0 +1,64 @@
+---
+layout: ../../layout.astro
+title: Reactions
+description: Fire prop-callbacks from outside the machine.
+---
+
+# Reactions
+
+Because [the machine never sees props](/api/connector#the-machine-never-sees-props), a callback like `onOpenChange` can't fire from inside it. A **reaction** is how the connector bridges that gap from the _outside_: a `[selector, callback]` tuple that watches a value derived from machine state and, when it changes, calls the matching prop.
+
+```ts
+import { machine, connector, makeReaction } from '@chimba-ui/state-machine'
+
+const m = machine({
+  /* ... */
+})
+
+// fix the machine generics once; Value is inferred per reaction
+const reaction = makeReaction<State, Context, Event, Props>()
+
+const onOpenChange = reaction(
+  m => m.matches('open'), // selector → Value is boolean
+  (open, props) => props.onOpenChange?.({ open }), // callback — open is boolean
+)
+
+const c = connector(m, connect, props)
+c.reactions = [onOpenChange]
+```
+
+When the machine transitions `closed → open`, `onOpenChange({ open: true })` fires automatically. The machine itself has no idea `onOpenChange` exists.
+
+## How it works
+
+The connector runs each reaction's selector as a value-deduped `select(...)`. When the result changes it calls the callback with:
+
+1. The new value (typed to match the selector's return)
+2. The **current** props — so a swapped callback is always the one that fires, not a stale closure
+
+Reactions are **wired automatically** off the machine's own lifecycle (`onStart` / `onStop`) — no activation call needed. They come alive on `start()` and are torn down on `stop()`.
+
+## `makeReaction()`
+
+`makeReaction` is an inference helper. Without it, a bare array tuple lands in `Reaction<…, any>` and the callback's first argument is untyped. With it, the selector's return type flows through to the callback:
+
+```ts
+// without makeReaction — `open` is `any`
+c.reactions = [[m => m.matches('open'), (open, props) => props.onOpenChange?.({ open })]]
+
+// with makeReaction — `open` is `boolean`
+const reaction = makeReaction<State, Context, Event, Props>()
+const onOpenChange = reaction(
+  m => m.matches('open'),
+  (open, props) => props.onOpenChange?.({ open }),
+)
+```
+
+## Reactions vs. target effects
+
+|                  | Reaction                        | Target effect                   |
+| ---------------- | ------------------------------- | ------------------------------- |
+| Lives in         | connector                       | target's `effects.ts`           |
+| Touches platform | no                              | yes                             |
+| Runs on          | every target                    | specific target only            |
+| Use for          | prop-callbacks (`onOpenChange`) | DOM listeners, RN `BackHandler` |

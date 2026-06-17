@@ -1,0 +1,66 @@
+---
+layout: ../../layout.astro
+title: Context
+description: Reactive data inside a machine.
+---
+
+# Context
+
+`context` is the machine's data — a plain object declared in the config and read directly off the service. Writes go through `setContext`, the single batched entry point.
+
+```ts
+import { machine } from '@chimba-ui/state-machine'
+
+const m = machine({
+  initial: 'idle',
+  context: { name: 'Ada', age: 36 },
+  states: {
+    idle: {
+      on: {
+        birthday: { actions: $ => $.setContext({ age: $.context.age + 1 }) },
+        rename: { actions: $ => $.setContext({ name: $.event.name }) },
+      },
+    },
+  },
+})
+
+m.start()
+m.context.name // 'Ada'
+m.send({ type: 'birthday' })
+m.context.age // 37
+```
+
+## Memory model
+
+Context is **one plain object per machine**, copied from the config at construction. Its identity never changes — only its fields are mutated in place. This means:
+
+- Reads are zero-cost — no proxy, no getter.
+- Writes are batched: `setContext` applies a shallow merge, deduplicates unchanged fields, then notifies subscribers once.
+- A field that didn't change wakes no observer.
+
+## `setContext`
+
+Accepts a partial patch object or an updater function:
+
+```ts
+// patch — shallow-merged
+$.setContext({ count: 5 })
+
+// updater — receives current context, returns patch
+$.setContext(ctx => ({ count: ctx.count + 1 }))
+```
+
+`setContext` is available in actions, effects, and watchers via the `$` argument. Outside the machine, use `m.setContext(patch)` directly.
+
+## `act()` shorthand
+
+For the common case of writing context in a transition action, `act()` is write-sugar that drops the `$ => $.setContext(...)` wrapper:
+
+```ts
+import { act } from '@chimba-ui/state-machine'
+
+on: {
+  increment: { actions: act($ => ({ count: $.context.count + 1 })) },
+  reset:     { actions: act({ count: 0 }) },
+}
+```

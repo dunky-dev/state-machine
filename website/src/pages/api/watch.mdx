@@ -1,0 +1,52 @@
+---
+layout: ../../layout.astro
+title: Watch
+description: Run actions whenever a context field changes.
+---
+
+# Watch
+
+`watch` runs actions whenever a context (or computed) field changes — in any state, for the machine's whole lifetime. It's the declarative form of "subscribe to a field and react."
+
+```ts
+import { machine } from '@chimba-ui/state-machine'
+
+const m = machine({
+  initial: 'idle',
+  context: { query: '' },
+  watch: {
+    query: ['runSearch'], // whenever `query` changes → run runSearch
+  },
+  states: { idle: {} },
+  implementations: {
+    actions: {
+      runSearch: ({ context, send }) => send({ type: 'search', q: context.query }),
+    },
+  },
+})
+```
+
+Any time `query` changes — from any transition, in any state — `runSearch` fires. No need to add the action to every transition that touches `query`.
+
+## Run-to-completion
+
+Watch actions obey the same run-to-completion rule as events: they're queued and run after the transition that changed the field fully settles. A watcher writing context can't re-enter a transition in flight.
+
+## Watch vs. computed
+
+|           | `watch`                        | `computed`                          |
+| --------- | ------------------------------ | ----------------------------------- |
+| Use for   | side-effects (send, log, sync) | derived values (filter, count, sum) |
+| Runs when | field changes                  | read, if input changed              |
+| Returns   | nothing                        | a value                             |
+
+Use `watch` when you want to **do** something in response to a field changing. Use `computed` when you want to **derive** a value from fields.
+
+## Multiple fields
+
+```ts
+watch: {
+  query:       ['runSearch'],
+  activeIndex: ['scrollIntoView', 'announceSelection'],
+}
+```

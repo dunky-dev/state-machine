@@ -1,0 +1,64 @@
+---
+layout: ../../layout.astro
+title: Connector
+description: Turn machine state into a live view API.
+---
+
+# Connector
+
+`connector` keeps a pure `connect` function **live**: it memoizes the snapshot, makes props a reactive input, and wires [reactions](/api/reactions) automatically.
+
+```ts
+import { machine, connector } from '@chimba-ui/state-machine'
+
+const m = machine({
+  /* ... */
+})
+
+const connect = ({ state, send }) => ({
+  isOpen: state === 'open',
+  triggerProps: { onPress: () => send({ type: 'toggle' }) },
+})
+
+const c = connector(m, connect, /* initial props */ {})
+
+c.snapshot // memoized view API — stable identity until something changes
+c.subscribe(render) // coarse — wake the view on any change
+c.select // forwarded fine-grained path
+c.setProps(props) // push new props in — shallow-dedup'd
+```
+
+## The machine never sees props
+
+A machine here is pure behavior — it has no `props` argument. Every job a prop does lands at the **edge**, never the machine:
+
+| A prop that…            | …goes here                                              |
+| ----------------------- | ------------------------------------------------------- |
+| **configures** behavior | seeded into `context` once (updated via `setContext`)   |
+| **fires a callback**    | a [reaction](/api/reactions) on the connector           |
+| **is controlled** state | resolved into initial state before `machine()` is built |
+
+This is what keeps the same machine running byte-for-byte identically on every target.
+
+## `connect` function
+
+`connect` is a **pure function** — it maps a machine snapshot to a view-facing API object. It receives `{ state, context, computed, send, matches, hasTag }` and returns whatever the view needs:
+
+```ts
+const connect = ({ state, context, send, matches }) => ({
+  isOpen: matches('open'),
+  value: context.value,
+  triggerProps: { onPress: () => send({ type: 'toggle' }) },
+  panelProps: { role: 'region', hidden: !matches('open') },
+})
+```
+
+Returning abstract bindings (`onPress`, `role`) instead of platform props (`onClick`, `aria-*`) keeps `connect` renderer-blind. A per-target `normalize` step translates them into real props.
+
+## `setProps`
+
+Props are a reactive input to the connector. `setProps` is shallow-dedup'd — passing a fresh-but-equal props object (common when a host rebuilds props every render) is a no-op and won't recompute the snapshot or wake subscribers.
+
+## Snapshot identity
+
+`c.snapshot` only changes identity when the machine or props change. It drops straight into `useSyncExternalStore(c.subscribe, () => c.snapshot)` without tearing or infinite-loop pitfalls.
