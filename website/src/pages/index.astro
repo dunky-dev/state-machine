@@ -1684,8 +1684,15 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
       }
       .origin-layout {
         display: flex;
-        gap: 3rem;
+        flex-direction: column;
+        gap: 2rem;
         align-items: flex-start;
+      }
+      @media (min-width: 640px) {
+        .origin-layout {
+          flex-direction: row;
+          gap: 3rem;
+        }
       }
       .origin-avatar-link {
         flex-shrink: 0;
