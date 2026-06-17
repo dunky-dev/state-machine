@@ -198,7 +198,6 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
               ⧉
             </button>
           </div>
-
         </section>
 
         <!-- FEATURE BAND — three value props, right after the hero. Sits in the
@@ -439,9 +438,13 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
         <!-- MOBILE-ONLY live state table — sits here, after the "One machine" copy.
              On lg+ the cassette card handles this; hidden there. -->
         <div class="mt-6 lg:hidden">
-          <table class="pac-table dark-card w-full font-mono text-[10px]">
+          <table
+            class="pac-table dark-card w-full font-mono text-[10px] border-none! bg-black!"
+          >
             <thead>
-              <tr class="panel-head text-left text-[9px] uppercase tracking-wider">
+              <tr
+                class="panel-head text-left text-[9px] uppercase tracking-wider"
+              >
                 <th class="px-3 py-2 font-medium">machine</th>
                 <th class="px-1 py-2 font-medium">state</th>
                 <th class="px-2 py-2 font-medium">context</th>
@@ -449,17 +452,23 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
             </thead>
             <tbody>
               <tr>
-                <td class="px-3 py-1.5 text-[#ffe66d]"><span aria-hidden="true">⚙️</span> pacman</td>
+                <td class="px-3 py-1.5 text-[#ffe66d]"
+                  ><span aria-hidden="true">⚙️</span> pacman</td
+                >
                 <td id="m-st-pacman" class="px-1 py-1.5">…</td>
                 <td id="m-cx-pacman" class="cx-cell px-3 py-1.5"> </td>
               </tr>
               <tr>
-                <td class="px-3 py-1.5 text-[#62b3ff]"><span aria-hidden="true">⚙️</span> ghost</td>
+                <td class="px-3 py-1.5 text-[#62b3ff]"
+                  ><span aria-hidden="true">⚙️</span> ghost</td
+                >
                 <td id="m-st-ghost" class="px-1 py-1.5">…</td>
                 <td id="m-cx-ghost" class="cx-cell px-3 py-1.5"> </td>
               </tr>
               <tr>
-                <td class="px-3 py-1.5 text-[#ff5d52]"><span aria-hidden="true">⚙️</span> board</td>
+                <td class="px-3 py-1.5 text-[#ff5d52]"
+                  ><span aria-hidden="true">⚙️</span> board</td
+                >
                 <td id="m-st-board" class="px-1 py-1.5">…</td>
                 <td id="m-cx-board" class="cx-cell px-3 py-1.5"> </td>
               </tr>
@@ -514,7 +523,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
               </div>
               <div class="laptop-base"></div>
               <figcaption class="stage-label">
-                Web · <b>React</b> (DOM)
+                <b>Web</b>
               </figcaption>
             </figure>
 
@@ -535,7 +544,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
                 <span class="iphone-home" aria-hidden="true"></span>
               </div>
               <figcaption class="stage-label">
-                Native · <b>React Native</b>
+                <b>Devices</b>
               </figcaption>
             </figure>
 
@@ -558,7 +567,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
                 </div>
               </div>
               <figcaption class="stage-label">
-                <b>Terminal</b> (TUI) · live today
+                <b>Terminals</b>
               </figcaption>
             </figure>
           </section>
@@ -573,7 +582,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
       <div class="lab-inner">
         <!-- col 1: title + eyebrow -->
         <div class="lab-title-col">
-          <h2 class="lab-heading">The stateful machines lab.</h2>
+          <h2 class="lab-heading">The stateful<br />machines lab.</h2>
           <p class="lab-sub">
             Different domains. Same engine. State, context, events — that's it.
           </p>
@@ -838,7 +847,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
               let ch = " ";
               if (x === p.x && y === p.y)
                 ch = pacman.state === "dead" ? "💀" : PAC;
-              else if (x === g.x && y === g.y) ch = "👻";
+              else if (x === g.x && y === g.y && ghost.state !== "stopped") ch = "👻";
               else if (b.cherry && x === b.cherry.x && y === b.cherry.y)
                 ch = "🍒";
               else if (MAZE[y][x] === 1) ch = "🟦";

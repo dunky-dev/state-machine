@@ -42,6 +42,7 @@ export type CursorEv =
   | { type: 'PICK_TARGET'; x: number; y: number }
   | { type: 'ARRIVED' }
   | { type: 'PAUSE_END' }
+  | { type: 'TICK'; dt: number }
 
 export interface CursorComputed {
   distance: number
@@ -62,11 +63,18 @@ const { createMachine: createCursorConfig } = setup<CursorCtx, CursorEv, CursorC
       if (event.type !== 'PICK_TARGET') return
       setContext({ x0: context.x, y0: context.y, x1: event.x, y1: event.y, progress: 0 })
     }) satisfies Action<CursorCtx, CursorEv, CursorComputed>,
-    stepProgress: act($ => ({
-      progress: Math.min(1, $.context.progress + $.context.speed),
-      x: $.computed.ex,
-      y: $.computed.ey,
-    })),
+    stepProgress: (({ context, event, computed, setContext }) => {
+      if (event.type !== 'TICK') return
+      const dt = Math.min(event.dt, 50) // cap at 50ms so tab-wake doesn't jump
+      const progress = Math.min(1, context.progress + context.speed * dt)
+      // recompute eased position at the new progress inline
+      const e = progress < 0.5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress
+      setContext({
+        progress,
+        x: context.x0 + (context.x1 - context.x0) * e,
+        y: context.y0 + (context.y1 - context.y0) * e,
+      })
+    }) satisfies Action<CursorCtx, CursorEv, CursorComputed>,
     pickNewTarget: ({ context, setContext }) => {
       setContext({
         x0: context.x,
@@ -79,6 +87,21 @@ const { createMachine: createCursorConfig } = setup<CursorCtx, CursorEv, CursorC
     setPauseMs: act($ => ({
       pauseMs: 800 + ((Math.abs($.context.x * 17 + $.context.y * 31) | 0) % 2200),
     })),
+  },
+  effects: {
+    // rAF loop: sends TICK on every animation frame while in `moving`.
+    // Cleans up automatically when the machine exits `moving`.
+    rafLoop: ({ send }) => {
+      let rafId: number
+      let last = performance.now()
+      const loop = (now: number) => {
+        send({ type: 'TICK', dt: now - last })
+        last = now
+        rafId = requestAnimationFrame(loop)
+      }
+      rafId = requestAnimationFrame(loop)
+      return () => cancelAnimationFrame(rafId)
+    },
   },
   delays: {
     idlePause: ({ context }) => context.pauseMs,
@@ -107,7 +130,7 @@ export function createCursorMachine(
         x1: initialX,
         y1: initialY,
         progress: 0,
-        speed: 0.025 + Math.random() * 0.025,
+        speed: 0.00035 + Math.random() * 0.0003,
         pauseMs: 800 + Math.floor(Math.random() * 2200),
       },
       computed: {
@@ -127,14 +150,10 @@ export function createCursorMachine(
           },
         },
         moving: {
-          // Self-driving 16 ms loop (≈60 fps).
-          // • progress >= 1 → transition to idle (arrived).
-          // • otherwise     → step progress + re-enter moving to schedule the next tick.
-          after: {
-            16: [
-              { guard: 'arrived', target: 'idle' },
-              { actions: ['stepProgress'], target: 'moving' },
-            ],
+          // rAF effect drives TICK events; arrived guard transitions to idle.
+          effects: ['rafLoop'],
+          on: {
+            TICK: [{ guard: 'arrived', target: 'idle' }, { actions: ['stepProgress'] }],
           },
         },
       },
