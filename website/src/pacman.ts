@@ -441,13 +441,28 @@ export function createGame(): Game {
 
   const caught = (px: number, py: number, gx: number, gy: number) => px === gx && py === gy
 
+  // Did we already reset the ghost/board for the current death? Prevents the
+  // per-tick reset that flips the ghost back to `roaming` (re-showing it) while
+  // pacman is still dead — that's what put the skull AND the ghost on the board
+  // together. We hold everything frozen during `dead`, then reset ONCE the tick
+  // pacman has revived, so the whole board comes back in sync.
+  let resetPending = false
+
   const tick = (forced?: Dir) => {
-    // While dead, the `after` timer on the dead state will auto-revive pacman.
-    // Reset ghost and board immediately so they're ready when the timer fires.
+    // While dead, freeze: pacman shows the skull, the ghost stays `stopped`
+    // (hidden). The `after` timer on the dead state auto-revives pacman; we just
+    // mark that a ghost/board reset is owed for when it comes back.
     if (pacman.state === 'dead') {
+      resetPending = true
+      return
+    }
+
+    // First tick after revival: bring the ghost and board back together, in sync
+    // with the freshly-revived pacman.
+    if (resetPending) {
+      resetPending = false
       ghost.send({ type: 'reset' })
       board.send({ type: 'reset' })
-      return
     }
 
     // SNAPSHOT old positions: ctx is a live reference (the engine mutates it in
