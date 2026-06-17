@@ -535,6 +535,129 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
       <!-- /showcase -->
     </main>
 
+    <!-- LAB SECTION: full-width dark strip with two live machine demos -->
+    <section class="lab-section" aria-label="Live machine demos">
+      <div class="lab-inner">
+
+        <!-- col 1: title + eyebrow -->
+        <div class="lab-title-col">
+          <p class="lab-eyebrow">The lab 🧪</p>
+          <h2 class="lab-heading">
+            Real machines.<br />Minimal code.
+          </h2>
+          <p class="lab-sub">
+            Two demos. Different domains. Same engine.
+            <br /><br />
+            State, context, events — that's it.
+          </p>
+        </div>
+
+        <!-- col 2: TRADING PANEL — 3 pairs, each its own machine -->
+        <div class="lab-demo" id="demo-trading">
+          <div class="lab-demo-header">
+            <span class="lab-demo-icon">📈</span>
+            <span class="lab-demo-title">Trading panel</span>
+            <span class="lab-demo-badge" id="trade-state-badge">watching</span>
+          </div>
+
+          <div class="lab-demo-body">
+            <!-- pair tabs -->
+            <div class="trade-tabs" role="tablist" aria-label="Currency pairs">
+              <button class="trade-tab trade-tab-active" role="tab" data-pair="0" type="button">USDEUR</button>
+              <button class="trade-tab" role="tab" data-pair="1" type="button">USDJPY</button>
+              <button class="trade-tab" role="tab" data-pair="2" type="button">BTCUSD</button>
+            </div>
+
+            <!-- ticker -->
+            <div class="trade-ticker">
+              <span class="trade-price" id="trade-price">—</span>
+              <span class="trade-delta" id="trade-delta">+0.00</span>
+            </div>
+
+            <!-- sparkline -->
+            <svg class="trade-chart" viewBox="0 0 200 56" preserveAspectRatio="none" aria-hidden="true">
+              <polyline id="trade-line" points="" fill="none" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" />
+            </svg>
+
+            <!-- position -->
+            <div class="trade-order">
+              <span class="trade-order-label">position</span>
+              <span class="trade-order-val" id="trade-position">—</span>
+            </div>
+
+            <!-- controls -->
+            <div class="trade-controls">
+              <button id="btn-buy"    class="trade-btn trade-btn-buy"    type="button">BUY</button>
+              <button id="btn-sell"   class="trade-btn trade-btn-sell"   type="button">SELL</button>
+              <button id="btn-cancel" class="trade-btn trade-btn-cancel" type="button">CANCEL</button>
+            </div>
+          </div>
+
+          <!-- accordion: machine code -->
+          <div class="trade-accordion">
+            <button class="trade-accordion-trigger" type="button" aria-expanded="false" aria-controls="trade-code-panel" id="trade-code-toggle">
+              <span>machine code</span>
+              <span class="trade-accordion-chevron" aria-hidden="true">▸</span>
+            </button>
+            <div class="trade-accordion-panel" id="trade-code-panel" role="region" aria-labelledby="trade-code-toggle" hidden>
+              <pre class="trade-code"><code><span class="kw">const</span> order = <span class="fn">machine</span>(&#123;
+  initial: <span class="str">'idle'</span>,
+  states: &#123;
+    <span class="st">idle</span>:    &#123; on: &#123; BUY:    <span class="str">'buying'</span>  &#125; &#125;,
+    <span class="st">buying</span>:  &#123; on: &#123; FILLED: <span class="str">'holding'</span>, CANCEL: <span class="str">'idle'</span> &#125; &#125;,
+    <span class="st">holding</span>: &#123; on: &#123; SELL:   <span class="str">'selling'</span> &#125; &#125;,
+    <span class="st">selling</span>: &#123; on: &#123; CLOSED: <span class="str">'idle'</span>    &#125; &#125;,
+  &#125;,
+&#125;)</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- col 3: WHITEBOARD — 10 cursors + 2 sticky notes, autonomous -->
+        <div class="lab-demo" id="demo-whiteboard">
+          <div class="lab-demo-header">
+            <span class="lab-demo-icon">🖊️</span>
+            <span class="lab-demo-title">Collaborative whiteboard</span>
+            <span class="lab-demo-badge" id="wb-state-badge">live</span>
+          </div>
+
+          <div class="lab-demo-body" style="padding:0">
+            <div class="wb-canvas" id="wb-canvas" aria-hidden="true">
+              <!-- cursors and stickies injected by JS -->
+            </div>
+          </div>
+
+          <!-- accordion: machine code -->
+          <div class="trade-accordion">
+            <button class="trade-accordion-trigger" type="button" aria-expanded="false" aria-controls="wb-code-panel" id="wb-code-toggle">
+              <span>machine code</span>
+              <span class="trade-accordion-chevron" aria-hidden="true">▸</span>
+            </button>
+            <div class="trade-accordion-panel" id="wb-code-panel" role="region" aria-labelledby="wb-code-toggle" hidden>
+              <pre class="trade-code"><code><span class="kw">const</span> cursor = <span class="fn">machine</span>(&#123;
+  initial: <span class="str">'idle'</span>,
+  states: &#123;
+    <span class="st">idle</span>:   &#123; on: &#123; MOVE: &#123; target: <span class="str">'moving'</span>,
+      actions: <span class="fn">act</span>($ =&gt; &#123; x: $.event.x, y: $.event.y &#125;) &#125; &#125; &#125;,
+    <span class="st">moving</span>: &#123; on: &#123; STOP: <span class="str">'idle'</span> &#125; &#125;,
+  &#125;,
+&#125;)
+
+<span class="kw">const</span> sticky = <span class="fn">machine</span>(&#123;
+  initial: <span class="str">'placed'</span>,
+  states: &#123;
+    <span class="st">placed</span>:   &#123; on: &#123; DRAG:  <span class="str">'dragging'</span> &#125; &#125;,
+    <span class="st">dragging</span>: &#123; on: &#123; DROP:  <span class="str">'placed'</span>   &#125; &#125;,
+  &#125;,
+&#125;)</code></pre>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+    <!-- /lab section -->
+
     <!-- big, dark, premium footer: a closing CTA + install + link columns -->
     <!-- slim, premium dark footer: oversized wordmark + GitHub + maintainer -->
     <footer class="site-footer">
@@ -948,6 +1071,251 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
         parkCassette();
         drawFeed();
       }, 250);
+
+      // =====================================================================
+      // TRADING PANEL DEMO — 3 pairs, each its own machine instance
+      // =====================================================================
+      {
+        type TradeState = 'idle' | 'buying' | 'holding' | 'selling';
+        type Pair = { symbol: string; price: number; vol: number; history: number[]; state: TradeState; entryPrice: number };
+
+        const pairs: Pair[] = [
+          { symbol: 'USDEUR', price: 0.9234, vol: 0.0008,  history: [], state: 'idle', entryPrice: 0 },
+          { symbol: 'USDJPY', price: 157.42, vol: 0.15,    history: [], state: 'idle', entryPrice: 0 },
+          { symbol: 'BTCUSD', price: 67420,  vol: 180,     history: [], state: 'idle', entryPrice: 0 },
+        ];
+        pairs.forEach(p => { for (let i = 0; i < 40; i++) { p.price += (Math.random() - 0.5) * p.vol * 2; p.history.push(p.price); } });
+
+        let activePair = 0;
+
+        const priceEl   = document.getElementById('trade-price')!;
+        const deltaEl   = document.getElementById('trade-delta')!;
+        const posEl     = document.getElementById('trade-position')!;
+        const badge     = document.getElementById('trade-state-badge')!;
+        const chartLine = document.getElementById('trade-line')!;
+        const btnBuy    = document.getElementById('btn-buy') as HTMLButtonElement;
+        const btnSell   = document.getElementById('btn-sell') as HTMLButtonElement;
+        const btnCancl  = document.getElementById('btn-cancel') as HTMLButtonElement;
+
+        const BADGE_COLORS: Record<TradeState, string> = {
+          idle: '#6b7678', buying: '#ffe66d', holding: '#a2e57b', selling: '#ff5d52',
+        };
+
+        const decPlaces = (p: Pair) => p.vol < 0.01 ? 4 : p.vol < 1 ? 2 : 0;
+
+        const renderTrade = () => {
+          const p = pairs[activePair];
+          const dec = decPlaces(p);
+          const prev = p.history[p.history.length - 2] ?? p.price;
+          const delta = p.price - prev;
+          priceEl.textContent = p.price.toFixed(dec);
+          deltaEl.textContent = (delta >= 0 ? '+' : '') + delta.toFixed(dec);
+          deltaEl.className = 'trade-delta ' + (delta >= 0 ? 'up' : 'down');
+          badge.textContent = p.state;
+          badge.style.background = BADGE_COLORS[p.state];
+          badge.style.color = p.state === 'buying' ? '#16161a' : '#fff';
+
+          const pts = p.history.slice(-40);
+          const mn = Math.min(...pts), mx = Math.max(...pts);
+          const range = mx - mn || 1;
+          const points = pts.map((v, i) => {
+            const x = (i / Math.max(pts.length - 1, 1)) * 200;
+            const y = 52 - ((v - mn) / range) * 48;
+            return `${x},${y}`;
+          }).join(' ');
+          chartLine.setAttribute('points', points);
+          chartLine.setAttribute('stroke', p.price >= (p.history[0] ?? p.price) ? '#a2e57b' : '#ff5d52');
+
+          if (p.state === 'holding') {
+            const pnl = p.price - p.entryPrice;
+            posEl.textContent = `${p.entryPrice.toFixed(dec)} to ${p.price.toFixed(dec)} (${pnl >= 0 ? '+' : ''}${pnl.toFixed(dec)})`;
+            posEl.className = 'trade-order-val ' + (pnl >= 0 ? 'up' : 'down');
+          } else {
+            posEl.textContent = p.state === 'idle' ? '—' : p.state + '…';
+            posEl.className = 'trade-order-val';
+          }
+
+          btnBuy.disabled   = p.state !== 'idle';
+          btnSell.disabled  = p.state !== 'holding';
+          btnCancl.disabled = p.state === 'idle';
+        };
+
+        // price ticks — one per pair, all independent
+        pairs.forEach((p, _i) => {
+          setInterval(() => {
+            p.price = Math.max(0.001, p.price + (Math.random() - 0.49) * p.vol * 1.4);
+            p.history.push(p.price);
+            if (p.history.length > 200) p.history.shift();
+            if (_i === activePair) renderTrade();
+          }, 350 + _i * 80);
+        });
+
+        // order machine transition
+        const transition = (event: string) => {
+          const p = pairs[activePair];
+          if (event === 'BUY'    && p.state === 'idle')    { p.state = 'buying';  setTimeout(() => { p.entryPrice = p.price; p.state = 'holding'; renderTrade(); }, 600); }
+          if (event === 'SELL'   && p.state === 'holding') { p.state = 'selling'; setTimeout(() => { p.state = 'idle'; renderTrade(); }, 600); }
+          if (event === 'CANCEL' && p.state === 'buying')  { p.state = 'idle'; }
+          renderTrade();
+        };
+
+        btnBuy.addEventListener('click',  () => transition('BUY'));
+        btnSell.addEventListener('click', () => transition('SELL'));
+        btnCancl.addEventListener('click', () => transition('CANCEL'));
+
+        // pair tabs
+        document.querySelectorAll<HTMLButtonElement>('.trade-tab').forEach(tab => {
+          tab.addEventListener('click', () => {
+            activePair = Number(tab.dataset.pair);
+            document.querySelectorAll('.trade-tab').forEach(t => t.classList.remove('trade-tab-active'));
+            tab.classList.add('trade-tab-active');
+            renderTrade();
+          });
+        });
+
+        // accordion
+        const toggle = document.getElementById('trade-code-toggle')!;
+        const panel  = document.getElementById('trade-code-panel')!;
+        toggle.addEventListener('click', () => {
+          const open = toggle.getAttribute('aria-expanded') === 'true';
+          toggle.setAttribute('aria-expanded', String(!open));
+          panel.hidden = open;
+          toggle.querySelector('.trade-accordion-chevron')!.textContent = open ? '▸' : '▾';
+        });
+
+        renderTrade();
+      }
+
+      // =====================================================================
+      // WHITEBOARD DEMO — 10 autonomous cursors + 2 draggable sticky notes
+      // =====================================================================
+      {
+        const canvas = document.getElementById('wb-canvas')!;
+        const wbBadge = document.getElementById('wb-state-badge')!;
+
+        type CursorState = 'idle' | 'moving';
+        type StickyState = 'placed' | 'dragging';
+
+        // cursor colors — a rainbow of user avatars
+        const CURSOR_COLORS = [
+          '#ff5d52','#ffe66d','#a2e57b','#62b3ff','#c8a9f0',
+          '#ff9f7e','#4dd9c0','#f472b6','#94a3b8','#fb923c',
+        ];
+        const CURSOR_NAMES = ['alice','bob','carol','dave','eve','frank','grace','hiro','ines','jan'];
+
+        type Cursor = {
+          el: HTMLElement; label: HTMLElement;
+          x: number; y: number; tx: number; ty: number;
+          vx: number; vy: number; state: CursorState;
+          pauseUntil: number;
+        };
+
+        const cursors: Cursor[] = CURSOR_COLORS.map((color, i) => {
+          const el = document.createElement('div');
+          el.className = 'wb-cursor';
+          el.style.setProperty('--cur-color', color);
+          el.innerHTML = `<svg width="14" height="18" viewBox="0 0 14 18" fill="none"><path d="M0 0l14 10-6.5 1.5L5 18z" fill="${color}"/></svg>`;
+          const label = document.createElement('span');
+          label.className = 'wb-cursor-label';
+          label.textContent = CURSOR_NAMES[i];
+          label.style.background = color;
+          el.appendChild(label);
+          canvas.appendChild(el);
+          const x = 10 + Math.random() * 80, y = 10 + Math.random() * 80;
+          return { el, label, x, y, tx: x, ty: y, vx: 0, vy: 0, state: 'idle' as CursorState, pauseUntil: 0 };
+        });
+
+        // sticky note data
+        type Sticky = { el: HTMLElement; x: number; y: number; state: StickyState; stEl: HTMLElement };
+
+        const STICKY_DATA = [
+          { text: 'Redesign header\nfor mobile', color: '#ffe66d' },
+          { text: 'Fix tooltip on\ncanvas nodes',  color: '#a2e57b' },
+        ];
+
+        const stickies: Sticky[] = STICKY_DATA.map((d, i) => {
+          const el = document.createElement('div');
+          el.className = 'wb-sticky';
+          el.style.background = d.color;
+          const txt = document.createElement('p');
+          txt.className = 'wb-sticky-text';
+          txt.textContent = d.text;
+          const stEl = document.createElement('span');
+          stEl.className = 'wb-sticky-state';
+          stEl.textContent = 'placed';
+          el.appendChild(txt);
+          el.appendChild(stEl);
+          canvas.appendChild(el);
+          const x = 18 + i * 38, y = 15 + i * 12;
+          el.style.left = x + '%';
+          el.style.top  = y + '%';
+          return { el, x, y, state: 'placed' as StickyState, stEl };
+        });
+
+        // drag stickies
+        stickies.forEach(s => {
+          let dragging = false, ox = 0, oy = 0;
+          const canvasRect = () => canvas.getBoundingClientRect();
+          s.el.addEventListener('pointerdown', e => {
+            dragging = true; s.state = 'dragging'; s.stEl.textContent = 'dragging';
+            s.el.classList.add('wb-sticky-dragging');
+            const r = canvasRect();
+            ox = e.clientX - r.left - (s.x / 100) * r.width;
+            oy = e.clientY - r.top  - (s.y / 100) * r.height;
+            s.el.setPointerCapture(e.pointerId);
+            e.preventDefault();
+          });
+          s.el.addEventListener('pointermove', e => {
+            if (!dragging) return;
+            const r = canvasRect();
+            s.x = Math.max(0, Math.min(85, (e.clientX - r.left - ox) / r.width  * 100));
+            s.y = Math.max(0, Math.min(80, (e.clientY - r.top  - oy) / r.height * 100));
+            s.el.style.left = s.x + '%';
+            s.el.style.top  = s.y + '%';
+          });
+          s.el.addEventListener('pointerup', () => {
+            dragging = false; s.state = 'placed'; s.stEl.textContent = 'placed';
+            s.el.classList.remove('wb-sticky-dragging');
+          });
+        });
+
+        // autonomous cursor animation loop
+        const now = () => performance.now();
+        const animateCursors = () => {
+          const t = now();
+          cursors.forEach(c => {
+            if (t > c.pauseUntil && Math.random() < 0.008) {
+              // pick a new random target (state: moving)
+              c.tx = 5 + Math.random() * 88;
+              c.ty = 5 + Math.random() * 88;
+              c.state = 'moving';
+              c.pauseUntil = t + 1200 + Math.random() * 2000;
+            }
+            // spring toward target
+            const dx = c.tx - c.x, dy = c.ty - c.y;
+            c.vx = c.vx * 0.82 + dx * 0.04;
+            c.vy = c.vy * 0.82 + dy * 0.04;
+            c.x += c.vx; c.y += c.vy;
+            if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) c.state = 'idle';
+            c.el.style.left = c.x + '%';
+            c.el.style.top  = c.y + '%';
+          });
+          requestAnimationFrame(animateCursors);
+        };
+        requestAnimationFrame(animateCursors);
+
+        // accordion
+        const wbToggle = document.getElementById('wb-code-toggle')!;
+        const wbPanel  = document.getElementById('wb-code-panel')!;
+        wbToggle.addEventListener('click', () => {
+          const open = wbToggle.getAttribute('aria-expanded') === 'true';
+          wbToggle.setAttribute('aria-expanded', String(!open));
+          wbPanel.hidden = open;
+          wbToggle.querySelector('.trade-accordion-chevron')!.textContent = open ? '▸' : '▾';
+        });
+
+        wbBadge.textContent = 'live';
+      }
 
       // copy the install command
       const copyBtn = document.getElementById("install-copy");
@@ -1540,6 +1908,332 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
         border-radius: 50%;
         background: #a2e57b;
         box-shadow: 0 0 6px 1px rgba(162, 229, 123, 0.7);
+      }
+
+      /* ====================================================================
+         LAB SECTION — dark full-width strip with two live demos
+         ==================================================================== */
+      .lab-section {
+        margin-top: 5rem;
+        background: radial-gradient(120% 80% at 10% 0%, #15171c 0%, #0b0c0f 60%, #050507 100%);
+        color: #f2fffc;
+        padding: 5rem 1.5rem 5.5rem;
+      }
+      .lab-inner {
+        max-width: 80rem;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 3rem;
+      }
+      @media (min-width: 1024px) {
+        .lab-inner {
+          grid-template-columns: 1fr 1.4fr 1.4fr;
+          gap: 3rem;
+          align-items: start;
+        }
+      }
+
+      /* title column */
+      .lab-eyebrow {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: rgba(242, 255, 252, 0.4);
+        margin-bottom: 1.25rem;
+      }
+      .lab-heading {
+        font-size: 2.5rem;
+        font-weight: 800;
+        line-height: 1.06;
+        letter-spacing: -0.02em;
+        color: #fff;
+      }
+      @media (min-width: 1800px) {
+        .lab-heading { font-size: 3.25rem; }
+      }
+      .lab-sub {
+        margin-top: 1.25rem;
+        color: rgba(242, 255, 252, 0.5);
+        font-size: 1rem;
+        line-height: 1.65;
+        max-width: 26ch;
+      }
+
+      /* demo card shared */
+      .lab-demo {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 1.25rem;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .lab-demo-header {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+        background: rgba(255,255,255,0.03);
+      }
+      .lab-demo-icon {
+        font-size: 1rem;
+        line-height: 1;
+      }
+      .lab-demo-title {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: rgba(242, 255, 252, 0.6);
+        flex: 1;
+      }
+      .lab-demo-badge {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: #6b7678;
+        color: #fff;
+        transition: background 0.25s ease, color 0.25s ease;
+      }
+      .lab-demo-body {
+        padding: 1.25rem;
+        flex: 1;
+      }
+      .lab-demo-footer {
+        padding: 0.75rem 1.25rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      .lab-code-hint {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 10px;
+        color: rgba(242, 255, 252, 0.3);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: block;
+      }
+
+      /* ---- TRADING PANEL ---- */
+      .trade-tabs {
+        display: flex;
+        gap: 0.25rem;
+        margin-bottom: 1rem;
+      }
+      .trade-tab {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        padding: 0.3rem 0.65rem;
+        border-radius: 0.4rem;
+        border: 1px solid rgba(255,255,255,0.12);
+        background: transparent;
+        color: rgba(242,255,252,0.45);
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+      }
+      .trade-tab:hover { background: rgba(255,255,255,0.08); color: rgba(242,255,252,0.8); }
+      .trade-tab-active { background: rgba(255,255,255,0.12) !important; color: #f2fffc !important; border-color: rgba(255,255,255,0.22) !important; }
+
+      .trade-ticker {
+        display: flex;
+        align-items: baseline;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+      }
+      .trade-price {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 1.85rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        color: #f2fffc;
+        letter-spacing: -0.02em;
+      }
+      .trade-delta {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.8rem;
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+      }
+      .trade-delta.up   { color: #a2e57b; }
+      .trade-delta.down { color: #ff5d52; }
+
+      .trade-chart {
+        display: block;
+        width: 100%;
+        height: 52px;
+        margin-bottom: 0.85rem;
+        opacity: 0.9;
+      }
+
+      .trade-order {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.85rem;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 11px;
+      }
+      .trade-order-label {
+        color: rgba(242,255,252,0.3);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        font-size: 9px;
+      }
+      .trade-order-val {
+        font-variant-numeric: tabular-nums;
+        color: rgba(242,255,252,0.65);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .trade-order-val.up   { color: #a2e57b; }
+      .trade-order-val.down { color: #ff5d52; }
+
+      .trade-controls {
+        display: flex;
+        gap: 0.4rem;
+      }
+      .trade-btn {
+        flex: 1;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        padding: 0.5rem 0.2rem;
+        border-radius: 0.5rem;
+        border: 1px solid transparent;
+        cursor: pointer;
+        transition: filter 0.15s ease;
+      }
+      .trade-btn:disabled { opacity: 0.22; cursor: not-allowed; }
+      .trade-btn-buy    { background: #a2e57b; color: #0a1a06; border-color: #a2e57b; }
+      .trade-btn-sell   { background: #ff5d52; color: #fff;    border-color: #ff5d52; }
+      .trade-btn-cancel { background: transparent; color: rgba(242,255,252,0.45); border-color: rgba(255,255,255,0.14); }
+      .trade-btn:not(:disabled):hover { filter: brightness(1.14); }
+
+      /* ---- ACCORDION (shared by both demos) ---- */
+      .trade-accordion {
+        border-top: 1px solid rgba(255,255,255,0.07);
+      }
+      .trade-accordion-trigger {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.65rem 1.25rem;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: rgba(242,255,252,0.35);
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        transition: color 0.15s;
+      }
+      .trade-accordion-trigger:hover { color: rgba(242,255,252,0.65); }
+      .trade-accordion-chevron { font-size: 9px; transition: transform 0.2s; }
+      .trade-accordion-panel { padding: 0; }
+      .trade-code {
+        margin: 0;
+        padding: 0.9rem 1.25rem 1rem;
+        font-size: 11px;
+        line-height: 1.7;
+        background: rgba(0,0,0,0.25);
+        border-top: 1px solid rgba(255,255,255,0.05);
+        overflow-x: auto;
+      }
+
+      /* ---- WHITEBOARD DEMO ---- */
+      .wb-canvas {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 4 / 3;
+        background:
+          radial-gradient(ellipse 80% 60% at 60% 40%, rgba(109,92,240,0.06), transparent 70%),
+          #f8f9fc;
+        border-radius: 0.75rem 0.75rem 0 0;
+        overflow: hidden;
+        /* dot grid */
+        background-image:
+          radial-gradient(circle, rgba(109,92,240,0.18) 1px, transparent 1px),
+          radial-gradient(ellipse 80% 60% at 60% 40%, rgba(109,92,240,0.04), transparent 70%);
+        background-size: 22px 22px, 100% 100%;
+        background-color: #f8f9fc;
+        cursor: default;
+        user-select: none;
+      }
+
+      .wb-cursor {
+        position: absolute;
+        pointer-events: none;
+        transform: translate(-2px, -2px);
+        z-index: 2;
+      }
+      .wb-cursor svg { display: block; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.18)); }
+      .wb-cursor-label {
+        position: absolute;
+        top: 16px;
+        left: 10px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 9px;
+        font-weight: 600;
+        color: #fff;
+        padding: 1px 5px;
+        border-radius: 3px;
+        white-space: nowrap;
+        pointer-events: none;
+      }
+
+      .wb-sticky {
+        position: absolute;
+        width: 120px;
+        min-height: 72px;
+        border-radius: 4px;
+        padding: 0.55rem 0.65rem 0.45rem;
+        box-shadow: 2px 3px 8px rgba(0,0,0,0.14), 0 1px 2px rgba(0,0,0,0.08);
+        cursor: grab;
+        z-index: 3;
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        transition: box-shadow 0.15s, transform 0.15s;
+        touch-action: none;
+      }
+      .wb-sticky:hover { box-shadow: 3px 5px 14px rgba(0,0,0,0.18); }
+      .wb-sticky-dragging {
+        cursor: grabbing !important;
+        box-shadow: 6px 10px 24px rgba(0,0,0,0.22) !important;
+        transform: rotate(1.5deg) scale(1.03) !important;
+        z-index: 10 !important;
+      }
+      .wb-sticky-text {
+        font-size: 11px;
+        line-height: 1.45;
+        color: rgba(22,22,26,0.82);
+        white-space: pre-line;
+        pointer-events: none;
+        flex: 1;
+      }
+      .wb-sticky-state {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 8px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: rgba(22,22,26,0.38);
+        pointer-events: none;
       }
 
       /* the three frames are always live — black, always-connected cables */
