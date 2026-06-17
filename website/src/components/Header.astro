@@ -17,9 +17,11 @@ const { revealOnScroll = false } = Astro.props
 <header
   id="site-header"
   data-reveal={revealOnScroll ? 'true' : undefined}
-  class="sticky top-0 z-50 bg-black"
+  class="sticky top-0 z-50 bg-black "
 >
-  <div class="mx-auto flex max-w-5xl items-center justify-between px-4 py-5 sm:px-6">
+  <div class="
+  mx-auto max-w-5xl sm:px-6 xl:max-w-6xl 2xl:max-w-[88rem] min-[1800px]:max-w-[104rem]
+  flex items-center justify-between px-4 py-5 sm:px-6">
     <a href={base} aria-label="Chimba UI home" class="shrink-0">
       <img src={`${base}logo.svg`} alt="Chimba" class="h-8 w-auto invert" />
     </a>
@@ -31,6 +33,17 @@ const { revealOnScroll = false } = Astro.props
         rel="noreferrer"
         class="text-white/70 transition-colors hover:text-white">GitHub</a
       >
+      <button
+        id="nav-toggle"
+        aria-label="Open navigation"
+        aria-expanded="false"
+        aria-controls="sidebar"
+        class="flex h-8 w-8 flex-col items-center justify-center gap-[5px] rounded text-white md:hidden"
+      >
+        <span class="block h-px w-5 bg-current transition-all duration-200"></span>
+        <span class="block h-px w-5 bg-current transition-all duration-200"></span>
+        <span class="block h-px w-5 bg-current transition-all duration-200"></span>
+      </button>
     </nav>
   </div>
 </header>
