@@ -626,17 +626,11 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
           <h2 class="lab-heading">The stateful<br />machines lab.</h2>
           <p class="lab-sub">
             Different domains. Same engine.<br />
-            State, context, events — that's it.
+            State, context, events. That's it.
           </p>
           <p class="lab-sub" style="margin-top:1rem">
-            Any stateful UI — a button, a form,
-            a canvas node, a trading panel — is just
-            a machine with states and transitions.
-            The rendering layer is irrelevant.
-          </p>
-          <p class="lab-sub" style="margin-top:1rem">
-            Write the behavior once.
-            Run it anywhere JS runs.
+            Any stateful UI, is just a machine with states and transitions. The
+            rendering layer is irrelevant.
           </p>
         </div>
 
@@ -854,6 +848,67 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
       </div>
     </section>
     <!-- /lab section -->
+
+    <!-- CONTRIBUTE SECTION -->
+    <section class="contrib-section">
+      <div class="contrib-inner">
+        <p class="contrib-eyebrow">Open source</p>
+        <h2 class="contrib-heading">
+          Built in the open.<br />Improved together.
+        </h2>
+        <p class="contrib-sub">
+          Chimba UI is early and growing. If something feels off, a use case
+          isn't covered, or you just want to say hi — every issue, PR, and share
+          genuinely helps.
+        </p>
+
+        <div class="contrib-actions">
+          <a
+            href="https://github.com/chimba-ui/state-machine/issues/new"
+            target="_blank"
+            rel="noreferrer"
+            class="contrib-btn contrib-btn-primary"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"
+              ></path>
+            </svg>
+            Raise an issue
+          </a>
+          <a
+            href="https://x.com/ivanbanov"
+            target="_blank"
+            rel="noreferrer"
+            class="contrib-btn contrib-btn-secondary"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L2.25 2.25h6.988l4.26 5.634zm-1.161 17.52h1.833L7.084 4.126H5.117z"
+              ></path>
+            </svg>
+            Share on X
+          </a>
+        </div>
+
+        <p class="contrib-note">
+          <b>⭐ Star the repo if it helped you a tiny bit ⭐</b>
+        </p>
+      </div>
+    </section>
+    <!-- /contribute section -->
 
     <Footer />
 
@@ -1325,9 +1380,9 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
             posEl.className = "trade-order-val";
           }
 
-          btnBuy.disabled = state !== "idle";
-          btnSell.disabled = state !== "holding";
-          btnCancl.disabled = state === "idle";
+          btnBuy.disabled   = state !== "idle";
+          btnSell.disabled  = state !== "holding";
+          btnCancl.disabled = state !== "buying";
         };
 
         // symbol strip — subscribe to each pair machine for fine-grained updates
@@ -1701,6 +1756,86 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
       }
       .origin-cta:hover {
         opacity: 0.7;
+      }
+
+      /* ====================================================================
+         CONTRIBUTE SECTION
+         ==================================================================== */
+      .contrib-section {
+        padding: 6rem 1.5rem 7rem;
+        text-align: center;
+        border-top: 1px solid var(--color-border);
+        box-shadow: inset 0 12px 40px -16px rgba(109, 92, 240, 0.1);
+      }
+      .contrib-inner {
+        max-width: 48rem;
+        margin: 0 auto;
+      }
+      .contrib-eyebrow {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--color-accent);
+        margin-bottom: 1.25rem;
+      }
+      .contrib-heading {
+        font-size: 2.5rem;
+        font-weight: 800;
+        line-height: 1.08;
+        letter-spacing: -0.02em;
+        color: var(--color-fg);
+        margin: 0 0 1.25rem;
+      }
+      @media (min-width: 640px) {
+        .contrib-heading {
+          font-size: 3rem;
+        }
+      }
+      .contrib-sub {
+        font-size: 1.0625rem;
+        line-height: 1.75;
+        color: var(--color-muted);
+        margin: 0 0 2.5rem;
+      }
+      .contrib-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.75rem;
+        margin-bottom: 2rem;
+      }
+      .contrib-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        padding: 0.65rem 1.25rem;
+        border-radius: 0.75rem;
+        text-decoration: none;
+        transition:
+          opacity 0.15s,
+          transform 0.15s;
+        white-space: nowrap;
+      }
+      .contrib-btn:hover {
+        opacity: 0.85;
+        transform: translateY(-1px);
+      }
+      .contrib-btn-primary {
+        background: var(--color-fg);
+        color: var(--color-bg);
+      }
+      .contrib-btn-secondary {
+        background: transparent;
+        color: var(--color-fg);
+        border: 1px solid var(--color-border);
+      }
+      .contrib-note {
+        font-size: 0.875rem;
+        color: var(--color-muted);
       }
 
       /* play / pause icon controls on the dark cassette deck: dim grey by

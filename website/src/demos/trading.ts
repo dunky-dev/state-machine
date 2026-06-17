@@ -126,10 +126,10 @@ export function createPairMachine(
         on: {
           CANCEL: { target: 'idle' },
         },
-        // Simulate order-fill delay: after 600 ms transition to holding and
+        // Simulate order-fill delay: after 2s transition to holding and
         // record the fill price as the entry price.
         after: {
-          600: { target: 'holding', actions: ['recordEntry'] },
+          2000: { target: 'holding', actions: ['recordEntry'] },
         },
       },
 
