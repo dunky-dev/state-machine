@@ -765,6 +765,8 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
 
     <script>
       import { createGame, MAZE, ROWS, COLS, key, type Dir } from "../pacman";
+      import { createTradingDemo, type PairState } from "../demos/trading";
+      import { createWhiteboardDemo, CURSOR_COLORS, CURSOR_NAMES } from "../demos/whiteboard";
 
       // THREE machines (pacman · ghost · board) composed into one game. Three
       // renderers read the SAME composed state and paint it three ways.
@@ -1134,307 +1136,153 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
       }, 250);
 
       // =====================================================================
-      // TRADING PANEL DEMO — 3 pairs, each its own machine instance
+      // TRADING PANEL — powered by demos/trading.ts real machines
       // =====================================================================
       {
-        type TradeState = "idle" | "buying" | "holding" | "selling";
-        type Pair = {
-          symbol: string;
-          price: number;
-          vol: number;
-          history: number[];
-          state: TradeState;
-          entryPrice: number;
-        };
-
-        const pairs: Pair[] = [
-          {
-            symbol: "USDEUR",
-            price: 0.9234,
-            vol: 0.0008,
-            history: [],
-            state: "idle",
-            entryPrice: 0,
-          },
-          {
-            symbol: "USDJPY",
-            price: 157.42,
-            vol: 0.15,
-            history: [],
-            state: "idle",
-            entryPrice: 0,
-          },
-          {
-            symbol: "BTCUSD",
-            price: 67420,
-            vol: 180,
-            history: [],
-            state: "idle",
-            entryPrice: 0,
-          },
-        ];
-        pairs.forEach((p) => {
-          for (let i = 0; i < 40; i++) {
-            p.price += (Math.random() - 0.5) * p.vol * 2;
-            p.history.push(p.price);
-          }
-        });
+        const demo = createTradingDemo();
+        demo.group.start();
 
         let activePair = 0;
 
-        const priceEl = document.getElementById("trade-price")!;
-        const deltaEl = document.getElementById("trade-delta")!;
-        const posEl = document.getElementById("trade-position")!;
-        const badge = document.getElementById("trade-state-badge")!;
-        const chartLine = document.getElementById("trade-line")!;
-        const btnBuy = document.getElementById("btn-buy") as HTMLButtonElement;
-        const btnSell = document.getElementById(
-          "btn-sell",
-        ) as HTMLButtonElement;
-        const btnCancl = document.getElementById(
-          "btn-cancel",
-        ) as HTMLButtonElement;
+        const priceEl   = document.getElementById("trade-price")!;
+        const deltaEl   = document.getElementById("trade-delta")!;
+        const posEl     = document.getElementById("trade-position")!;
+        const badge     = document.getElementById("trade-state-badge")!;
+        const chartLine = document.getElementById("trade-line")! as SVGPolylineElement;
+        const btnBuy    = document.getElementById("btn-buy")    as HTMLButtonElement;
+        const btnSell   = document.getElementById("btn-sell")   as HTMLButtonElement;
+        const btnCancl  = document.getElementById("btn-cancel") as HTMLButtonElement;
 
-        const BADGE_COLORS: Record<TradeState, string> = {
-          idle: "#6b7678",
-          buying: "#ffe66d",
-          holding: "#a2e57b",
-          selling: "#ff5d52",
+        const BADGE_COLORS: Record<PairState, string> = {
+          idle: "#6b7678", buying: "#ffe66d", holding: "#a2e57b", selling: "#ff5d52",
         };
 
-        const decPlaces = (p: Pair) => (p.vol < 0.01 ? 4 : p.vol < 1 ? 2 : 0);
+        const decPlaces = (price: number) => price < 1 ? 4 : price < 200 ? 2 : 0;
 
         const renderTrade = () => {
-          const p = pairs[activePair];
-          const dec = decPlaces(p);
-          const prev = p.history[p.history.length - 2] ?? p.price;
-          const delta = p.price - prev;
-          priceEl.textContent = p.price.toFixed(dec);
+          const m = demo.pairs[activePair]!;
+          const { price, prevPrice, history, entryPrice, pnl } = m.context;
+          const { isUp } = m.computed;
+          const state = m.state;
+          const dec = decPlaces(price);
+          const delta = price - prevPrice;
+
+          priceEl.textContent = price.toFixed(dec);
           deltaEl.textContent = (delta >= 0 ? "+" : "") + delta.toFixed(dec);
-          deltaEl.className = "trade-delta " + (delta >= 0 ? "up" : "down");
-          badge.textContent = p.state;
-          badge.style.background = BADGE_COLORS[p.state];
-          badge.style.color = p.state === "buying" ? "#16161a" : "#fff";
+          deltaEl.className = "trade-delta " + (isUp ? "up" : "down");
+          badge.textContent = state;
+          badge.style.background = BADGE_COLORS[state];
+          badge.style.color = state === "buying" ? "#16161a" : "#fff";
 
-          const pts = p.history.slice(-40);
-          const mn = Math.min(...pts),
-            mx = Math.max(...pts);
+          // sparkline from machine's history
+          const pts = history.slice(-40);
+          const mn = Math.min(...pts), mx = Math.max(...pts);
           const range = mx - mn || 1;
-          const points = pts
-            .map((v, i) => {
-              const x = (i / Math.max(pts.length - 1, 1)) * 200;
-              const y = 52 - ((v - mn) / range) * 48;
-              return `${x},${y}`;
-            })
-            .join(" ");
-          chartLine.setAttribute("points", points);
-          chartLine.setAttribute(
-            "stroke",
-            p.price >= (p.history[0] ?? p.price) ? "#a2e57b" : "#ff5d52",
-          );
+          chartLine.setAttribute("points", pts.map((v, i) =>
+            `${(i / Math.max(pts.length - 1, 1)) * 200},${52 - ((v - mn) / range) * 48}`
+          ).join(" "));
+          chartLine.setAttribute("stroke", isUp ? "#a2e57b" : "#ff5d52");
 
-          if (p.state === "holding") {
-            const pnl = p.price - p.entryPrice;
-            posEl.textContent = `${p.entryPrice.toFixed(dec)} to ${p.price.toFixed(dec)} (${pnl >= 0 ? "+" : ""}${pnl.toFixed(dec)})`;
+          if (state === "holding") {
+            posEl.textContent = `${entryPrice.toFixed(dec)} to ${price.toFixed(dec)} (${pnl >= 0 ? "+" : ""}${pnl.toFixed(dec)})`;
             posEl.className = "trade-order-val " + (pnl >= 0 ? "up" : "down");
           } else {
-            posEl.textContent = p.state === "idle" ? "—" : p.state + "…";
+            posEl.textContent = state === "idle" ? "—" : state + "…";
             posEl.className = "trade-order-val";
           }
 
-          btnBuy.disabled = p.state !== "idle";
-          btnSell.disabled = p.state !== "holding";
-          btnCancl.disabled = p.state === "idle";
+          btnBuy.disabled   = state !== "idle";
+          btnSell.disabled  = state !== "holding";
+          btnCancl.disabled = state === "idle";
         };
 
-        // live symbol strip elements
-        const symPriceEls = [0, 1, 2].map(
-          (i) => document.getElementById(`sym-price-${i}`)!,
-        );
-        const symArrowEls = [0, 1, 2].map(
-          (i) => document.getElementById(`sym-arrow-${i}`)!,
-        );
+        // symbol strip — subscribe to each pair machine for fine-grained updates
+        const symPriceEls = [0, 1, 2].map(i => document.getElementById(`sym-price-${i}`)!);
+        const symArrowEls = [0, 1, 2].map(i => document.getElementById(`sym-arrow-${i}`)!);
 
-        const renderSymStrip = (i: number) => {
-          const p = pairs[i];
-          const dec = decPlaces(p);
-          const prev = p.history[p.history.length - 2] ?? p.price;
-          const up = p.price >= prev;
-          symPriceEls[i].textContent = p.price.toFixed(dec);
-          symArrowEls[i].textContent = up ? "▲" : "▼";
-          symArrowEls[i].className = "trade-sym-arrow " + (up ? "up" : "down");
-          const row = symPriceEls[i].closest<HTMLElement>(".trade-sym")!;
-          row.classList.remove("flash-up", "flash-down");
-          void row.offsetWidth; // force reflow so the class re-triggers the animation
-          row.classList.add(up ? "flash-up" : "flash-down");
-        };
-
-        // price ticks — one per pair, all independent
-        pairs.forEach((p, _i) => {
-          setInterval(
-            () => {
-              p.price = Math.max(
-                0.001,
-                p.price + (Math.random() - 0.49) * p.vol * 1.4,
-              );
-              p.history.push(p.price);
-              if (p.history.length > 200) p.history.shift();
-              renderSymStrip(_i);
-              if (_i === activePair) renderTrade();
-            },
-            350 + _i * 80,
-          );
-        });
-        // initial strip render
-        pairs.forEach((_, i) => renderSymStrip(i));
-
-        // order machine transition
-        const transition = (event: string) => {
-          const p = pairs[activePair];
-          if (event === "BUY" && p.state === "idle") {
-            p.state = "buying";
-            setTimeout(() => {
-              p.entryPrice = p.price;
-              p.state = "holding";
-              renderTrade();
-            }, 600);
-          }
-          if (event === "SELL" && p.state === "holding") {
-            p.state = "selling";
-            setTimeout(() => {
-              p.state = "idle";
-              renderTrade();
-            }, 600);
-          }
-          if (event === "CANCEL" && p.state === "buying") {
-            p.state = "idle";
-          }
-          renderTrade();
-        };
-
-        btnBuy.addEventListener("click", () => transition("BUY"));
-        btnSell.addEventListener("click", () => transition("SELL"));
-        btnCancl.addEventListener("click", () => transition("CANCEL"));
-
-        // pair selection via symbol strip
-        document
-          .querySelectorAll<HTMLButtonElement>(".trade-sym")
-          .forEach((btn) => {
-            btn.addEventListener("click", () => {
-              activePair = Number(btn.dataset.pair);
-              document
-                .querySelectorAll(".trade-sym")
-                .forEach((t) => t.classList.remove("trade-sym-active"));
-              btn.classList.add("trade-sym-active");
-              renderTrade();
-            });
+        demo.pairs.forEach((m, i) => {
+          m.subscribe(() => {
+            const { price, prevPrice } = m.context;
+            const up = price >= prevPrice;
+            const dec = decPlaces(price);
+            symPriceEls[i]!.textContent = price.toFixed(dec);
+            symArrowEls[i]!.textContent = up ? "▲" : "▼";
+            symArrowEls[i]!.className = "trade-sym-arrow " + (up ? "up" : "down");
+            const row = symPriceEls[i]!.closest<HTMLElement>(".trade-sym")!;
+            row.classList.remove("flash-up", "flash-down");
+            void row.offsetWidth;
+            row.classList.add(up ? "flash-up" : "flash-down");
+            if (i === activePair) renderTrade();
           });
+        });
+
+        // BUY / SELL / CANCEL forward directly to the active pair machine
+        btnBuy.addEventListener("click",   () => { demo.pairs[activePair]!.send({ type: "BUY"    }); });
+        btnSell.addEventListener("click",  () => { demo.pairs[activePair]!.send({ type: "SELL"   }); });
+        btnCancl.addEventListener("click", () => { demo.pairs[activePair]!.send({ type: "CANCEL" }); });
+
+        // pair selection
+        document.querySelectorAll<HTMLButtonElement>(".trade-sym").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            activePair = Number(btn.dataset.pair);
+            document.querySelectorAll(".trade-sym").forEach(t => t.classList.remove("trade-sym-active"));
+            btn.classList.add("trade-sym-active");
+            renderTrade();
+          });
+        });
 
         // accordion
-        const toggle = document.getElementById("trade-code-toggle")!;
-        const panel = document.getElementById("trade-code-panel")!;
-        toggle.addEventListener("click", () => {
-          const open = toggle.getAttribute("aria-expanded") === "true";
-          toggle.setAttribute("aria-expanded", String(!open));
-          panel.hidden = open;
-          toggle.querySelector(".trade-accordion-chevron")!.textContent = open
-            ? "▸"
-            : "▾";
+        const tradeToggle = document.getElementById("trade-code-toggle")!;
+        const tradePanel  = document.getElementById("trade-code-panel")!;
+        tradeToggle.addEventListener("click", () => {
+          const open = tradeToggle.getAttribute("aria-expanded") === "true";
+          tradeToggle.setAttribute("aria-expanded", String(!open));
+          tradePanel.hidden = open;
+          tradeToggle.querySelector(".trade-accordion-chevron")!.textContent = open ? "▸" : "▾";
         });
 
         renderTrade();
       }
 
       // =====================================================================
-      // WHITEBOARD DEMO — 10 autonomous cursors + 2 draggable sticky notes
+      // WHITEBOARD — powered by demos/whiteboard.ts real machines
       // =====================================================================
       {
-        const canvas = document.getElementById("wb-canvas")!;
+        const STICKY_DATA = [
+          { text: "Redesign header\nfor mobile", color: "#ffe66d" },
+          { text: "Fix tooltip on\ncanvas nodes",  color: "#a2e57b" },
+        ];
+
+        const canvas  = document.getElementById("wb-canvas")!;
         const wbBadge = document.getElementById("wb-state-badge")!;
 
-        type CursorState = "idle" | "moving";
-        type StickyState = "placed" | "dragging";
+        const demo = createWhiteboardDemo();
+        demo.group.start();
 
-        // cursor colors — a rainbow of user avatars
-        const CURSOR_COLORS = [
-          "#ff5d52",
-          "#ffe66d",
-          "#a2e57b",
-          "#62b3ff",
-          "#c8a9f0",
-          "#ff9f7e",
-          "#4dd9c0",
-          "#f472b6",
-          "#94a3b8",
-          "#fb923c",
-        ];
-        const CURSOR_NAMES = [
-          "alice",
-          "bob",
-          "carol",
-          "dave",
-          "eve",
-          "frank",
-          "grace",
-          "hiro",
-          "ines",
-          "jan",
-        ];
-
-        // ease-in-out cubic: 0→1 over t∈[0,1]
-        const easeInOut = (t: number) => t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
-
-        type Cursor = {
-          el: HTMLElement;
-          // current rendered position
-          x: number; y: number;
-          // journey: from → to, progress 0→1
-          x0: number; y0: number;
-          x1: number; y1: number;
-          progress: number;   // 0 = at start, 1 = at destination
-          speed: number;      // progress units per ms — controls how fast this cursor moves
-          state: CursorState;
-          pauseUntil: number; // timestamp when idle pause ends
-        };
-
-        const cursors: Cursor[] = CURSOR_COLORS.map((color, i) => {
+        // build cursor DOM elements, keyed to their machine
+        const cursorEls: HTMLElement[] = demo.cursors.map((m, i) => {
+          const color = CURSOR_COLORS[i]!;
           const el = document.createElement("div");
           el.className = "wb-cursor";
-          el.style.setProperty("--cur-color", color);
           el.innerHTML = `<svg width="14" height="18" viewBox="0 0 14 18" fill="none"><path d="M0 0l14 10-6.5 1.5L5 18z" fill="${color}"/></svg>`;
           const label = document.createElement("span");
           label.className = "wb-cursor-label";
-          label.textContent = CURSOR_NAMES[i];
+          label.textContent = CURSOR_NAMES[i]!;
           label.style.background = color;
           el.appendChild(label);
           canvas.appendChild(el);
-          const x = 10 + Math.random() * 80, y = 10 + Math.random() * 80;
-          // stagger start times so they don't all pick targets at once
-          return {
-            el, x, y,
-            x0: x, y0: y, x1: x, y1: y,
-            progress: 1,
-            speed: 0.00045 + Math.random() * 0.00035,
-            state: "idle" as CursorState,
-            pauseUntil: performance.now() + i * 400 + Math.random() * 800,
-          };
+          // subscribe: re-render this cursor whenever its machine changes
+          m.subscribe(() => {
+            el.style.left = m.computed.ex + "%";
+            el.style.top  = m.computed.ey + "%";
+          });
+          return el;
         });
+        void cursorEls; // used via subscribe side-effects
 
-        // sticky note data
-        type Sticky = {
-          el: HTMLElement;
-          x: number;
-          y: number;
-          state: StickyState;
-          stEl: HTMLElement;
-        };
-
-        const STICKY_DATA = [
-          { text: "Redesign header\nfor mobile", color: "#ffe66d" },
-          { text: "Fix tooltip on\ncanvas nodes", color: "#a2e57b" },
-        ];
-
-        const stickies: Sticky[] = STICKY_DATA.map((d, i) => {
+        // build sticky DOM elements, wire pointer events to machine events
+        demo.stickies.forEach((m, i) => {
+          const d = STICKY_DATA[i]!;
           const el = document.createElement("div");
           el.className = "wb-sticky";
           el.style.background = d.color;
@@ -1443,99 +1291,48 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
           txt.textContent = d.text;
           const stEl = document.createElement("span");
           stEl.className = "wb-sticky-state";
-          stEl.textContent = "placed";
           el.appendChild(txt);
           el.appendChild(stEl);
           canvas.appendChild(el);
-          const x = 18 + i * 38,
-            y = 15 + i * 12;
-          el.style.left = x + "%";
-          el.style.top = y + "%";
-          return { el, x, y, state: "placed" as StickyState, stEl };
-        });
 
-        // drag stickies
-        stickies.forEach((s) => {
-          let dragging = false,
-            ox = 0,
-            oy = 0;
-          const canvasRect = () => canvas.getBoundingClientRect();
-          s.el.addEventListener("pointerdown", (e) => {
-            dragging = true;
-            s.state = "dragging";
-            s.stEl.textContent = "dragging";
-            s.el.classList.add("wb-sticky-dragging");
-            const r = canvasRect();
-            ox = e.clientX - r.left - (s.x / 100) * r.width;
-            oy = e.clientY - r.top - (s.y / 100) * r.height;
-            s.el.setPointerCapture(e.pointerId);
+          // subscribe: sync DOM from machine context
+          m.subscribe(() => {
+            el.style.left = m.computed.normalizedX + "%";
+            el.style.top  = m.computed.normalizedY + "%";
+            stEl.textContent = m.state;
+            el.classList.toggle("wb-sticky-dragging", m.state === "dragging");
+          });
+
+          // pointer events → machine events
+          el.addEventListener("pointerdown", (e) => {
+            const r = canvas.getBoundingClientRect();
+            const offsetX = e.clientX - r.left - (m.context.x / 100) * r.width;
+            const offsetY = e.clientY - r.top  - (m.context.y / 100) * r.height;
+            m.send({ type: "DRAG_START", offsetX, offsetY });
+            el.setPointerCapture(e.pointerId);
             e.preventDefault();
           });
-          s.el.addEventListener("pointermove", (e) => {
-            if (!dragging) return;
-            const r = canvasRect();
-            s.x = Math.max(
-              0,
-              Math.min(85, ((e.clientX - r.left - ox) / r.width) * 100),
-            );
-            s.y = Math.max(
-              0,
-              Math.min(80, ((e.clientY - r.top - oy) / r.height) * 100),
-            );
-            s.el.style.left = s.x + "%";
-            s.el.style.top = s.y + "%";
+          el.addEventListener("pointermove", (e) => {
+            if (m.state !== "dragging") return;
+            m.send({ type: "DRAG_MOVE", clientX: e.clientX, clientY: e.clientY, canvasRect: canvas.getBoundingClientRect() });
           });
-          s.el.addEventListener("pointerup", () => {
-            dragging = false;
-            s.state = "placed";
-            s.stEl.textContent = "placed";
-            s.el.classList.remove("wb-sticky-dragging");
+          el.addEventListener("pointerup", () => {
+            m.send({ type: "DROP" });
           });
-        });
 
-        // autonomous cursor animation — smooth ease-in/out journeys like real users
-        let lastTs = performance.now();
-        const animateCursors = (ts: number) => {
-          const dt = Math.min(ts - lastTs, 50); // cap dt so tab-wake doesn't teleport
-          lastTs = ts;
-          cursors.forEach((c) => {
-            if (c.state === "idle") {
-              if (ts >= c.pauseUntil) {
-                // pick a new destination and start moving
-                c.x0 = c.x; c.y0 = c.y;
-                c.x1 = 6 + Math.random() * 86;
-                c.y1 = 6 + Math.random() * 86;
-                c.progress = 0;
-                c.state = "moving";
-              }
-            } else {
-              c.progress = Math.min(1, c.progress + c.speed * dt);
-              const e = easeInOut(c.progress);
-              c.x = c.x0 + (c.x1 - c.x0) * e;
-              c.y = c.y0 + (c.y1 - c.y0) * e;
-              if (c.progress >= 1) {
-                c.state = "idle";
-                // pause 0.8–3 s before next move
-                c.pauseUntil = ts + 800 + Math.random() * 2200;
-              }
-            }
-            c.el.style.left = c.x + "%";
-            c.el.style.top  = c.y + "%";
-          });
-          requestAnimationFrame(animateCursors);
-        };
-        requestAnimationFrame(animateCursors);
+          // initial position
+          el.style.left = m.context.x + "%";
+          el.style.top  = m.context.y + "%";
+        });
 
         // accordion
         const wbToggle = document.getElementById("wb-code-toggle")!;
-        const wbPanel = document.getElementById("wb-code-panel")!;
+        const wbPanel  = document.getElementById("wb-code-panel")!;
         wbToggle.addEventListener("click", () => {
           const open = wbToggle.getAttribute("aria-expanded") === "true";
           wbToggle.setAttribute("aria-expanded", String(!open));
           wbPanel.hidden = open;
-          wbToggle.querySelector(".trade-accordion-chevron")!.textContent = open
-            ? "▸"
-            : "▾";
+          wbToggle.querySelector(".trade-accordion-chevron")!.textContent = open ? "▸" : "▾";
         });
 
         wbBadge.textContent = "live";

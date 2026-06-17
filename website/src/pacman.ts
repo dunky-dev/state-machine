@@ -1,4 +1,11 @@
-import { compose, machine, type Composition, type Machine } from '@chimba-ui/state-machine'
+import {
+  act,
+  compose,
+  machine,
+  type Action,
+  type Composition,
+  type Machine,
+} from '@chimba-ui/state-machine'
 
 // 1 = wall, 0 = path. A small, symmetric maze that reads as "Pac-Man".
 // prettier-ignore
@@ -105,45 +112,60 @@ export interface PacCtx {
   dir: Dir
   mouth: Mouth
 }
-// `step` moves + flips the mouth; `face` aims; `die`/`revive` flip the state
+// `step` moves; `face` aims; `die`/`revive` flip the state
 export type PacEv =
   | { type: 'step'; x: number; y: number }
   | { type: 'face'; dir: Dir }
   | { type: 'die' }
   | { type: 'revive' }
-export type PacMachine = Machine<PacState, PacCtx, PacEv>
+
+export interface PacComputed {
+  mouthOpen: boolean
+  isDead: boolean
+}
+
+export type PacMachine = Machine<PacState, PacCtx, PacEv, PacComputed>
 
 export function createPacmanMachine(): PacMachine {
-  const shared = {
-    face: { actions: [({ event, setContext }: any) => setContext({ dir: event.dir })] },
-  }
-  return machine<PacState, PacCtx, PacEv>({
+  return machine<PacState, PacCtx, PacEv, PacComputed>({
     initial: 'eating',
     context: { x: PAC_START.x, y: PAC_START.y, dir: 'right', mouth: 'open' },
+    computed: {
+      mouthOpen: ({ context }) => context.mouth === 'open',
+      isDead: ({ state }) => state === 'dead',
+    },
+    // On every x-position change, toggle the mouth declaratively — replaces the
+    // inline mouth flip that used to live inside the `step` action.
+    watch: {
+      x: [act(({ context }) => ({ mouth: context.mouth === 'open' ? 'closed' : 'open' }))],
+    },
     states: {
       eating: {
         on: {
-          ...shared,
+          face: { actions: [act(({ event }) => ({ dir: event.dir }))] },
           step: {
-            actions: [
-              ({ event, context, setContext }: any) =>
-                setContext({
-                  x: event.x,
-                  y: event.y,
-                  mouth: context.mouth === 'open' ? 'closed' : 'open',
-                }),
-            ],
+            guard: ({ computed }) => !computed.isDead,
+            actions: [act(({ event }) => ({ x: event.x, y: event.y }))],
           },
           die: { target: 'dead' },
         },
       },
       dead: {
+        // Auto-revive after 1.2s — makes the dead state observable (a beat of
+        // feedback) before the next round starts. Cancelled immediately if the
+        // manual `revive` event arrives first.
+        after: {
+          1200: {
+            target: 'eating',
+            actions: [act({ ...PAC_START, dir: 'right' as Dir, mouth: 'open' as Mouth })],
+          },
+        },
         on: {
+          // Manual override — allows forcing an early revive without waiting for
+          // the 1.2s timer (e.g. an instant-reset triggered from the board).
           revive: {
             target: 'eating',
-            actions: [
-              ({ setContext }: any) => setContext({ ...PAC_START, dir: 'right', mouth: 'open' }),
-            ],
+            actions: [act({ ...PAC_START, dir: 'right' as Dir, mouth: 'open' as Mouth })],
           },
         },
       },
@@ -159,32 +181,43 @@ export interface GhostCtx {
   x: number
   y: number
   dir: Dir
+  /** Tick parity — the ghost skips every other tick to keep a step behind Pac. */
+  phase: number
 }
 export type GhostEv =
   | { type: 'tick'; targetX: number; targetY: number }
   | { type: 'stop' }
   | { type: 'reset' }
-export type GhostMachine = Machine<GhostState, GhostCtx, GhostEv>
+
+export interface GhostComputed {
+  isChasing: boolean
+}
+
+export type GhostMachine = Machine<GhostState, GhostCtx, GhostEv, GhostComputed>
 
 export function createGhostMachine(): GhostMachine {
   // The ghost is a touch slower than Pac-Man: it BFS-chases the shortest path,
-  // but skips every 3rd tick so Pac keeps a lead and catches are occasional
-  // (a real chase) rather than instant. `phase` counts ticks across the closure.
-  let phase = 0
-  const chase = ({ event, context, setContext }: any) => {
+  // but skips every other tick so Pac keeps a lead and catches are occasional
+  // (a real chase) rather than instant. `phase` lives in context so it's part of
+  // the machine's observable state — no hidden closure counter.
+  const chase: Action<GhostCtx, GhostEv, GhostComputed> = ({ event, context, setContext }) => {
     if (event.type !== 'tick') return
-    // move at half Pac-Man's speed (skip every other tick) so the chase builds
-    // and catches are occasional, not instant
-    phase = (phase + 1) % 2
-    if (phase === 0) return
+    const nextPhase = (context.phase + 1) % 2
+    setContext({ phase: nextPhase })
+    if (nextPhase === 0) return
     const step = bfsStep(context.x, context.y, event.targetX, event.targetY)
     if (step) setContext({ x: step.x, y: step.y, dir: step.dir })
   }
-  return machine<GhostState, GhostCtx, GhostEv>({
+
+  return machine<GhostState, GhostCtx, GhostEv, GhostComputed>({
     initial: 'roaming',
-    context: { x: GHOST_START.x, y: GHOST_START.y, dir: 'up' },
+    context: { x: GHOST_START.x, y: GHOST_START.y, dir: 'up', phase: 0 },
+    computed: {
+      isChasing: ({ state }) => state === 'roaming',
+    },
     states: {
       roaming: {
+        effects: [() => () => {}],
         on: {
           tick: { actions: [chase] },
           stop: { target: 'stopped' },
@@ -194,7 +227,7 @@ export function createGhostMachine(): GhostMachine {
         on: {
           reset: {
             target: 'roaming',
-            actions: [({ setContext }: any) => setContext({ ...GHOST_START, dir: 'up' })],
+            actions: [act({ ...GHOST_START, dir: 'up' as Dir, phase: 0 })],
           },
         },
       },
@@ -205,6 +238,7 @@ export function createGhostMachine(): GhostMachine {
 // ----------------------------------------------------------------------------
 // 3) BOARD — the shared/general info (dots, cherry, score, status)
 // ----------------------------------------------------------------------------
+export type BoardState = 'playing' | 'caught'
 export interface BoardCtx {
   dots: Set<string>
   cherry: Pt | null
@@ -212,10 +246,35 @@ export interface BoardCtx {
   status: 'playing' | 'caught'
 }
 export type BoardEv = { type: 'eat'; x: number; y: number } | { type: 'caught' } | { type: 'reset' }
-export type BoardMachine = Machine<'playing' | 'caught', BoardCtx, BoardEv>
+
+export interface BoardComputed {
+  dotCount: number
+  hasCherry: boolean
+  isPerfect: boolean
+}
+
+export type BoardMachine = Machine<BoardState, BoardCtx, BoardEv, BoardComputed>
 
 export function createBoardMachine(): BoardMachine {
-  return machine<'playing' | 'caught', BoardCtx, BoardEv>({
+  const eat: Action<BoardCtx, BoardEv, BoardComputed> = ({ event, context, setContext }) => {
+    if (event.type !== 'eat') return
+    const dots = context.dots
+    let score = context.score
+    let cherry = context.cherry
+    if (dots.has(key(event.x, event.y))) {
+      dots.delete(key(event.x, event.y))
+      score += 10
+    }
+    if (cherry && cherry.x === event.x && cherry.y === event.y) {
+      cherry = null
+      score += 100
+    }
+    // refill so the board never empties
+    const refilled = dots.size === 0 ? initialDots([{ x: event.x, y: event.y }]) : dots
+    setContext({ dots: refilled, cherry, score })
+  }
+
+  return machine<BoardState, BoardCtx, BoardEv, BoardComputed>({
     initial: 'playing',
     context: {
       dots: initialDots([PAC_START, GHOST_START]),
@@ -223,33 +282,28 @@ export function createBoardMachine(): BoardMachine {
       score: 0,
       status: 'playing',
     },
+    computed: {
+      dotCount: ({ context }) => context.dots.size,
+      hasCherry: ({ context }) => context.cherry !== null,
+      isPerfect: ({ context }) => context.score > 0 && context.dots.size === 0,
+    },
+    // Fire whenever score crosses a 100-point milestone.
+    watch: {
+      score: [
+        ({ context }) => {
+          if (context.score > 0 && context.score % 100 === 0) {
+            // score milestone reached — hook point for celebratory effects
+          }
+        },
+      ],
+    },
     states: {
       playing: {
         on: {
-          eat: {
-            actions: [
-              ({ event, context, setContext }: any) => {
-                if (event.type !== 'eat') return
-                const dots = context.dots
-                let score = context.score
-                let cherry = context.cherry
-                if (dots.has(key(event.x, event.y))) {
-                  dots.delete(key(event.x, event.y))
-                  score += 10
-                }
-                if (cherry && cherry.x === event.x && cherry.y === event.y) {
-                  cherry = null
-                  score += 100
-                }
-                // refill so the board never empties
-                const refilled = dots.size === 0 ? initialDots([{ x: event.x, y: event.y }]) : dots
-                setContext({ dots: refilled, cherry, score })
-              },
-            ],
-          },
+          eat: { actions: [eat] },
           caught: {
             target: 'caught',
-            actions: [({ setContext }: any) => setContext({ status: 'caught' })],
+            actions: [act({ status: 'caught' as BoardCtx['status'] })],
           },
         },
       },
@@ -258,13 +312,12 @@ export function createBoardMachine(): BoardMachine {
           reset: {
             target: 'playing',
             actions: [
-              ({ setContext }: any) =>
-                setContext({
-                  dots: initialDots([PAC_START, GHOST_START]),
-                  cherry: { ...CHERRY_START },
-                  score: 0,
-                  status: 'playing',
-                }),
+              act({
+                dots: initialDots([PAC_START, GHOST_START]),
+                cherry: { ...CHERRY_START } as Pt | null,
+                score: 0,
+                status: 'playing' as BoardCtx['status'],
+              }),
             ],
           },
         },
@@ -389,10 +442,9 @@ export function createGame(): Game {
   const caught = (px: number, py: number, gx: number, gy: number) => px === gx && py === gy
 
   const tick = (forced?: Dir) => {
-    // While dead, hold for a beat then revive everyone — makes the `dead`/`stopped`
-    // states observable instead of resetting in the same frame.
+    // While dead, the `after` timer on the dead state will auto-revive pacman.
+    // Reset ghost and board immediately so they're ready when the timer fires.
     if (pacman.state === 'dead') {
-      pacman.send({ type: 'revive' })
       ghost.send({ type: 'reset' })
       board.send({ type: 'reset' })
       return
@@ -448,9 +500,9 @@ export function createGame(): Game {
     const ghostOntoPac = g.x === px0 && g.y === py0
     const pacOntoGhost = nx === gx0 && ny === gy0
     if (sameCell || swapped || ghostOntoPac || pacOntoGhost) {
-      pacman.send({ type: 'die' }) // pacman → dead
+      pacman.send({ type: 'die' }) // pacman → dead (after 1.2s timer will revive)
       ghost.send({ type: 'stop' }) // ghost → stopped
-      board.send({ type: 'caught' }) // board → caught (revive happens next tick)
+      board.send({ type: 'caught' }) // board → caught
     }
   }
 
