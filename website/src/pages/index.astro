@@ -1,5 +1,6 @@
 ---
 import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
 import "../styles/global.css";
 
 const base = import.meta.env.BASE_URL;
@@ -761,49 +762,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
     </section>
     <!-- /lab section -->
 
-    <!-- big, dark, premium footer: a closing CTA + install + link columns -->
-    <!-- slim, premium dark footer: oversized wordmark + GitHub + maintainer -->
-    <footer class="site-footer">
-      <div
-        class="mx-auto flex max-w-5xl flex-col items-center gap-10 px-6 py-20 text-center sm:py-28 xl:max-w-6xl"
-      >
-        <div
-          class="flex flex-col items-center gap-5 border-t border-white/10 pt-10 sm:flex-row sm:gap-8"
-        >
-          <a
-            class="footer-gh inline-flex items-center gap-2"
-            href={repo}
-            target="_blank"
-            rel="noreferrer"
-            aria-label="Chimba on GitHub"
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 16 16"
-              fill="currentColor"
-              aria-hidden="true"
-              ><path
-                d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"
-              ></path></svg
-            >
-            GitHub
-          </a>
-          <span class="hidden text-white/20 sm:inline" aria-hidden="true"
-            >·</span
-          >
-          <span class="text-sm text-white/50">
-            Maintained by
-            <a
-              class="footer-gh font-medium"
-              href="https://github.com/ivanbanov"
-              target="_blank"
-              rel="noreferrer">@ivanbanov</a
-            >
-          </span>
-        </div>
-      </div>
-    </footer>
+    <Footer />
 
     <script>
       import { createGame, MAZE, ROWS, COLS, key, type Dir } from "../pacman";
@@ -1496,25 +1455,6 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
       }
 
       /* ====================================================================
-         FOOTER — a big, dark, premium close: CTA + install + link columns.
-         ==================================================================== */
-      .site-footer {
-        background: radial-gradient(
-          120% 120% at 15% 0%,
-          #15171c 0%,
-          #0b0c0f 55%,
-          #050507 100%
-        );
-        color: #fff;
-      }
-      .footer-gh {
-        color: rgba(255, 255, 255, 0.7);
-        transition: color 0.15s ease;
-      }
-      .footer-gh:hover {
-        color: #fff;
-      }
-
       /* play / pause icon controls on the dark cassette deck: dim grey by
          default, bright + chip-highlighted for the ACTIVE one. data-paused on
          the wrapper flips which is "on": playing → play active; paused → pause. */
