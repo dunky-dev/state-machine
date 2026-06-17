@@ -110,11 +110,11 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
            machines", releasing at the grid's end. On mobile it's one column,
            ordered copy → game → code. -->
       <div
-        class="grid grid-cols-1 gap-10 lg:grid-cols-5 lg:gap-x-12 lg:gap-y-0"
+        class="grid grid-cols-1 items-start gap-10 lg:items-stretch lg:grid-cols-5 lg:gap-x-12 lg:gap-y-0"
       >
         <!-- the polished DX-lib copy column (top-left) — fills the first screen -->
         <section
-          class="order-1 flex flex-col justify-center lg:col-span-3 lg:col-start-1 lg:row-start-1"
+          class="order-1 flex flex-col lg:justify-center lg:col-span-3 lg:col-start-1 lg:row-start-1"
         >
           <!-- brand lockup: Chimba wordmark logo + STATE-MACHINE eyebrow. -->
           <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -199,37 +199,6 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
             </button>
           </div>
 
-          <!-- MOBILE-ONLY live state table — same data as the cassette card,
-               shown below the hero CTAs on small screens, hidden on lg+ where
-               the sticky cassette panel takes over. -->
-          <div class="mt-6 lg:hidden">
-            <table class="pac-table dark-card w-full font-mono text-[10px]">
-              <thead>
-                <tr class="panel-head text-left text-[9px] uppercase tracking-wider">
-                  <th class="px-3 py-2 font-medium">machine</th>
-                  <th class="px-1 py-2 font-medium">state</th>
-                  <th class="px-2 py-2 font-medium">context</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td class="px-3 py-1.5 text-[#ffe66d]"><span aria-hidden="true">⚙️</span> pacman</td>
-                  <td id="m-st-pacman" class="px-1 py-1.5">…</td>
-                  <td id="m-cx-pacman" class="cx-cell px-3 py-1.5"> </td>
-                </tr>
-                <tr>
-                  <td class="px-3 py-1.5 text-[#62b3ff]"><span aria-hidden="true">⚙️</span> ghost</td>
-                  <td id="m-st-ghost" class="px-1 py-1.5">…</td>
-                  <td id="m-cx-ghost" class="cx-cell px-3 py-1.5"> </td>
-                </tr>
-                <tr>
-                  <td class="px-3 py-1.5 text-[#ff5d52]"><span aria-hidden="true">⚙️</span> board</td>
-                  <td id="m-st-board" class="px-1 py-1.5">…</td>
-                  <td id="m-cx-board" class="cx-cell px-3 py-1.5"> </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
         </section>
 
         <!-- FEATURE BAND — three value props, right after the hero. Sits in the
@@ -327,7 +296,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
              comes to rest in the SNES dock beside "One machine". On mobile it
              sits right after the hero copy (order-2). -->
         <div
-          class="hidden lg:block lg:col-span-2 lg:col-start-4 lg:row-span-3 lg:row-start-1 z-10 -mb-[250px]"
+          class="hidden lg:block lg:col-span-2 lg:col-start-4 lg:row-span-3 lg:row-start-1 z-10 -mb-[275px]"
         >
           <div
             id="hero-live"
@@ -466,6 +435,37 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
           > with no environment assumptions. Plug it into any JS UI. If JS runs it,
           <strong class="font-semibold text-fg">the machine drives it</strong>.
         </p>
+
+        <!-- MOBILE-ONLY live state table — sits here, after the "One machine" copy.
+             On lg+ the cassette card handles this; hidden there. -->
+        <div class="mt-6 lg:hidden">
+          <table class="pac-table dark-card w-full font-mono text-[10px]">
+            <thead>
+              <tr class="panel-head text-left text-[9px] uppercase tracking-wider">
+                <th class="px-3 py-2 font-medium">machine</th>
+                <th class="px-1 py-2 font-medium">state</th>
+                <th class="px-2 py-2 font-medium">context</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="px-3 py-1.5 text-[#ffe66d]"><span aria-hidden="true">⚙️</span> pacman</td>
+                <td id="m-st-pacman" class="px-1 py-1.5">…</td>
+                <td id="m-cx-pacman" class="cx-cell px-3 py-1.5"> </td>
+              </tr>
+              <tr>
+                <td class="px-3 py-1.5 text-[#62b3ff]"><span aria-hidden="true">⚙️</span> ghost</td>
+                <td id="m-st-ghost" class="px-1 py-1.5">…</td>
+                <td id="m-cx-ghost" class="cx-cell px-3 py-1.5"> </td>
+              </tr>
+              <tr>
+                <td class="px-3 py-1.5 text-[#ff5d52]"><span aria-hidden="true">⚙️</span> board</td>
+                <td id="m-st-board" class="px-1 py-1.5">…</td>
+                <td id="m-cx-board" class="cx-cell px-3 py-1.5"> </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
         <!-- BROADCAST: the cassette's cable runs down into the CONSOLE (hub),
              which fans out to the three frames. The frames are always live. -->
@@ -799,7 +799,11 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
     <script>
       import { createGame, MAZE, ROWS, COLS, key, type Dir } from "../pacman";
       import { createTradingDemo, type PairState } from "../demos/trading";
-      import { createWhiteboardDemo, CURSOR_COLORS, CURSOR_NAMES } from "../demos/whiteboard";
+      import {
+        createWhiteboardDemo,
+        CURSOR_COLORS,
+        CURSOR_NAMES,
+      } from "../demos/whiteboard";
 
       // THREE machines (pacman · ghost · board) composed into one game. Three
       // renderers read the SAME composed state and paint it three ways.
@@ -861,19 +865,19 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
       // --- live state TABLE: state + context per machine -----------------------
       // Values are padded to fixed widths so the { … } never changes size and the
       // table stays rock-still as numbers tick (no layout jitter).
-      const stPacman  = document.getElementById("st-pacman")!;
-      const stGhost   = document.getElementById("st-ghost")!;
-      const stBoard   = document.getElementById("st-board")!;
-      const cxPacman  = document.getElementById("cx-pacman")!;
-      const cxGhost   = document.getElementById("cx-ghost")!;
-      const cxBoard   = document.getElementById("cx-board")!;
+      const stPacman = document.getElementById("st-pacman")!;
+      const stGhost = document.getElementById("st-ghost")!;
+      const stBoard = document.getElementById("st-board")!;
+      const cxPacman = document.getElementById("cx-pacman")!;
+      const cxGhost = document.getElementById("cx-ghost")!;
+      const cxBoard = document.getElementById("cx-board")!;
       // mobile duplicates
       const mStPacman = document.getElementById("m-st-pacman")!;
-      const mStGhost  = document.getElementById("m-st-ghost")!;
-      const mStBoard  = document.getElementById("m-st-board")!;
+      const mStGhost = document.getElementById("m-st-ghost")!;
+      const mStBoard = document.getElementById("m-st-board")!;
       const mCxPacman = document.getElementById("m-cx-pacman")!;
-      const mCxGhost  = document.getElementById("m-cx-ghost")!;
-      const mCxBoard  = document.getElementById("m-cx-board")!;
+      const mCxGhost = document.getElementById("m-cx-ghost")!;
+      const mCxBoard = document.getElementById("m-cx-board")!;
       const n2 = (v: number) => String(v).padStart(2, " ");
       const dir5 = (d: Dir) => d.padEnd(5, " ");
       const paintDebug = () => {
@@ -881,17 +885,23 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
         const g = ghost.context;
         const b = board.context;
         const pacSt = pacman.state;
-        const ghSt  = ghost.state;
-        const bdSt  = board.state;
+        const ghSt = ghost.state;
+        const bdSt = board.state;
         const pacCx = `{ x:${n2(p.x)} y:${n2(p.y)} dir:${dir5(p.dir)} }`;
-        const ghCx  = `{ x:${n2(g.x)} y:${n2(g.y)} dir:${dir5(g.dir)} }`;
-        const bdCx  = `{ score:${String(b.score).padStart(4, " ")} }`;
-        stPacman.textContent  = pacSt;  mStPacman.textContent = pacSt;
-        stGhost.textContent   = ghSt;   mStGhost.textContent  = ghSt;
-        stBoard.textContent   = bdSt;   mStBoard.textContent  = bdSt;
-        cxPacman.textContent  = pacCx;  mCxPacman.textContent = pacCx;
-        cxGhost.textContent   = ghCx;   mCxGhost.textContent  = ghCx;
-        cxBoard.textContent   = bdCx;   mCxBoard.textContent  = bdCx;
+        const ghCx = `{ x:${n2(g.x)} y:${n2(g.y)} dir:${dir5(g.dir)} }`;
+        const bdCx = `{ score:${String(b.score).padStart(4, " ")} }`;
+        stPacman.textContent = pacSt;
+        mStPacman.textContent = pacSt;
+        stGhost.textContent = ghSt;
+        mStGhost.textContent = ghSt;
+        stBoard.textContent = bdSt;
+        mStBoard.textContent = bdSt;
+        cxPacman.textContent = pacCx;
+        mCxPacman.textContent = pacCx;
+        cxGhost.textContent = ghCx;
+        mCxGhost.textContent = ghCx;
+        cxBoard.textContent = bdCx;
+        mCxBoard.textContent = bdCx;
       };
 
       // --- one render pass paints all renderers + the live state table --------
@@ -1189,20 +1199,30 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
 
         let activePair = 0;
 
-        const priceEl   = document.getElementById("trade-price")!;
-        const deltaEl   = document.getElementById("trade-delta")!;
-        const posEl     = document.getElementById("trade-position")!;
-        const badge     = document.getElementById("trade-state-badge")!;
-        const chartLine = document.getElementById("trade-line")! as SVGPolylineElement;
-        const btnBuy    = document.getElementById("btn-buy")    as HTMLButtonElement;
-        const btnSell   = document.getElementById("btn-sell")   as HTMLButtonElement;
-        const btnCancl  = document.getElementById("btn-cancel") as HTMLButtonElement;
+        const priceEl = document.getElementById("trade-price")!;
+        const deltaEl = document.getElementById("trade-delta")!;
+        const posEl = document.getElementById("trade-position")!;
+        const badge = document.getElementById("trade-state-badge")!;
+        const chartLine = document.getElementById(
+          "trade-line",
+        )! as SVGPolylineElement;
+        const btnBuy = document.getElementById("btn-buy") as HTMLButtonElement;
+        const btnSell = document.getElementById(
+          "btn-sell",
+        ) as HTMLButtonElement;
+        const btnCancl = document.getElementById(
+          "btn-cancel",
+        ) as HTMLButtonElement;
 
         const BADGE_COLORS: Record<PairState, string> = {
-          idle: "#6b7678", buying: "#ffe66d", holding: "#a2e57b", selling: "#ff5d52",
+          idle: "#6b7678",
+          buying: "#ffe66d",
+          holding: "#a2e57b",
+          selling: "#ff5d52",
         };
 
-        const decPlaces = (price: number) => price < 1 ? 4 : price < 200 ? 2 : 0;
+        const decPlaces = (price: number) =>
+          price < 1 ? 4 : price < 200 ? 2 : 0;
 
         const renderTrade = () => {
           const m = demo.pairs[activePair]!;
@@ -1221,11 +1241,18 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
 
           // sparkline from machine's history
           const pts = history.slice(-40);
-          const mn = Math.min(...pts), mx = Math.max(...pts);
+          const mn = Math.min(...pts),
+            mx = Math.max(...pts);
           const range = mx - mn || 1;
-          chartLine.setAttribute("points", pts.map((v, i) =>
-            `${(i / Math.max(pts.length - 1, 1)) * 200},${52 - ((v - mn) / range) * 48}`
-          ).join(" "));
+          chartLine.setAttribute(
+            "points",
+            pts
+              .map(
+                (v, i) =>
+                  `${(i / Math.max(pts.length - 1, 1)) * 200},${52 - ((v - mn) / range) * 48}`,
+              )
+              .join(" "),
+          );
           chartLine.setAttribute("stroke", isUp ? "#a2e57b" : "#ff5d52");
 
           if (state === "holding") {
@@ -1236,14 +1263,18 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
             posEl.className = "trade-order-val";
           }
 
-          btnBuy.disabled   = state !== "idle";
-          btnSell.disabled  = state !== "holding";
+          btnBuy.disabled = state !== "idle";
+          btnSell.disabled = state !== "holding";
           btnCancl.disabled = state === "idle";
         };
 
         // symbol strip — subscribe to each pair machine for fine-grained updates
-        const symPriceEls = [0, 1, 2].map(i => document.getElementById(`sym-price-${i}`)!);
-        const symArrowEls = [0, 1, 2].map(i => document.getElementById(`sym-arrow-${i}`)!);
+        const symPriceEls = [0, 1, 2].map(
+          (i) => document.getElementById(`sym-price-${i}`)!,
+        );
+        const symArrowEls = [0, 1, 2].map(
+          (i) => document.getElementById(`sym-arrow-${i}`)!,
+        );
 
         demo.pairs.forEach((m, i) => {
           m.subscribe(() => {
@@ -1252,7 +1283,8 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
             const dec = decPlaces(price);
             symPriceEls[i]!.textContent = price.toFixed(dec);
             symArrowEls[i]!.textContent = up ? "▲" : "▼";
-            symArrowEls[i]!.className = "trade-sym-arrow " + (up ? "up" : "down");
+            symArrowEls[i]!.className =
+              "trade-sym-arrow " + (up ? "up" : "down");
             const row = symPriceEls[i]!.closest<HTMLElement>(".trade-sym")!;
             row.classList.remove("flash-up", "flash-down");
             void row.offsetWidth;
@@ -1262,28 +1294,39 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
         });
 
         // BUY / SELL / CANCEL forward directly to the active pair machine
-        btnBuy.addEventListener("click",   () => { demo.pairs[activePair]!.send({ type: "BUY"    }); });
-        btnSell.addEventListener("click",  () => { demo.pairs[activePair]!.send({ type: "SELL"   }); });
-        btnCancl.addEventListener("click", () => { demo.pairs[activePair]!.send({ type: "CANCEL" }); });
+        btnBuy.addEventListener("click", () => {
+          demo.pairs[activePair]!.send({ type: "BUY" });
+        });
+        btnSell.addEventListener("click", () => {
+          demo.pairs[activePair]!.send({ type: "SELL" });
+        });
+        btnCancl.addEventListener("click", () => {
+          demo.pairs[activePair]!.send({ type: "CANCEL" });
+        });
 
         // pair selection
-        document.querySelectorAll<HTMLButtonElement>(".trade-sym").forEach((btn) => {
-          btn.addEventListener("click", () => {
-            activePair = Number(btn.dataset.pair);
-            document.querySelectorAll(".trade-sym").forEach(t => t.classList.remove("trade-sym-active"));
-            btn.classList.add("trade-sym-active");
-            renderTrade();
+        document
+          .querySelectorAll<HTMLButtonElement>(".trade-sym")
+          .forEach((btn) => {
+            btn.addEventListener("click", () => {
+              activePair = Number(btn.dataset.pair);
+              document
+                .querySelectorAll(".trade-sym")
+                .forEach((t) => t.classList.remove("trade-sym-active"));
+              btn.classList.add("trade-sym-active");
+              renderTrade();
+            });
           });
-        });
 
         // accordion
         const tradeToggle = document.getElementById("trade-code-toggle")!;
-        const tradePanel  = document.getElementById("trade-code-panel")!;
+        const tradePanel = document.getElementById("trade-code-panel")!;
         tradeToggle.addEventListener("click", () => {
           const open = tradeToggle.getAttribute("aria-expanded") === "true";
           tradeToggle.setAttribute("aria-expanded", String(!open));
           tradePanel.hidden = open;
-          tradeToggle.querySelector(".trade-accordion-chevron")!.textContent = open ? "▸" : "▾";
+          tradeToggle.querySelector(".trade-accordion-chevron")!.textContent =
+            open ? "▸" : "▾";
         });
 
         renderTrade();
@@ -1295,10 +1338,10 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
       {
         const STICKY_DATA = [
           { text: "Redesign header\nfor mobile", color: "#ffe66d" },
-          { text: "Fix tooltip on\ncanvas nodes",  color: "#a2e57b" },
+          { text: "Fix tooltip on\ncanvas nodes", color: "#a2e57b" },
         ];
 
-        const canvas  = document.getElementById("wb-canvas")!;
+        const canvas = document.getElementById("wb-canvas")!;
         const wbBadge = document.getElementById("wb-state-badge")!;
 
         const demo = createWhiteboardDemo();
@@ -1319,7 +1362,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
           // subscribe: re-render this cursor whenever its machine changes
           m.subscribe(() => {
             el.style.left = m.computed.ex + "%";
-            el.style.top  = m.computed.ey + "%";
+            el.style.top = m.computed.ey + "%";
           });
           return el;
         });
@@ -1343,7 +1386,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
           // subscribe: sync DOM from machine context
           m.subscribe(() => {
             el.style.left = m.computed.normalizedX + "%";
-            el.style.top  = m.computed.normalizedY + "%";
+            el.style.top = m.computed.normalizedY + "%";
             stEl.textContent = m.state;
             el.classList.toggle("wb-sticky-dragging", m.state === "dragging");
           });
@@ -1352,14 +1395,19 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
           el.addEventListener("pointerdown", (e) => {
             const r = canvas.getBoundingClientRect();
             const offsetX = e.clientX - r.left - (m.context.x / 100) * r.width;
-            const offsetY = e.clientY - r.top  - (m.context.y / 100) * r.height;
+            const offsetY = e.clientY - r.top - (m.context.y / 100) * r.height;
             m.send({ type: "DRAG_START", offsetX, offsetY });
             el.setPointerCapture(e.pointerId);
             e.preventDefault();
           });
           el.addEventListener("pointermove", (e) => {
             if (m.state !== "dragging") return;
-            m.send({ type: "DRAG_MOVE", clientX: e.clientX, clientY: e.clientY, canvasRect: canvas.getBoundingClientRect() });
+            m.send({
+              type: "DRAG_MOVE",
+              clientX: e.clientX,
+              clientY: e.clientY,
+              canvasRect: canvas.getBoundingClientRect(),
+            });
           });
           el.addEventListener("pointerup", () => {
             m.send({ type: "DROP" });
@@ -1367,17 +1415,19 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
 
           // initial position
           el.style.left = m.context.x + "%";
-          el.style.top  = m.context.y + "%";
+          el.style.top = m.context.y + "%";
         });
 
         // accordion
         const wbToggle = document.getElementById("wb-code-toggle")!;
-        const wbPanel  = document.getElementById("wb-code-panel")!;
+        const wbPanel = document.getElementById("wb-code-panel")!;
         wbToggle.addEventListener("click", () => {
           const open = wbToggle.getAttribute("aria-expanded") === "true";
           wbToggle.setAttribute("aria-expanded", String(!open));
           wbPanel.hidden = open;
-          wbToggle.querySelector(".trade-accordion-chevron")!.textContent = open ? "▸" : "▾";
+          wbToggle.querySelector(".trade-accordion-chevron")!.textContent = open
+            ? "▸"
+            : "▾";
         });
 
         wbBadge.textContent = "live";
