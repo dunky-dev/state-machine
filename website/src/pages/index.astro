@@ -198,6 +198,38 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
               ⧉
             </button>
           </div>
+
+          <!-- MOBILE-ONLY live state table — same data as the cassette card,
+               shown below the hero CTAs on small screens, hidden on lg+ where
+               the sticky cassette panel takes over. -->
+          <div class="mt-6 lg:hidden">
+            <table class="pac-table dark-card w-full font-mono text-[10px]">
+              <thead>
+                <tr class="panel-head text-left text-[9px] uppercase tracking-wider">
+                  <th class="px-3 py-2 font-medium">machine</th>
+                  <th class="px-1 py-2 font-medium">state</th>
+                  <th class="px-2 py-2 font-medium">context</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="px-3 py-1.5 text-[#ffe66d]"><span aria-hidden="true">⚙️</span> pacman</td>
+                  <td id="m-st-pacman" class="px-1 py-1.5">…</td>
+                  <td id="m-cx-pacman" class="cx-cell px-3 py-1.5"> </td>
+                </tr>
+                <tr>
+                  <td class="px-3 py-1.5 text-[#62b3ff]"><span aria-hidden="true">⚙️</span> ghost</td>
+                  <td id="m-st-ghost" class="px-1 py-1.5">…</td>
+                  <td id="m-cx-ghost" class="cx-cell px-3 py-1.5"> </td>
+                </tr>
+                <tr>
+                  <td class="px-3 py-1.5 text-[#ff5d52]"><span aria-hidden="true">⚙️</span> board</td>
+                  <td id="m-st-board" class="px-1 py-1.5">…</td>
+                  <td id="m-cx-board" class="cx-cell px-3 py-1.5"> </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </section>
 
         <!-- FEATURE BAND — three value props, right after the hero. Sits in the
@@ -295,7 +327,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
              comes to rest in the SNES dock beside "One machine". On mobile it
              sits right after the hero copy (order-2). -->
         <div
-          class="order-5 lg:order-none lg:col-span-2 lg:col-start-4 lg:row-span-3 lg:row-start-1 z-10 -mb-[250px]"
+          class="hidden lg:block lg:col-span-2 lg:col-start-4 lg:row-span-3 lg:row-start-1 z-10 -mb-[250px]"
         >
           <div
             id="hero-live"
@@ -306,7 +338,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
             <div id="pac-card" class="cassette dark-card relative">
               <!-- the three machines' live state as a fixed-layout table -->
               <table
-                class="pac-table w-full font-mono text-[10px] sm:text-[11px]"
+                class="pac-table hidden w-full font-mono text-[10px] sm:text-[11px] lg:table"
               >
                 <thead>
                   <tr
@@ -829,25 +861,37 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
       // --- live state TABLE: state + context per machine -----------------------
       // Values are padded to fixed widths so the { … } never changes size and the
       // table stays rock-still as numbers tick (no layout jitter).
-      const stPacman = document.getElementById("st-pacman")!;
-      const stGhost = document.getElementById("st-ghost")!;
-      const stBoard = document.getElementById("st-board")!;
-      const cxPacman = document.getElementById("cx-pacman")!;
-      const cxGhost = document.getElementById("cx-ghost")!;
-      const cxBoard = document.getElementById("cx-board")!;
-      // pad a number on the right so the column width is constant
+      const stPacman  = document.getElementById("st-pacman")!;
+      const stGhost   = document.getElementById("st-ghost")!;
+      const stBoard   = document.getElementById("st-board")!;
+      const cxPacman  = document.getElementById("cx-pacman")!;
+      const cxGhost   = document.getElementById("cx-ghost")!;
+      const cxBoard   = document.getElementById("cx-board")!;
+      // mobile duplicates
+      const mStPacman = document.getElementById("m-st-pacman")!;
+      const mStGhost  = document.getElementById("m-st-ghost")!;
+      const mStBoard  = document.getElementById("m-st-board")!;
+      const mCxPacman = document.getElementById("m-cx-pacman")!;
+      const mCxGhost  = document.getElementById("m-cx-ghost")!;
+      const mCxBoard  = document.getElementById("m-cx-board")!;
       const n2 = (v: number) => String(v).padStart(2, " ");
-      const dir5 = (d: Dir) => d.padEnd(5, " "); // longest dir = "right"
+      const dir5 = (d: Dir) => d.padEnd(5, " ");
       const paintDebug = () => {
         const p = pacman.context;
         const g = ghost.context;
         const b = board.context;
-        stPacman.textContent = pacman.state;
-        stGhost.textContent = ghost.state;
-        stBoard.textContent = board.state;
-        cxPacman.textContent = `{ x:${n2(p.x)} y:${n2(p.y)} dir:${dir5(p.dir)} }`;
-        cxGhost.textContent = `{ x:${n2(g.x)} y:${n2(g.y)} dir:${dir5(g.dir)} }`;
-        cxBoard.textContent = `{ score:${String(b.score).padStart(4, " ")} }`;
+        const pacSt = pacman.state;
+        const ghSt  = ghost.state;
+        const bdSt  = board.state;
+        const pacCx = `{ x:${n2(p.x)} y:${n2(p.y)} dir:${dir5(p.dir)} }`;
+        const ghCx  = `{ x:${n2(g.x)} y:${n2(g.y)} dir:${dir5(g.dir)} }`;
+        const bdCx  = `{ score:${String(b.score).padStart(4, " ")} }`;
+        stPacman.textContent  = pacSt;  mStPacman.textContent = pacSt;
+        stGhost.textContent   = ghSt;   mStGhost.textContent  = ghSt;
+        stBoard.textContent   = bdSt;   mStBoard.textContent  = bdSt;
+        cxPacman.textContent  = pacCx;  mCxPacman.textContent = pacCx;
+        cxGhost.textContent   = ghCx;   mCxGhost.textContent  = ghCx;
+        cxBoard.textContent   = bdCx;   mCxBoard.textContent  = bdCx;
       };
 
       // --- one render pass paints all renderers + the live state table --------
