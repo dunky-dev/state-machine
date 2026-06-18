@@ -73,7 +73,7 @@ export default defineConfig({
           label: 'Reference',
           items: [
             { label: 'API overview', link: 'api' },
-            { label: 'Glossary', link: 'glossary' },
+            { label: 'Cheatsheet', link: 'cheatsheet' },
           ],
         },
       ],
