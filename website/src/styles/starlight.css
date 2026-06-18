@@ -1,73 +1,32 @@
 /*
  * Dunky brand theme for Starlight.
  *
- * Scoped strictly to Starlight's documented CSS custom properties — it does NOT
- * import global.css (which targets the marketing homepage and would conflict).
- * Brand: violet accent #6d5cf0, complementary cyan #22c5d3, dark/premium feel.
+ * Minimal + safe: we ONLY retint Starlight's accent (and a couple of code
+ * surfaces). Starlight's own complete light/dark gray ramps and surfaces are
+ * left untouched, so both themes stay correct. Overriding the full gray ramp
+ * here previously broke light mode, because this file is unlayered and so wins
+ * over Starlight's layered `:root[data-theme='light']` defaults.
  *
- * Reference: https://starlight.astro.build/guides/css-and-tailwind/#theming
+ * Brand: violet accent #6d5cf0, complementary cyan #22c5d3.
+ * Ref: https://starlight.astro.build/guides/css-and-tailwind/#theming
  */
 
-/* Dark theme (default / premium look) -------------------------------------- */
+/* Accent — dark theme (Starlight's default :root). */
 :root {
-  /* Accent — violet brand color, with low/high tints derived from it. */
   --sl-color-accent-low: #241d52;
   --sl-color-accent: #6d5cf0;
   --sl-color-accent-high: #c5bdf9;
-
-  /* Neutral gray ramp tuned toward the dark code surface (#273136). */
-  --sl-color-white: #f2fffc;
-  --sl-color-gray-1: #e3e8e9;
-  --sl-color-gray-2: #b7c0c2;
-  --sl-color-gray-3: #7c898c;
-  --sl-color-gray-4: #4b585c;
-  --sl-color-gray-5: #313c40;
-  --sl-color-gray-6: #232d31;
-  --sl-color-black: #1a2226;
-
-  /* Surfaces */
-  --sl-color-bg: #1a2226;
-  --sl-color-bg-nav: #161d20;
-  --sl-color-bg-sidebar: #161d20;
-  --sl-color-bg-inline-code: #2b363b;
-
-  /* Code blocks share the homepage's dark code surface. */
-  --sl-color-bg-code: #273136;
-
-  /* Cyan accent used for hairlines / hover affordances. */
-  --sl-color-hairline-light: #2b3a3e;
-  --sl-color-hairline-shade: #141b1e;
 }
 
-/* Light theme -------------------------------------------------------------- */
+/* Accent — light theme. */
 :root[data-theme='light'] {
-  --sl-color-accent-low: #e2def9;
+  --sl-color-accent-low: #e4e0fb;
   --sl-color-accent: #5b4ae0;
   --sl-color-accent-high: #2a2270;
-
-  --sl-color-white: #16161a;
-  --sl-color-gray-1: #1f1f24;
-  --sl-color-gray-2: #3a3a42;
-  --sl-color-gray-3: #6a6a73;
-  --sl-color-gray-4: #9a9aa3;
-  --sl-color-gray-5: #d0d0d8;
-  --sl-color-gray-6: #eef0f3;
-  --sl-color-gray-7: #f6f6f8;
-  --sl-color-black: #ffffff;
-
-  --sl-color-bg-inline-code: #eef0f3;
-  --sl-color-hairline-light: #e7e7ec;
 }
 
-/* Brand touches ------------------------------------------------------------ */
-
-/* Cyan as a subtle complementary accent on the site title / active nav. */
+/* Brand touch: slightly tighter, bolder site title. */
 .site-title {
   font-weight: 700;
   letter-spacing: -0.01em;
-}
-
-/* Gradient underline glow on the top hero gradient banner (if present). */
-:root {
-  --sl-color-text-accent: var(--sl-color-accent);
 }

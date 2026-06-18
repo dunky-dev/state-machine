@@ -3,8 +3,6 @@ title: Effects
 description: Side-effects with cleanup, scoped to a state.
 ---
 
-# Effects
-
 An effect runs when a state is **entered** and returns an optional cleanup that runs when the state is **left**. Setup and teardown share one closure — whatever the effect starts on enter is torn down by the exact cleanup that captured it.
 
 ```ts

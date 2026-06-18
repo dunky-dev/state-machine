@@ -3,8 +3,6 @@ title: States
 description: Flat states and how to manage complexity without nesting.
 ---
 
-# States
-
 States here are **flat** — no nesting, no parallel regions inside a single machine. That constraint keeps machines light and readable. The first worry is usually: _won't my state count explode?_
 
 It doesn't have to. The explosion only happens if you fold independent axes onto the single state axis. A flat state should encode exactly **one** axis of control flow. Everything that would multiply it belongs elsewhere:

@@ -3,8 +3,6 @@ title: Reactions
 description: Fire prop-callbacks from outside the machine.
 ---
 
-# Reactions
-
 Because [the machine never sees props](/api/connector#the-machine-never-sees-props), a callback like `onOpenChange` can't fire from inside it. A **reaction** is how the connector bridges that gap from the _outside_: a `[selector, callback]` tuple that watches a value derived from machine state and, when it changes, calls the matching prop.
 
 ```ts
