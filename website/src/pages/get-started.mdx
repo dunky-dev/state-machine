@@ -18,6 +18,20 @@ No DOM, yet, a tooltip is still a tooltip. A menu still needs arrow-key navigati
 
 That's when I finally got fed up and started **Dunky**.
 
+## The real problem
+
+The cost of rebuilding the same core logics is everything _around_ the core: taking the behavior you already understand and bending it to fit **each render environment plus the quirks of whatever framework you picked to do the job.** The DOM fires `keydown`; React Native has no key events at all. React wants the state in a hook and re-renders on every change; another framework wants a signal; the canvas wants you to drive it imperatively inside a frame loop. The state graph is identical across all of them, but the wiring that connects it to a real, interactive element is rewritten from scratch every time, against a different platform and a different framework's idea of how state should flow.
+
+So the bug surface resets to zero with every rewrite, not because anyone forgot how a combobox works, but because the adaptation layer is brand new code each time. It's that **the wiring never compounds.** You re-solve the same integration against a slightly different host, forever.
+
+## The broken dream
+
+The obvious fix is the old dream: **write it once, render it everywhere.** One source of truth, every platform for free.
+
+The truth is, it breaks, and it breaks for an honest reason: **the render genuinely should differ.** A tooltip can't hover on a touch screen. Arrow-key navigation has no meaning where there's no keyboard. `aria-*` is a DOM contract; React Native speaks `accessibilityRole` and has no answer at all for `onPointerEnter`. Forcing one render across all of them doesn't give you portability, it gives you a lowest-common-denominator component that's slightly wrong everywhere. The platforms aren't the same, and pretending they are is the trap, not the solution.
+
+What's actually the same across every target was never the render, it's the **behavior**. That's the part worth writing once.
+
 ## Three layers, one truth
 
 Dunky splits the problem into three independent layers:
