@@ -10,7 +10,9 @@
     "astro": "astro"
   },
   "dependencies": {
-    "@dunky-dev/state-machine": "workspace:*"
+    "@astrojs/starlight": "^0.40.0",
+    "@dunky-dev/state-machine": "workspace:*",
+    "@vercel/analytics": "^2.0.1"
   },
   "devDependencies": {
     "@astrojs/mdx": "^6.0.3",

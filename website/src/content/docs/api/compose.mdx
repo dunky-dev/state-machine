@@ -1,0 +1,68 @@
+---
+title: Peer machines
+description: Run multiple machines as one unit.
+---
+
+When a component has two independent axes of state — say a popup that's open/closed _and_ a submenu that's shown/hidden — each axis is its own machine. `compose` runs them as one unit (orthogonal regions, without nesting):
+
+```ts
+import { machine, compose } from '@dunky-dev/state-machine'
+
+const popup = machine({
+  /* closed / open */
+})
+const submenu = machine({
+  /* none / shown */
+})
+
+const combobox = compose({ popup, submenu })
+
+combobox.start() // starts every member
+combobox.stop() // stops all + disposes sync and combine
+
+// members stay independent — drive and read each directly
+popup.send({ type: 'focus' })
+submenu.send({ type: 'open' })
+```
+
+## `sync` — cross-region coordination
+
+React when any member changes. Coarse — it wakes on any change to any member; read what you need inside:
+
+```ts
+combobox.sync(() => {
+  if (popup.matches('closed')) submenu.send({ type: 'close' })
+})
+```
+
+## `combine` — unified selection
+
+Derive one value across members. Re-evaluates on any member change; fires only when the combined value changes:
+
+```ts
+const view = combobox.combine(() => ({
+  open: popup.matches('open'),
+  sub: submenu.state,
+}))
+
+view.value // { open: true, sub: 'shown' }
+view.subscribe(render)
+```
+
+Both `sync` and `combine` are auto-disposed on `combobox.stop()`.
+
+## Additive, not multiplicative
+
+Composing avoids the state explosion of folding multiple axes into one machine:
+
+```ts
+// popup: 2 states, loader: 4 states
+const combobox = compose({ popup, loader })
+// → 2 + 4 = 6 nodes total, not 2 × 4 = 8
+```
+
+## vs. true parallel states
+
+Members are independent peers — a `send` goes to one member, not broadcast. Cross-region behavior is expressed explicitly via `sync`. That's the deliberate trade: simpler than nested/parallel statecharts, at the cost of a shared event bus.
+
+See [States](/api/flat-states) for the full decision guide on when to use `computed`, `compose`, or `tags`.

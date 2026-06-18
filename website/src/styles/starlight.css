@@ -1,0 +1,32 @@
+/*
+ * Dunky brand theme for Starlight.
+ *
+ * Minimal + safe: we ONLY retint Starlight's accent (and a couple of code
+ * surfaces). Starlight's own complete light/dark gray ramps and surfaces are
+ * left untouched, so both themes stay correct. Overriding the full gray ramp
+ * here previously broke light mode, because this file is unlayered and so wins
+ * over Starlight's layered `:root[data-theme='light']` defaults.
+ *
+ * Brand: violet accent #6d5cf0, complementary cyan #22c5d3.
+ * Ref: https://starlight.astro.build/guides/css-and-tailwind/#theming
+ */
+
+/* Accent — dark theme (Starlight's default :root). */
+:root {
+  --sl-color-accent-low: #241d52;
+  --sl-color-accent: #6d5cf0;
+  --sl-color-accent-high: #c5bdf9;
+}
+
+/* Accent — light theme. */
+:root[data-theme='light'] {
+  --sl-color-accent-low: #e4e0fb;
+  --sl-color-accent: #5b4ae0;
+  --sl-color-accent-high: #2a2270;
+}
+
+/* Brand touch: slightly tighter, bolder site title. */
+.site-title {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}

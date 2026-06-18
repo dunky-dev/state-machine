@@ -1,0 +1,35 @@
+---
+/**
+ * Install box with npm / yarn / pnpm / bun tabs.
+ * The chosen package manager is synced across every Install box on the site
+ * (syncKey) and persisted, so picking "bun" once sticks everywhere.
+ *
+ * Usage in MDX:
+ *   import Install from '../../components/install.astro'
+ *   <Install pkg="@dunky-dev/state-machine" />
+ */
+import { Tabs, TabItem, Code } from '@astrojs/starlight/components'
+
+interface Props {
+  /** Package name(s) to install, space-separated. */
+  pkg: string
+  /** dev dependency? adds the right -D / --dev flag per manager. */
+  dev?: boolean
+}
+
+const { pkg, dev = false } = Astro.props
+
+const commands = {
+  npm: `npm install ${dev ? '--save-dev ' : ''}${pkg}`,
+  yarn: `yarn add ${dev ? '--dev ' : ''}${pkg}`,
+  pnpm: `pnpm add ${dev ? '--save-dev ' : ''}${pkg}`,
+  bun: `bun add ${dev ? '--dev ' : ''}${pkg}`,
+}
+---
+
+<Tabs syncKey="pkg">
+  <TabItem label="npm"><Code code={commands.npm} lang="sh" /></TabItem>
+  <TabItem label="yarn"><Code code={commands.yarn} lang="sh" /></TabItem>
+  <TabItem label="pnpm"><Code code={commands.pnpm} lang="sh" /></TabItem>
+  <TabItem label="bun"><Code code={commands.bun} lang="sh" /></TabItem>
+</Tabs>

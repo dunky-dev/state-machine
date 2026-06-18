@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "redirects": [{ "source": "/", "destination": "/state-machine", "permanent": false }],
+  "rewrites": [
+    { "source": "/state-machine", "destination": "/index.html" },
+    { "source": "/state-machine/", "destination": "/index.html" },
+    { "source": "/state-machine/:path*", "destination": "/:path*" }
+  ]
+}

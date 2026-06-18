@@ -1,0 +1,103 @@
+---
+title: Benchmark
+description: Throughput and memory vs. XState and Zag.
+---
+
+import { Aside } from '@astrojs/starlight/components'
+
+The hard case is **thousands of machines reacting to thousands of events inside one frame budget** — trading terminals, live order books, monitoring walls, dense collaborative canvases. That's what this engine is built for.
+
+**▶ [Watch it live](https://dunky-dev.github.io/state-machine/)** — all three engines driving a real grid in your browser. Watch which ones fall behind as the load climbs.
+
+## The headline
+
+|                           |              Dunky | XState |    Zag |
+| ------------------------- | -----------------: | -----: | -----: |
+| Event throughput          |    **7.2 M ops/s** |  897 K |  n/a ᵃ |
+| Memory, 2-field context   | **3.6 KB/machine** | 3.6 KB | 9.1 KB |
+| Memory, 64-field context  | **4.1 KB/machine** | 4.1 KB | 134 KB |
+| Re-render wall, 1000 rows |         **3.9 ms** | 6.8 ms |  n/a ᵃ |
+
+ᵃ Zag's `send` is microtask-batched — can't run in a synchronous ops/sec loop.
+
+## ~8× the event throughput of XState
+
+A single machine, one event, tight loop:
+
+|           |   ops/sec |
+| --------- | --------: |
+| **Dunky** | **7.2 M** |
+| XState    |     898 K |
+| Zag       |     n/a ᵃ |
+
+XState allocates a new immutable snapshot on every transition. Dunky mutates context in place — a transition allocates nothing.
+
+## ~8× faster at ignoring writes nobody is watching
+
+Change a field no observer has selected. The dedup layer re-evaluates and value-compares — no listener fires:
+
+| Irrelevant write, N observers |           Dunky | XState |
+| ----------------------------- | --------------: | -----: |
+| 1 000                         | **4.5 M ops/s** |  536 K |
+| 5 000                         | **1.9 M ops/s** |  453 K |
+
+XState's coarse `actor.subscribe` fires on every snapshot change. You have to hand-write a differ to match this — which is what the `xstate` column in the full tables already accounts for.
+
+## ~10× faster selection at scale
+
+One machine, 5 000 observers, bump one field:
+
+| Change 1 of N observers |     Dunky | XState |
+| ----------------------- | --------: | -----: |
+| 100                     |     325 K |  253 K |
+| 1 000                   |    10.7 K | 10.7 K |
+| 5 000                   | **7.9 K** |    741 |
+
+Roughly par at small N. At 5 000 observers XState degrades ~10× harder — its coarse subscribe has no way to skip unaffected listeners.
+
+## 33× less memory as context grows wide
+
+The whole point of the plain-object model: memory grows with your data, not with the framework's bookkeeping.
+
+| Context width |      Dunky | XState |        Zag |
+| ------------- | ---------: | -----: | ---------: |
+| 2 fields      |     3.6 KB | 3.6 KB |     9.1 KB |
+| 64 fields     | **4.1 KB** | 4.1 KB | **134 KB** |
+
+Going 2 → 64 fields costs Dunky **~0.5 KB/machine**. Zag allocates one reactive cell per field — 64-field context balloons to **134 KB/machine**, ~33× more.
+
+## Construction cost
+
+Spin-up cost per machine:
+
+|            | µs / machine |
+| ---------- | -----------: |
+| **XState** |     **1.95** |
+| Dunky      |         2.42 |
+| Zag        |         8.16 |
+
+XState cold-starts ~1.2× faster. Zag is ~3.4× slower than both. Dunky's bet is flat memory and hot-path throughput, not spin-up speed.
+
+## Where this matters
+
+These loads are extreme by design — they only reflect real software when a single view holds **thousands of independently-stateful, live-updating cells** in one frame budget:
+
+| Workload                                              | Live cells |
+| ----------------------------------------------------- | ---------: |
+| Full L2 order book (Bookmap, Sierra Chart)            |   3k – 15k |
+| Options chain / vol surface (thinkorswim, Tastytrade) |   5k – 20k |
+| Screeners / heatmaps (TradingView, Finviz)            |   3k – 15k |
+| Live-data spreadsheets (Excel + market feeds)         |   5k – 20k |
+| Observability walls (Grafana, Datadog)                |   5k – 50k |
+| Dense collaborative canvases (Figma, Miro, tldraw)    |   5k – 50k |
+
+The sharpest target is a dense live financial surface: 5k–20k live cells, updating tens of thousands of times per second, often needed on **web and native from one codebase** — where every property this benchmark measures pays at once.
+
+<Aside type='note'>
+  **This is not the engine for every use case.** A handful-of-symbols chart, a typical SaaS
+  dashboard, a chat app — dozens to a few hundred live elements. The engine works there too, but so
+  does anything; at that scale you'd pick it for the environment-agnostic render and memory reasons,
+  not the throughput these tables show.
+</Aside>
+
+Full methodology, fairness notes, and all per-scenario tables in the [benchmark README](https://github.com/dunky-dev/state-machine/blob/main/benchmark/README.md).

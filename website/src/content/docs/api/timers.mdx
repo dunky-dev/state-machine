@@ -1,0 +1,60 @@
+---
+title: Timers
+description: Transition automatically after a delay.
+---
+
+A state can transition **automatically after a delay** using `after`. The timer is scoped to the state: scheduled on enter, auto-cancelled if the state is left (or `stop()` is called) before it fires.
+
+```ts
+import { machine } from '@dunky-dev/state-machine'
+
+const tooltip = machine({
+  initial: 'closed',
+  context: { openMs: 400 },
+  states: {
+    closed: { on: { hover: { target: 'opening' } } },
+    opening: { after: { openDelay: { target: 'open' } } },
+    open: { after: { 2000: { target: 'closed' } } }, // auto-dismiss after 2s
+  },
+  implementations: {
+    delays: {
+      openDelay: ({ context }) => context.openMs, // dynamic — reads context
+    },
+  },
+})
+```
+
+## Delay keys
+
+A delay key is either:
+
+- **A number** — milliseconds, inline: `after: { 300: { target: 'idle' } }`
+- **A named delay** — resolved from `implementations.delays`, which can read `context` and `computed`, making it dynamic
+
+## An `after` entry is a full transition
+
+It can have a `target`, run `actions`, use a `guard`, and participate in fallthrough — exactly like an `on` transition:
+
+```ts
+states: {
+  loading: {
+    after: {
+      5000: [
+        { guard: ({ context }) => context.retries < 3, target: 'retrying' },
+        { target: 'timedOut' },
+      ],
+    },
+  },
+}
+```
+
+## Sleep pattern
+
+A guardless timed transition with no other events is a plain "wait then advance" — useful for flash messages, skeletons, or sequenced animations:
+
+```ts
+states: {
+  flash:   { after: { 300: { target: 'idle' } } },
+  idle:    {},
+}
+```

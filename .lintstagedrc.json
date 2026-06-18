@@ -1,3 +1,4 @@
 {
-  "*.{ts,tsx}": ["oxlint --fix", "oxfmt"]
+  "*.{ts,tsx}": ["oxlint --fix", "oxfmt"],
+  "*.astro": ["oxlint --fix"]
 }

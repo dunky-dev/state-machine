@@ -1,0 +1,10 @@
+---
+// Starlight Head override: render Starlight's default head, then mount
+// Vercel Analytics so doc pages are tracked too (the freestyle homepage
+// mounts <Analytics /> directly in index.astro).
+import Default from '@astrojs/starlight/components/Head.astro'
+import Analytics from '@vercel/analytics/astro'
+---
+
+<Default><slot /></Default>
+<Analytics />

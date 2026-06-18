@@ -1,0 +1,120 @@
+---
+title: Effects
+description: Side-effects with cleanup, scoped to a state.
+---
+
+An effect runs when a state is **entered** and returns an optional cleanup that runs when the state is **left**. Setup and teardown share one closure — whatever the effect starts on enter is torn down by the exact cleanup that captured it.
+
+```ts
+import { machine, createStore } from '@dunky-dev/state-machine'
+
+const tooltipStore = createStore({ openId: null as string | null })
+
+const m = machine({
+  initial: 'closed',
+  context: { id: 'tip-1' },
+  states: {
+    open: {
+      effects: [
+        ({ context, send }) =>
+          tooltipStore.subscribe(s => {
+            if (s.openId !== context.id) send({ type: 'close' })
+          }),
+      ],
+      on: { close: { target: 'closed' } },
+    },
+    closed: {},
+  },
+})
+```
+
+The store subscription is active only while the machine is in `open`. No manual bookkeeping — when the state exits the cleanup runs automatically.
+
+## Where does a side-effect live?
+
+The deciding question: does it touch the platform (DOM, native APIs) or need props?
+
+**Machine effect** — props-free and platform-free. Identical on every target. Lives in the config `effects` array:
+
+```ts
+// a store subscription: same on DOM, React Native, anywhere
+effects: [
+  ({ context, send }) =>
+    tooltipStore.subscribe(s => {
+      if (s.openId !== context.id) send({ type: 'close' })
+    }),
+]
+```
+
+**`ComponentEffect`** — needs the DOM or reads a prop. Declared outside the machine, passed to `useMachine` in your React component. A `ComponentEffect` is a `[fn, deps]` tuple — the function gets the running machine and current props, and `deps` names the props it reads so the bridge re-runs it only when those change:
+
+```ts
+import { type ComponentEffect } from '@dunky-dev/react-state-machine'
+import type { DisclosureMachine, DisclosureProps } from './machine'
+
+// Close on Escape — but only if the `closeOnEscape` prop is true.
+// This can't live in the machine because it touches the DOM and reads a prop.
+const onEscapeKey: ComponentEffect<DisclosureMachine, DisclosureProps> = [
+  (machine, props) => {
+    if (!props.closeOnEscape) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') machine.send({ type: 'close' })
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  },
+  ['closeOnEscape'], // re-run only when this prop changes
+]
+
+// Collect all effects for this component into one stable constant.
+// useMachine runs one useEffect per entry — the list must never change length.
+export const disclosureEffects = [onEscapeKey]
+```
+
+Then pass it to `useMachine` in your component:
+
+```tsx
+import { useMachine, normalize } from '@dunky-dev/react-state-machine'
+import { createDisclosureConfig, connectDisclosure } from './machine'
+import { disclosureEffects } from './effects'
+
+function Disclosure(props: DisclosureProps) {
+  const { api } = useMachine(createDisclosureConfig, connectDisclosure, disclosureEffects, props)
+
+  return (
+    <div>
+      <button {...normalize(api.triggerProps)}>Toggle</button>
+      {api.isOpen && <div {...normalize(api.panelProps)}>Content</div>}
+    </div>
+  )
+}
+```
+
+The machine only sees `send({ type: 'close' })` — it has no idea an Escape key exists. On React Native the machine is unchanged; the effect swaps `keydown` for `BackHandler`.
+
+## Named effects
+
+Reference an effect by string and define it in `implementations.effects`:
+
+```ts
+machine({
+  initial: 'open',
+  context: {},
+  states: {
+    open: {
+      effects: ['trackResize'],
+      on: { close: { target: 'closed' } },
+    },
+    closed: {},
+  },
+  implementations: {
+    effects: {
+      trackResize: ({ send }) => {
+        const handler = () => send({ type: 'resize' })
+        window.addEventListener('resize', handler)
+        return () => window.removeEventListener('resize', handler)
+      },
+    },
+  },
+})
+```

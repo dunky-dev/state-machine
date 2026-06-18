@@ -1,0 +1,27 @@
+---
+title: Install
+description: Add Dunky to your project.
+---
+
+import Install from '../../components/install.astro'
+
+<Install pkg='@dunky-dev/state-machine' />
+
+## Your first machine
+
+```ts
+import { machine } from '@dunky-dev/state-machine'
+
+const toggle = machine({
+  initial: 'off',
+  context: {},
+  states: {
+    off: { on: { flip: { target: 'on' } } },
+    on: { on: { flip: { target: 'off' } } },
+  },
+})
+
+toggle.start()
+toggle.send({ type: 'flip' })
+toggle.state // 'on'
+```

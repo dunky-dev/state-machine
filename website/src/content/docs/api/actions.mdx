@@ -1,0 +1,89 @@
+---
+title: Actions
+description: Fire-and-forget side-effects on transitions.
+---
+
+Actions are fire-and-forget functions that run on a transition. They receive `{ context, setContext, event, send, computed }` and run in order.
+
+```ts
+import { machine } from '@dunky-dev/state-machine'
+
+const m = machine({
+  initial: 'idle',
+  context: { saved: false },
+  states: {
+    idle: {
+      on: {
+        save: {
+          actions: [$ => $.setContext({ saved: true }), $ => console.log('saved!')],
+        },
+      },
+    },
+  },
+})
+```
+
+## `act()` — write-sugar
+
+`act()` is shorthand for a context-writing action — drops the `$ => $.setContext(...)` wrapper. Takes one or many patches (applied in order; a later patch function sees earlier writes):
+
+```ts
+import { act } from '@dunky-dev/state-machine'
+
+on: {
+  save:  { actions: act({ saved: true }) },
+  bump:  { actions: act({ touched: true }, $ => ({ n: $.context.n + 1 })) },
+}
+```
+
+## `entry` / `exit`
+
+Run actions whenever a state is entered or left — regardless of which transition triggered it:
+
+```ts
+states: {
+  open: {
+    entry: ['focusFirstItem'],
+    exit:  ['restoreFocus'],
+    on: { close: { target: 'closed' } },
+  },
+  closed: {},
+}
+```
+
+## `oneOf()` — conditional actions
+
+Pick one branch of actions by guard. First passing branch wins; a guardless branch is the fallback:
+
+```ts
+import { oneOf } from '@dunky-dev/state-machine'
+
+actions: [
+  oneOf(
+    { guard: 'isMobile', actions: 'lockScroll' },
+    { guard: 'isDesktop', actions: 'dimBackground' },
+    { actions: 'noop' }, // guardless = fallback
+  ),
+]
+```
+
+## Named actions
+
+Reference an action by string and define it in `implementations.actions`:
+
+```ts
+machine({
+  initial: 'idle',
+  context: {},
+  states: {
+    idle: {
+      on: { ping: { actions: 'notify' } },
+    },
+  },
+  implementations: {
+    actions: {
+      notify: () => console.log('ping!'),
+    },
+  },
+})
+```

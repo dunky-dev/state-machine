@@ -1,0 +1,50 @@
+---
+title: Get started
+description: Define a behavior once. Render it anywhere.
+---
+
+## Same component, different hammer 🔨
+
+I've spent the last decade building design systems. New company, new tech stack, new framework, but always the same story: rebuild the button, the tooltip, the dialog, the combobox. From scratch. Again.
+
+The behaviors never really changed. Focus management, keyboard navigation, ARIA roles, state transitions, it's all been documented by the W3C for years. The [ARIA Authoring Practices Guide](https://www.w3.org/WAI/ARIA/apg/) literally has the recipe. Yet every new project meant reinventing the same wheel, just with whatever fancy hammer was trending that quarter.
+
+The final boss? Trying to port a full component library to a **collaborative whiteboard running on a canvas engine**. 🎨
+
+No DOM, yet, a tooltip is still a tooltip. A menu still needs arrow-key navigation. A dialog still needs to trap focus. The primitives don't care about your rendering layer. The behaviors are the same. They always are.
+
+That's when I finally got fed up and started **Dunky**.
+
+## The real problem
+
+The cost of rebuilding the same core logics is everything _around_ the core: taking the behavior you already understand and bending it to fit **each render environment plus the quirks of whatever framework you picked to do the job.** The DOM fires `keydown`; React Native has no key events at all. React wants the state in a hook and re-renders on every change; another framework wants a signal; the canvas wants you to drive it imperatively inside a frame loop. The state graph is identical across all of them, but the wiring that connects it to a real, interactive element is rewritten from scratch every time, against a different platform and a different framework's idea of how state should flow.
+
+So the bug surface resets to zero with every rewrite, not because anyone forgot how a combobox works, but because the adaptation layer is brand new code each time. It's that **the wiring never compounds.** You re-solve the same integration against a slightly different host, forever.
+
+## The broken dream
+
+The obvious fix is the old dream: **write it once, render it everywhere.** One source of truth, every platform for free.
+
+The truth is, it breaks, and it breaks for an honest reason: **the render genuinely should differ.** A tooltip can't hover on a touch screen. Arrow-key navigation has no meaning where there's no keyboard. `aria-*` is a DOM contract; React Native speaks `accessibilityRole` and has no answer at all for `onPointerEnter`. Forcing one render across all of them doesn't give you portability, it gives you a lowest-common-denominator component that's slightly wrong everywhere. The platforms aren't the same, and pretending they are is the trap, not the solution.
+
+What's actually the same across every target was never the render, it's the **behavior**. That's the part worth writing once.
+
+## Three layers, one truth
+
+Dunky splits the problem into three independent layers:
+
+| Layer             | Package                          | Job                     |
+| ----------------- | -------------------------------- | ----------------------- |
+| **Behavior**      | `@dunky-dev/state-machine`       | _What_ a component does |
+| **Customization** | `@dunky-dev/style-engine`        | _How_ it looks          |
+| **Presentation**  | `@dunky-dev/react` (and friends) | _Where_ it renders      |
+
+You're here for layer one.
+
+**The state machine defines behavior once**, keyboard interactions, focus, ARIA, transitions, and that logic runs identically whether the consumer is a React app, a React Native screen, or a canvas node inside Miro. No rewrite required. Ever. 🎉
+
+## Why now? Well... AI 🤖
+
+The "write it once, run it everywhere" dream isn't new. What _is_ new is that AI-assisted development makes behavior-driven primitives dramatically more powerful. When your components are pure state machines with typed inputs and outputs, an AI can reason about them precisely, generate implementations, write tests, migrate between versions, without hallucinating framework-specific magic.
+
+Properly specified behavior is a gift to AI tooling. And properly driven AI is a gift back.

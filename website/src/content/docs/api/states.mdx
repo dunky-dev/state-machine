@@ -1,0 +1,84 @@
+---
+title: States & transitions
+description: Define states, events, and how the machine moves between them.
+---
+
+A machine is always in exactly one **state**. Events drive **transitions** between them.
+
+```ts
+import { machine } from '@dunky-dev/state-machine'
+
+const light = machine({
+  initial: 'green',
+  context: {},
+  states: {
+    green: { on: { next: { target: 'yellow' } } },
+    yellow: { on: { next: { target: 'red' } } },
+    red: { on: { next: { target: 'green' } } },
+  },
+})
+
+light.start()
+light.send({ type: 'next' })
+light.state // 'yellow'
+```
+
+## Any-state events
+
+Put an event in the top-level `on` to handle it from any state. A per-state `on` wins if both match:
+
+```ts
+machine({
+  initial: 'a',
+  context: {},
+  on: { reset: { target: 'a' } }, // works from any state
+  states: {
+    a: {},
+    b: {},
+    c: {},
+  },
+})
+```
+
+## Tags
+
+Tags group states so the view asks about a _category_ instead of a specific name:
+
+```ts
+const m = machine({
+  initial: 'closed',
+  context: {},
+  states: {
+    closed: {},
+    opening: { tags: ['visible'] },
+    open: { tags: ['visible'] },
+  },
+})
+
+m.start()
+m.hasTag('visible') // true while in 'opening' or 'open'
+m.matches('open') // exact-state check
+```
+
+## Run-to-completion
+
+Events are queued. If an action sends another event, it waits until the current transition fully settles — no re-entrancy:
+
+```ts
+states: {
+  a: {
+    on: {
+      go: {
+        target: 'b',
+        actions: [({ send }) => send({ type: 'auto' })],
+      },
+    },
+  },
+  b: { on: { auto: { target: 'c' } } },  // 'auto' processes after the machine settles in 'b'
+  c: {},
+}
+```
+
+## Flat states
+
+States here are flat — no nesting, no parallel regions inside a single machine. When a component has two independent axes of state, compose two peer machines. See [Peer machines](/api/compose) and [States](/api/flat-states).

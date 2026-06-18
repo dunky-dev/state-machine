@@ -1,0 +1,77 @@
+---
+title: Guards
+description: Gate transitions with conditions.
+---
+
+A guard is a predicate that gates a transition — return `false` and it doesn't fire. It receives `{ context, event, computed }`.
+
+```ts
+import { machine } from '@dunky-dev/state-machine'
+
+const m = machine({
+  initial: 'idle',
+  context: { allowed: false },
+  states: {
+    idle: {
+      on: {
+        submit: {
+          target: 'done',
+          guard: ({ context }) => context.allowed,
+        },
+      },
+    },
+    done: {},
+  },
+})
+```
+
+## Fallthrough
+
+Give an event an array of transitions — the first whose guard passes wins. A guardless branch is the fallback:
+
+```ts
+on: {
+  tick: [
+    { guard: ({ context }) => context.n >= 10, target: 'max' },
+    { guard: ({ context }) => context.n > 0,   target: 'some' },
+    { target: 'zero' },  // no guard = fallback
+  ],
+}
+```
+
+## Named guards
+
+Reference a guard by string and define it in `implementations.guards`. Keeps the config readable and the logic testable in isolation:
+
+```ts
+machine({
+  initial: 'idle',
+  context: { open: false, locked: false },
+  states: {
+    idle: {
+      on: { toggle: { target: 'busy', guard: 'isUnlocked' } },
+    },
+    busy: {},
+  },
+  implementations: {
+    guards: {
+      isUnlocked: ({ context }) => !context.locked,
+    },
+  },
+})
+```
+
+## Combinators
+
+```ts
+import { and, or, not } from '@dunky-dev/state-machine'
+
+on: {
+  toggle: {
+    target: 'open',
+    guard: and('isOpen', not('isLocked')),
+  },
+}
+```
+
+`and` passes if every guard passes. `or` passes if any guard passes. `not` inverts a guard. They compose freely and work with both inline functions and named strings.
