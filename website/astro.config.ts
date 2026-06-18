@@ -22,6 +22,10 @@ export default defineConfig({
         replacesTitle: true,
       },
       customCss: ['./src/styles/starlight.css'],
+      components: {
+        // Wrap Starlight's default Head to mount Vercel Analytics on doc pages.
+        Head: './src/components/head.astro',
+      },
       sidebar: [
         {
           label: 'Guides',

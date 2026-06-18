@@ -1,6 +1,7 @@
 ---
 import Header from "../components/header.astro";
 import Footer from "../components/footer.astro";
+import Analytics from "@vercel/analytics/astro";
 import "../styles/global.css";
 
 const base = import.meta.env.BASE_URL;
@@ -905,6 +906,8 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
     <!-- /contribute section -->
 
     <Footer />
+
+    <Analytics />
 
     <script>
       import { createGame, MAZE, ROWS, COLS, key, type Dir } from "../demos/pacman";
