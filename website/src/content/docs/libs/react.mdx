@@ -11,11 +11,11 @@ The React package is a thin edge layer. Behavior lives in the core machine and t
 
 ## `useMachine`
 
-The one bridge hook. Every component calls it with the four agnostic pieces and gets back the view API:
+The one bridge hook. Every component calls it with the four agnostic pieces and gets back the view API. Here it's a tooltip — hover the trigger, a bubble appears:
 
 ```tsx
 import { useMachine, normalize } from '@dunky-dev/react-state-machine'
-import { createDisclosureConfig, connectDisclosure, disclosureEffects } from './disclosure'
+import { createTooltipConfig, connectTooltip, tooltipEffects } from './tooltip'
 
 type Props = {
   open?: boolean
@@ -23,24 +23,57 @@ type Props = {
   closeOnEscape?: boolean
 }
 
-function Disclosure(props: Props) {
+function Tooltip(props: Props) {
   const { api } = useMachine(
-    createDisclosureConfig, // (props) => MachineConfig — seeds context once
-    connectDisclosure, // pure connect(): snapshot → view api
-    disclosureEffects, // ComponentEffect[] — DOM listeners, gated by props
+    createTooltipConfig, // (props) => MachineConfig — seeds context once
+    connectTooltip, // pure connect(): snapshot → view api
+    tooltipEffects, // ComponentEffect[] — DOM listeners, gated by props
     props,
   )
 
   return (
     <div>
-      <button {...normalize(api.triggerProps)}>Toggle</button>
-      {api.isOpen && <div {...normalize(api.panelProps)}>Content</div>}
+      <button {...normalize(api.triggerProps)}>Hover me</button>
+      {api.isOpen && <div {...normalize(api.tooltipProps)}>Helpful hint</div>}
     </div>
   )
 }
 ```
 
 `useMachine` builds the machine and connector **once** (first render's props seed context; later changes flow through `setProps`, not a rebuild), starts on mount, stops on unmount, and drives React via `useSyncExternalStore` over the connector's stable snapshot.
+
+### The three imports
+
+Those three values are where the tooltip's behavior actually lives — none of it is React. You write them once, in a `./tooltip` module, and they run unchanged on any platform:
+
+```ts
+// tooltip.ts — plain functions, no React
+import type { Connect } from '@dunky-dev/state-machine'
+
+// createTooltipConfig: (props) => machine config. Defines the states
+// ('closed' | 'open'), the events, and seeds context from the first props.
+export const createTooltipConfig = (props: Props) => ({
+  initial: props.open ? 'open' : 'closed',
+  context: { ... },
+  states: {
+    closed: { on: { open: 'open' } },
+    open: { on: { close: 'closed' } },
+  },
+})
+
+// connectTooltip: a pure connect() — turns a machine snapshot into the view API
+// your JSX spreads. `isOpen`, `triggerProps`, `tooltipProps` come from here.
+export const connectTooltip: Connect</* ... */> = ({ state, send }) => ({
+  isOpen: state === 'open',
+  triggerProps: { onPointerEnter: () => send({ type: 'open' }), onPointerLeave: () => send({ type: 'close' }) },
+  tooltipProps: { role: 'tooltip' },
+})
+
+// tooltipEffects: platform listeners that can't live in the machine (see below).
+export const tooltipEffects = [/* ComponentEffect[] */]
+```
+
+So `useMachine` is the only React-specific piece — `createTooltipConfig` is the machine definition, `connectTooltip` is the snapshot-to-view-API mapping, and `tooltipEffects` are the DOM listeners. See [Setup](/api/setup) for configs and [Connector](/api/connector) for how `connect` works in depth.
 
 ## `normalize` — bindings → DOM props
 
@@ -77,27 +110,48 @@ When a consumer spreads their own props onto the same element the component cont
 - **`className` is concatenated** with a space.
 - **Everything else: component wins** — `id`, `role`, `aria-*`.
 
-## `useSelector` — fine-grained leaf subscription
+## `useSelector` — subscribe to one derived value
 
-For a leaf component that should only re-render when one slice of the machine changes — useful when a single machine drives many rows and each row should only wake for its own value:
+`useMachine` re-renders a component on **every** machine change. `useSelector` is the opposite: you give it a function that reads one value out of the machine, and the component re-renders **only when that value changes** — every other machine change is ignored.
 
 ```tsx
 import { useSelector } from '@dunky-dev/react-state-machine'
 
-function Row({ machine, value }) {
+// Re-renders only when `m.matches('open')` flips, not on every machine change.
+const isOpen = useSelector(machine, () => machine.matches('open'))
+```
+
+The selector reads from the machine directly (`machine.context.x`, `machine.matches(...)`). After each machine change, `useSelector` re-runs the selector and compares the result to the previous one — if it's equal, nothing happens.
+
+The selector takes **no arguments** — it's a closure. It reads from the `machine` you pass in (and anything else in scope), so `() => machine.matches('open')` captures `machine` from the surrounding component rather than receiving it as a parameter.
+
+### Why bother?
+
+The payoff is one machine driving many items — a menu, a listbox, a tree — where each item cares about only its own slice of the state. As you arrow through a menu, only the `highlighted` index changes. Without selectors, that one change re-renders **every** item. With one selector per item, it wakes **only** the two items whose highlighted state actually flipped (the one leaving, the one entering):
+
+```tsx
+function MenuItem({ machine, value }) {
+  // Closes over `machine` and this item's `value`. Re-renders only when THIS
+  // item's highlighted state flips — arrowing onto a sibling leaves it untouched.
   const isHighlighted = useSelector(machine, () => machine.context.highlightedValue === value)
 
-  return <div data-highlighted={isHighlighted}>{value}</div>
+  return (
+    <li role='menuitem' data-highlighted={isHighlighted || undefined}>
+      {value}
+    </li>
+  )
 }
 ```
 
-For object selections, pass a custom equality function to avoid re-renders on reference changes:
+### Object selections need an equality function
+
+Equality defaults to `Object.is`. That works for primitives (a boolean, a string), but a selector returning a fresh `{...}` each run is never `Object.is`-equal to the last — so it would re-render on every machine change, defeating the point. Pass a custom equality function to compare by value instead:
 
 ```tsx
 const pos = useSelector(
   machine,
   () => ({ x: machine.context.x, y: machine.context.y }),
-  (a, b) => a.x === b.x && a.y === b.y,
+  (a, b) => a.x === b.x && a.y === b.y, // re-render only when x or y actually changed
 )
 ```
 
@@ -107,9 +161,9 @@ Some behavior can't live in the machine because it touches the DOM or reads prop
 
 ```ts
 import type { ComponentEffect } from '@dunky-dev/react-state-machine'
-import type { DisclosureMachine, DisclosureProps } from './machine'
+import type { TooltipMachine, TooltipProps } from './machine'
 
-type Effect = ComponentEffect<DisclosureMachine, DisclosureProps>
+type Effect = ComponentEffect<TooltipMachine, TooltipProps>
 
 const onEscapeKey: Effect = [
   (machine, props) => {
@@ -125,7 +179,7 @@ const onEscapeKey: Effect = [
 
 // Must be a static module constant — useMachine runs one hook per entry,
 // so the list length must never change between renders.
-export const disclosureEffects = [onEscapeKey]
+export const tooltipEffects = [onEscapeKey]
 ```
 
 The machine only receives `send({ type: 'close' })` — it has no idea a keyboard event exists.
