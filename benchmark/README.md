@@ -1,6 +1,6 @@
 # Benchmark suite
 
-A performance harness for `@dunky-dev/state-machine`. It measures the engine's
+A performance harness for `@dunky.dev/state-machine`. It measures the engine's
 hot paths in isolation and compares the runnable parts against
 [XState](https://stately.ai/docs) and [Zag](https://zagjs.com/).
 

@@ -22,7 +22,7 @@
  */
 
 import { createActor, createMachine as createXMachine, assign } from 'xstate'
-import { machine, type Machine } from '@dunky-dev/state-machine'
+import { machine, type Machine } from '@dunky.dev/state-machine'
 
 /** A sink so subscriber work isn't dead-code-eliminated by the JIT. */
 export const SINK = { n: 0 }

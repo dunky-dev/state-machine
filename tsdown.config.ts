@@ -1,8 +1,8 @@
 import { defineConfig } from 'tsdown'
 
 // One root config builds every publishable package in workspace mode. Each
-// `@dunky-dev/*` package has a single `src/index.ts` entry; `react`/`react-native`
-// and the `@dunky-dev/*` workspace deps are auto-externalized from each package's
+// `@dunky.dev/*` package has a single `src/index.ts` entry; `react`/`react-native`
+// and the `@dunky.dev/*` workspace deps are auto-externalized from each package's
 // own `package.json`, so they're never bundled into the output.
 export default defineConfig({
   // The publishable packages, listed explicitly. A glob (`packages/**`) over-matches

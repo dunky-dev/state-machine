@@ -6,25 +6,25 @@
  *
  * Usage in MDX:
  *   import Install from '../../components/install.astro'
- *   <Install pkg="@dunky-dev/state-machine" />
+ *   <Install pkg="@dunky.dev/state-machine" />
  */
-import { Tabs, TabItem, Code } from '@astrojs/starlight/components'
+import { Tabs, TabItem, Code } from "@astrojs/starlight/components";
 
 interface Props {
   /** Package name(s) to install, space-separated. */
-  pkg: string
+  pkg: string;
   /** dev dependency? adds the right -D / --dev flag per manager. */
-  dev?: boolean
+  dev?: boolean;
 }
 
-const { pkg, dev = false } = Astro.props
+const { pkg, dev = false } = Astro.props;
 
 const commands = {
-  npm: `npm install ${dev ? '--save-dev ' : ''}${pkg}`,
-  yarn: `yarn add ${dev ? '--dev ' : ''}${pkg}`,
-  pnpm: `pnpm add ${dev ? '--save-dev ' : ''}${pkg}`,
-  bun: `bun add ${dev ? '--dev ' : ''}${pkg}`,
-}
+  npm: `npm install ${dev ? "--save-dev " : ""}${pkg}`,
+  yarn: `yarn add ${dev ? "--dev " : ""}${pkg}`,
+  pnpm: `pnpm add ${dev ? "--save-dev " : ""}${pkg}`,
+  bun: `bun add ${dev ? "--dev " : ""}${pkg}`,
+};
 ---
 
 <Tabs syncKey="pkg">

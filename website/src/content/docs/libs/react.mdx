@@ -1,11 +1,11 @@
 ---
 title: React
-description: React bindings for @dunky-dev/state-machine.
+description: React bindings for @dunky.dev/state-machine.
 ---
 
 import Install from '../../../components/install.astro'
 
-<Install pkg='@dunky-dev/react-state-machine' />
+<Install pkg='@dunky.dev/react-state-machine' />
 
 The React package is a thin edge layer. Behavior lives in the core machine and the component's `connect` function — this package only adapts them to React: lifecycle, rendering, prop translation, and platform effects.
 
@@ -14,7 +14,7 @@ The React package is a thin edge layer. Behavior lives in the core machine and t
 The one bridge hook. Every component calls it with the four agnostic pieces and gets back the view API. Here it's a tooltip — hover the trigger, a bubble appears:
 
 ```tsx
-import { useMachine, normalize } from '@dunky-dev/react-state-machine'
+import { useMachine, normalize } from '@dunky.dev/react-state-machine'
 import { createTooltipConfig, connectTooltip, tooltipEffects } from './tooltip'
 
 type Props = {
@@ -48,7 +48,7 @@ Those three values are where the tooltip's behavior actually lives — none of i
 
 ```ts
 // tooltip.ts — plain functions, no React
-import type { Connect } from '@dunky-dev/state-machine'
+import type { Connect } from '@dunky.dev/state-machine'
 
 // createTooltipConfig: (props) => machine config. Defines the states
 // ('closed' | 'open'), the events, and seeds context from the first props.
@@ -115,7 +115,7 @@ When a consumer spreads their own props onto the same element the component cont
 `useMachine` re-renders a component on **every** machine change. `useSelector` is the opposite: you give it a function that reads one value out of the machine, and the component re-renders **only when that value changes** — every other machine change is ignored.
 
 ```tsx
-import { useSelector } from '@dunky-dev/react-state-machine'
+import { useSelector } from '@dunky.dev/react-state-machine'
 
 // Re-renders only when `m.matches('open')` flips, not on every machine change.
 const isOpen = useSelector(machine, () => machine.matches('open'))
@@ -160,7 +160,7 @@ const pos = useSelector(
 Some behavior can't live in the machine because it touches the DOM or reads props the machine never sees. Declare each as a `[setup/teardown, depPropNames]` tuple — `useMachine` runs one `useEffect` per entry, keyed on its named prop deps:
 
 ```ts
-import type { ComponentEffect } from '@dunky-dev/react-state-machine'
+import type { ComponentEffect } from '@dunky.dev/react-state-machine'
 import type { TooltipMachine, TooltipProps } from './machine'
 
 type Effect = ComponentEffect<TooltipMachine, TooltipProps>

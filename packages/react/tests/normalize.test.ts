@@ -2,13 +2,13 @@
  * React DOM bindings translator — pure-logic tests (no DOM runtime needed).
  *
  * `normalize` maps the core's substrate-agnostic logical surface
- * (`@dunky-dev/state-machine`'s `EventBindings` + `AttrBindings`) to real
+ * (`@dunky.dev/state-machine`'s `EventBindings` + `AttrBindings`) to real
  * DOM/ARIA props. These tests pin the FULL vocabulary so every logical binding
  * has an explicit, asserted DOM target — nothing relies on accidental
  * pass-through.
  */
 import { describe, expect, it, vi } from 'vitest'
-import { normalize } from '@dunky-dev/react-state-machine'
+import { normalize } from '@dunky.dev/react-state-machine'
 
 describe('react normalize — handlers', () => {
   it('maps onPress to onClick (the DOM activation event)', () => {

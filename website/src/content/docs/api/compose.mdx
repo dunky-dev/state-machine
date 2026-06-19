@@ -6,7 +6,7 @@ description: Run multiple machines as one unit.
 When a component has two independent axes of state — say a popup that's open/closed _and_ a submenu that's shown/hidden — each axis is its own machine. `compose` runs them as one unit (orthogonal regions, without nesting):
 
 ```ts
-import { machine, compose } from '@dunky-dev/state-machine'
+import { machine, compose } from '@dunky.dev/state-machine'
 
 const popup = machine({
   /* closed / open */

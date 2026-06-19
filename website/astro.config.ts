@@ -89,7 +89,7 @@ export default defineConfig({
       // The engine package is workspace-linked; alias straight to its `src`
       // so docs demos run the real TS source with no build step.
       alias: {
-        '@dunky-dev/state-machine': resolve(import.meta.dirname, '../packages/core/src'),
+        '@dunky.dev/state-machine': resolve(import.meta.dirname, '../packages/core/src'),
       },
     },
   },

@@ -22,7 +22,7 @@
  * Exported as `runEngine()`; the suite runs it via benchmark/index.ts.
  */
 import { Bench } from 'tinybench'
-import { machine } from '@dunky-dev/state-machine'
+import { machine } from '@dunky.dev/state-machine'
 import { report } from '../report'
 
 const SINK = { n: 0 }

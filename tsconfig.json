@@ -14,10 +14,10 @@
     "skipLibCheck": true,
     "strict": true,
     "paths": {
-      "@dunky-dev/state-machine": ["./packages/core/src"],
-      "@dunky-dev/react-state-machine": ["./packages/react/src"],
-      "@dunky-dev/native-state-machine": ["./packages/native/src"],
-      "@dunky-dev/shared-state-machine": ["./packages/shared/utils/src"]
+      "@dunky.dev/state-machine": ["./packages/core/src"],
+      "@dunky.dev/react-state-machine": ["./packages/react/src"],
+      "@dunky.dev/native-state-machine": ["./packages/native/src"],
+      "@dunky.dev/shared-state-machine": ["./packages/shared/utils/src"]
     },
     "types": ["@types/node", "vitest/globals"]
   },

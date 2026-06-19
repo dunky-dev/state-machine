@@ -5,7 +5,7 @@ import {
   type Action,
   type Composition,
   type Machine,
-} from '@dunky-dev/state-machine'
+} from '@dunky.dev/state-machine'
 
 // 1 = wall, 0 = path. A small, symmetric maze that reads as "Pac-Man".
 // prettier-ignore

@@ -6,7 +6,7 @@ description: Fire-and-forget side-effects on transitions.
 Actions are fire-and-forget functions that run on a transition. They receive `{ context, setContext, event, send, computed }` and run in order.
 
 ```ts
-import { machine } from '@dunky-dev/state-machine'
+import { machine } from '@dunky.dev/state-machine'
 
 const m = machine({
   initial: 'idle',
@@ -28,7 +28,7 @@ const m = machine({
 `act()` is shorthand for a context-writing action — drops the `$ => $.setContext(...)` wrapper. Takes one or many patches (applied in order; a later patch function sees earlier writes):
 
 ```ts
-import { act } from '@dunky-dev/state-machine'
+import { act } from '@dunky.dev/state-machine'
 
 on: {
   save:  { actions: act({ saved: true }) },
@@ -56,7 +56,7 @@ states: {
 Pick one branch of actions by guard. First passing branch wins; a guardless branch is the fallback:
 
 ```ts
-import { oneOf } from '@dunky-dev/state-machine'
+import { oneOf } from '@dunky.dev/state-machine'
 
 actions: [
   oneOf(

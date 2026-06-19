@@ -1,20 +1,20 @@
 ---
 title: React Native
-description: React Native bindings for @dunky-dev/state-machine.
+description: React Native bindings for @dunky.dev/state-machine.
 ---
 
 import Install from '../../../components/install.astro'
 
-<Install pkg='@dunky-dev/native-state-machine' />
+<Install pkg='@dunky.dev/native-state-machine' />
 
 The React Native package is the same thin edge layer as React — same lifecycle hook, same `ComponentEffect` model — with one difference: `normalize` translates bindings to React Native props instead of DOM/ARIA props. **The machine itself is unchanged.** The same config and `connect` function run on both platforms.
 
 ## `useMachine`, `useSelector`, `ComponentEffect`
 
-Re-exported directly from `@dunky-dev/react-state-machine` — identical on both platforms because React Native uses the same React renderer. See the [React](/libs/react) page for full docs on these.
+Re-exported directly from `@dunky.dev/react-state-machine` — identical on both platforms because React Native uses the same React renderer. See the [React](/libs/react) page for full docs on these.
 
 ```tsx
-import { useMachine, useSelector, type ComponentEffect } from '@dunky-dev/native-state-machine'
+import { useMachine, useSelector, type ComponentEffect } from '@dunky.dev/native-state-machine'
 ```
 
 ## `normalize` — bindings → React Native props
@@ -22,7 +22,7 @@ import { useMachine, useSelector, type ComponentEffect } from '@dunky-dev/native
 The RN `normalize` translates the same agnostic bindings to React Native's prop vocabulary:
 
 ```tsx
-import { normalize } from '@dunky-dev/native-state-machine'
+import { normalize } from '@dunky.dev/native-state-machine'
 ;<Pressable {...normalize(api.triggerProps)} />
 ```
 
@@ -46,7 +46,7 @@ Bindings with no RN equivalent are silently dropped rather than passed as invali
 RN-aware merge: handlers are chained, `style` is merged as a `[consumerStyle, libraryStyle]` array (RN accepts style arrays natively), everything else the component wins.
 
 ```tsx
-import { mergeProps, normalize } from '@dunky-dev/native-state-machine'
+import { mergeProps, normalize } from '@dunky.dev/native-state-machine'
 ;<Pressable {...mergeProps(props, normalize(api.triggerProps))} />
 ```
 
@@ -56,7 +56,7 @@ Platform effects work the same way — a `[setup/teardown, depPropNames]` tuple 
 
 ```ts
 import { BackHandler } from 'react-native'
-import type { ComponentEffect } from '@dunky-dev/native-state-machine'
+import type { ComponentEffect } from '@dunky.dev/native-state-machine'
 import type { DialogMachine, DialogProps } from './machine'
 
 type Effect = ComponentEffect<DialogMachine, DialogProps>
@@ -90,12 +90,12 @@ export const connectDisclosure = ({ state, send }) => ({ ... })
 
 ```tsx
 // web — Disclosure.tsx
-import { useMachine, normalize } from '@dunky-dev/react-state-machine'
+import { useMachine, normalize } from '@dunky.dev/react-state-machine'
 import { createDisclosureConfig, connectDisclosure } from '../shared/disclosure'
 import { disclosureEffects } from './effects' // DOM keydown listener
 
 // native — Disclosure.native.tsx
-import { useMachine, normalize } from '@dunky-dev/native-state-machine'
+import { useMachine, normalize } from '@dunky.dev/native-state-machine'
 import { createDisclosureConfig, connectDisclosure } from '../shared/disclosure'
 import { disclosureEffects } from './effects' // BackHandler
 ```

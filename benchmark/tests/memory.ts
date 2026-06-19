@@ -18,7 +18,7 @@
 import { createActor, createMachine as createXMachine, assign } from 'xstate'
 import { createMachine as createZagMachine } from '@zag-js/core'
 import { VanillaMachine } from '@zag-js/vanilla'
-import { machine } from '@dunky-dev/state-machine'
+import { machine } from '@dunky.dev/state-machine'
 import { heapMB } from '../report'
 
 const FIELDS = { thin: 2, fat: 64 } as const

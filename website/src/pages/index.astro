@@ -8,7 +8,7 @@ const base = import.meta.env.BASE_URL;
 const repo = "https://github.com/dunky-dev/state-machine";
 
 // The three machines, written out (set:html so literal braces survive the JSX
-// parser) — faithful to the real @dunky-dev/state-machine API + the pacman demo:
+// parser) — faithful to the real @dunky.dev/state-machine API + the pacman demo:
 // `const x = machine({...})`, `on: { EVENT: { target, actions: act(...) } }`,
 // and compose() members driven independently via .send({ type }).
 const pacmanCode = `<span class="cmt">// 🟡 pacman — eats until the ghost gets him</span>
@@ -68,7 +68,7 @@ game.<span class="fn">sync</span>(() => {
 game.<span class="fn">start</span>()`;
 
 // the closing quick-start — a real, minimal machine (matches the README).
-const quickStartCode = `<span class="kw">import</span> { machine, act } <span class="kw">from</span> <span class="str">'@dunky-dev/state-machine'</span>
+const quickStartCode = `<span class="kw">import</span> { machine, act } <span class="kw">from</span> <span class="str">'@dunky.dev/state-machine'</span>
 
 <span class="kw">const</span> toggle = <span class="fn">machine</span>({
   initial: <span class="str">'inactive'</span>,
@@ -91,7 +91,11 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Dunky — a state machine built for performance</title>
-    <link rel="icon" href={`${base}logo/logo-symbol.svg`} type="image/svg+xml" />
+    <link
+      rel="icon"
+      href={`${base}logo/logo-symbol.svg`}
+      type="image/svg+xml"
+    />
     <meta
       name="description"
       content="A state machine built for performance — inspired by XState and Zag. Define a behavior once, render it anywhere."
@@ -182,7 +186,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
           >
             <span class="select-none text-muted">$</span>
             <code id="install-cmd" class="whitespace-nowrap text-fg"
-              >npm i @dunky-dev/state-machine</code
+              >npm i @dunky.dev/state-machine</code
             >
             <button
               id="install-copy"
@@ -910,7 +914,14 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
     <Analytics />
 
     <script>
-      import { createGame, MAZE, ROWS, COLS, key, type Dir } from "../demos/pacman";
+      import {
+        createGame,
+        MAZE,
+        ROWS,
+        COLS,
+        key,
+        type Dir,
+      } from "../demos/pacman";
       import { createTradingDemo, type PairState } from "../demos/trading";
       import {
         createWhiteboardDemo,

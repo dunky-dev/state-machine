@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@astrojs/starlight": "^0.40.0",
-    "@dunky-dev/state-machine": "workspace:*",
+    "@dunky.dev/state-machine": "workspace:*",
     "@vercel/analytics": "^2.0.1"
   },
   "devDependencies": {

@@ -5,14 +5,19 @@
   "compilerOptions": {
     // paths in `extends` resolve relative to THIS file, so redeclare them
     "paths": {
-      "@dunky-dev/state-machine": ["../packages/core/src"],
-      "@dunky-dev/react-state-machine": ["../packages/react/src"],
-      "@dunky-dev/native-state-machine": ["../packages/native/src"],
-      "@dunky-dev/shared-state-machine": ["../packages/shared/utils/src"]
+      "@dunky.dev/state-machine": ["../packages/core/src"],
+      "@dunky.dev/react-state-machine": ["../packages/react/src"],
+      "@dunky.dev/native-state-machine": ["../packages/native/src"],
+      "@dunky.dev/shared-state-machine": ["../packages/shared/utils/src"],
     },
     // the benchmark touches Node globals (process, global) + DOM (jsdom, react-dom)
-    "types": ["@types/node", "@types/react", "@types/react-dom", "@types/jsdom"]
+    "types": [
+      "@types/node",
+      "@types/react",
+      "@types/react-dom",
+      "@types/jsdom",
+    ],
   },
   "include": ["."],
-  "exclude": ["**/node_modules", "**/dist"]
+  "exclude": ["**/node_modules", "**/dist"],
 }

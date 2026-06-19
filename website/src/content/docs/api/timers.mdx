@@ -6,7 +6,7 @@ description: Transition automatically after a delay.
 A state can transition **automatically after a delay** using `after`. The timer is scoped to the state: scheduled on enter, auto-cancelled if the state is left (or `stop()` is called) before it fires.
 
 ```ts
-import { machine } from '@dunky-dev/state-machine'
+import { machine } from '@dunky.dev/state-machine'
 
 const tooltip = machine({
   initial: 'closed',

@@ -8,7 +8,7 @@
  * short-circuit. Shapes are inline (not imported from machine-core) to keep
  * shared/utils dependency-free — mergeProps is structurally typed anyway.
  */
-import { mergeProps } from '@dunky-dev/shared-state-machine'
+import { mergeProps } from '@dunky.dev/shared-state-machine'
 import { describe, expect, it, vi } from 'vitest'
 
 describe('mergeProps × bindings vocabulary', () => {

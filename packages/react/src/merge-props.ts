@@ -1,4 +1,4 @@
-import { mergeProps as baseMergeProps } from '@dunky-dev/shared-state-machine'
+import { mergeProps as baseMergeProps } from '@dunky.dev/shared-state-machine'
 
 type AnyProps = Record<string, unknown>
 

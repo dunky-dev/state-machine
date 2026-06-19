@@ -36,8 +36,8 @@ import {
   type Actor,
 } from 'xstate'
 import { useSelector as useXSelector } from '@xstate/react'
-import { machine, type Machine } from '@dunky-dev/state-machine'
-import { useSelector } from '@dunky-dev/react-state-machine'
+import { machine, type Machine } from '@dunky.dev/state-machine'
+import { useSelector } from '@dunky.dev/react-state-machine'
 
 type Ctx = { highlighted: number }
 type Ev = { type: 'move'; to: number }

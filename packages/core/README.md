@@ -1,4 +1,4 @@
-# `@dunky-dev/state-machine`
+# `@dunky.dev/state-machine`
 
 A tiny, **renderer-agnostic state-machine engine** for building UI component
 logic once and running it anywhere. It owns _behavior_ — states, transitions,
@@ -8,7 +8,7 @@ It's pure JavaScript: it runs in any JS runtime (browser, Node, the React
 Native JS thread), but not in native platform code (e.g. Swift/Kotlin).
 
 ```ts
-import { machine, act } from '@dunky-dev/state-machine'
+import { machine, act } from '@dunky.dev/state-machine'
 
 const toggle = machine({
   initial: 'inactive',
@@ -194,7 +194,7 @@ const offStop = m.onStop(() => {
 > `TransitionConfig` constraint at the definition site. Two paths off one call:
 >
 > ```ts
-> import { setup, machine } from '@dunky-dev/state-machine'
+> import { setup, machine } from '@dunky.dev/state-machine'
 >
 > // lightweight — infers State / Context / Event from the literal, names loose:
 > const cfg = setup().createMachine({ initial: 'closed', context: {}, states: { closed: {} } })
@@ -316,7 +316,7 @@ on: {
 **Named guards + combinators** (`and` / `or` / `not`):
 
 ```ts
-import { and, not } from '@dunky-dev/state-machine'
+import { and, not } from '@dunky.dev/state-machine'
 
 machine({
   // ...
@@ -355,7 +355,7 @@ drops the `$ => $.setContext(...)` wrapper, so the patch reads as data, and take
 one or many patches (applied in order; a later patch fn sees earlier writes):
 
 ```ts
-import { act } from '@dunky-dev/state-machine'
+import { act } from '@dunky.dev/state-machine'
 
 on: {
   save: {
@@ -395,7 +395,7 @@ fallthrough):
 or a list. A guardless branch is the fallback (put it last):
 
 ```ts
-import { oneOf } from '@dunky-dev/state-machine'
+import { oneOf } from '@dunky.dev/state-machine'
 
 actions: [
   oneOf(
@@ -602,7 +602,7 @@ view-facing object (handlers + attributes a renderer spreads onto elements). The
 subscribable snapshot:
 
 ```ts
-import { connector } from '@dunky-dev/state-machine'
+import { connector } from '@dunky.dev/state-machine'
 
 const connect = ({ state, send }) => ({
   isOpen: state === 'open',
@@ -648,7 +648,7 @@ and, when it changes, calls the matching prop. (Same tuple shape as a React
 `ComponentEffect` — declare each as a named const, collect them in a list.)
 
 ```ts
-import { makeReaction } from '@dunky-dev/state-machine'
+import { makeReaction } from '@dunky.dev/state-machine'
 
 // fix the machine generics once per component; `Value` is then inferred per reaction:
 const reaction = makeReaction<TooltipState, TooltipContext, TooltipEvent, TooltipProps>()
@@ -715,7 +715,7 @@ each dimension is its own machine, and `compose` runs them as one unit
 (orthogonal regions, without nested states):
 
 ```ts
-import { compose } from '@dunky-dev/state-machine'
+import { compose } from '@dunky.dev/state-machine'
 
 const popup = machine({
   /* closed / open */
@@ -874,7 +874,7 @@ single active menu in a menubar." `createStore` is a tiny reactive cell for
 exactly that: a plain value plus a listener set.
 
 ```ts
-import { createStore } from '@dunky-dev/state-machine'
+import { createStore } from '@dunky.dev/state-machine'
 
 const store = createStore({ count: 0 })
 
@@ -913,7 +913,7 @@ const off = tooltipStore.subscribe(s => m.send({ type: 'activeChanged', openId: 
 ## Putting it together
 
 ```ts
-import { setup, machine, connector } from '@dunky-dev/state-machine'
+import { setup, machine, connector } from '@dunky.dev/state-machine'
 
 // 1. describe behavior (agnostic) — setup() type-checks the literal in place.
 //    Pure, props-free, platform-free, so it's the lightweight path.
@@ -947,7 +947,7 @@ view.subscribe(render)
 
 ## Glossary
 
-Every term and concept in `@dunky-dev/state-machine`, with a one-line meaning and a link to
+Every term and concept in `@dunky.dev/state-machine`, with a one-line meaning and a link to
 its full section.
 
 | Term                             | Meaning                                                                                                                                                                                        |
