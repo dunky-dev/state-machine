@@ -48,10 +48,10 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'Dunky',
-      favicon: '/logo-symbol.svg',
+      favicon: '/logo/logo-symbol.svg',
       logo: {
-        light: './public/logo.svg',
-        dark: './public/logo-white.png',
+        light: './public/logo/logo.svg',
+        dark: './public/logo/logo-white.png',
         replacesTitle: true,
       },
       customCss: ['./src/styles/starlight.css'],
@@ -122,7 +122,7 @@ export default defineConfig({
       // The engine package is workspace-linked; alias straight to its `src`
       // so docs demos run the real TS source with no build step.
       alias: {
-        '@dunky-dev/state-machine': resolve(import.meta.dirname, '../packages/core/src'),
+        '@dunky.dev/state-machine': resolve(import.meta.dirname, '../packages/core/src'),
       },
     },
   },

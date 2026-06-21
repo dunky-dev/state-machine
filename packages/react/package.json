@@ -1,5 +1,5 @@
 {
-  "name": "@dunky-dev/react-state-machine",
+  "name": "@dunky.dev/react-state-machine",
   "version": "0.0.0",
   "repository": {
     "type": "git",
@@ -40,8 +40,8 @@
     "react-dom": "^19.2.6"
   },
   "peerDependencies": {
-    "@dunky-dev/shared-state-machine": "workspace:^",
-    "@dunky-dev/state-machine": "workspace:^",
+    "@dunky.dev/shared-state-machine": "workspace:^",
+    "@dunky.dev/state-machine": "workspace:^",
     "react": "*"
   }
 }

@@ -6,7 +6,7 @@ description: Singleton reactive state outside any one machine.
 Context lives _inside_ a machine. Some state belongs _outside_ any one machine, shared across instances. `createStore` is a tiny reactive cell for exactly that: a plain value plus a listener set.
 
 ```ts
-import { createStore } from '@dunky-dev/state-machine'
+import { createStore } from '@dunky.dev/state-machine'
 
 const store = createStore({ count: 0 })
 

@@ -1,15 +1,21 @@
 import { defineConfig } from 'tsdown'
 
 // One root config builds every publishable package in workspace mode. Each
-// `@dunky-dev/*` package has a single `src/index.ts` entry; `react`/`react-native`
-// and the `@dunky-dev/*` workspace deps are auto-externalized from each package's
+// `@dunky.dev/*` package has a single `src/index.ts` entry; `react`/`react-native`
+// and the `@dunky.dev/*` workspace deps are auto-externalized from each package's
 // own `package.json`, so they're never bundled into the output.
 export default defineConfig({
   // The publishable packages, listed explicitly. A glob (`packages/**`) over-matches
   // src/tests dirs, and `include: 'auto'` walks node_modules + grabs the non-published
   // benchmark/website packages — so for this layout an explicit list is the clean
   // choice. Keep in sync with the publish set in .changeset/config.json.
-  workspace: ['packages/core', 'packages/react', 'packages/native', 'packages/shared/utils'],
+  workspace: [
+    'packages/core',
+    'packages/react',
+    'packages/native',
+    'packages/shared/utils',
+    'packages/shared/bindings',
+  ],
   entry: ['src/index.ts'],
   format: ['esm'],
   // Every package is `"type": "module"`, so a plain `.js` is already ESM — emit

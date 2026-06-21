@@ -135,7 +135,7 @@ reads props (see "the machine never sees props" above) and fires the consumer's
 callbacks. It changes when the API surface changes.
 
 Cross-instance singletons (e.g. "only one tooltip open at a time") use
-`createStore` from `@dunky-dev/state-machine` — a tiny reactive cell (plain value +
+`createStore` from `@dunky.dev/state-machine` — a tiny reactive cell (plain value +
 listeners) living outside any one machine. Per-machine state is the engine's own
 plain-object context.
 

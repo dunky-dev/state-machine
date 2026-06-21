@@ -6,7 +6,7 @@ description: Reactive data inside a machine.
 `context` is the machine's data: a plain object declared in the config and read directly off the service. Writes go through `setContext`, the single batched entry point.
 
 ```ts
-import { machine } from '@dunky-dev/state-machine'
+import { machine } from '@dunky.dev/state-machine'
 
 const m = machine({
   initial: 'idle',
@@ -58,7 +58,7 @@ act($ => ({ count: $.context.count + 1 }))
 For the common case of writing context in a transition action, `act()` is write-sugar that drops the `$ => $.setContext(...)` wrapper:
 
 ```ts
-import { act } from '@dunky-dev/state-machine'
+import { act } from '@dunky.dev/state-machine'
 
 on: {
   increment: { actions: act($ => ({ count: $.context.count + 1 })) },

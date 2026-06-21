@@ -5,7 +5,7 @@ import {
   compose,
   type Machine,
   type Composition,
-} from '@dunky-dev/state-machine'
+} from '@dunky.dev/state-machine'
 
 // ---------------------------------------------------------------------------
 // Pair machine — types

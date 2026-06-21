@@ -1,0 +1,3 @@
+[submodule "website/public/logo"]
+	path = website/public/logo
+	url = https://github.com/dunky-dev/logo.git

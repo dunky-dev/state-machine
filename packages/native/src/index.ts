@@ -8,9 +8,9 @@ export {
   useSelector,
   type ComponentEffect,
   type ComponentEffects,
-} from '@dunky-dev/react-state-machine'
+} from '@dunky.dev/react-state-machine'
 
 export { normalize, type Bindings } from './normalize'
 // RN-aware mergeProps (handler compose + style array) layered on the
-// substrate-agnostic mergeProps in @dunky-dev/shared-state-machine.
+// substrate-agnostic mergeProps in @dunky.dev/shared-state-machine.
 export { mergeProps } from './merge-props'

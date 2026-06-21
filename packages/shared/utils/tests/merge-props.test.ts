@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { mergeProps } from '@dunky-dev/shared-state-machine'
+import { mergeProps } from '@dunky.dev/shared-state-machine'
 
 describe('mergeProps', () => {
   it('returns the library bag when consumer is undefined', () => {

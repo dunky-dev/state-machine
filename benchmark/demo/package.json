@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@dunky-dev/state-machine": "workspace:*"
+    "@dunky.dev/state-machine": "workspace:*"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^6.0.2",

@@ -5,7 +5,7 @@ description: This skill should be used whenever the user asks to run the benchma
 
 # Run the benchmark suite
 
-Runs the `@dunky-dev/state-machine` benchmark and, only after asking, refreshes
+Runs the `@dunky.dev/state-machine` benchmark and, only after asking, refreshes
 all documented result tables across the repo and website.
 
 ## The rule

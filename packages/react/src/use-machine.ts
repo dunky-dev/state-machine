@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useSyncExternalStore } from 'react'
-import { connector, machine, type Connect, type TransitionConfig } from '@dunky-dev/state-machine'
+import { connector, machine, type Connect, type TransitionConfig } from '@dunky.dev/state-machine'
 
 /**
  * One substrate-specific effect, declared as a plain setup/teardown function

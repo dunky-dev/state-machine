@@ -1,5 +1,5 @@
 import { useMemo, useRef, useSyncExternalStore } from 'react'
-import type { EqualityFn, Machine } from '@dunky-dev/state-machine'
+import type { EqualityFn, Machine } from '@dunky.dev/state-machine'
 
 /**
  * Fine-grained, selector-based subscription for leaf components.

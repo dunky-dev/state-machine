@@ -6,7 +6,7 @@ import {
   type Action,
   type Machine,
   type Composition,
-} from '@dunky-dev/state-machine'
+} from '@dunky.dev/state-machine'
 
 // ---------------------------------------------------------------------------
 // Easing

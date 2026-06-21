@@ -8,7 +8,7 @@ description: Define and type a state machine.
 ## `machine(config)`
 
 ```ts
-import { machine, act } from '@dunky-dev/state-machine'
+import { machine, act } from '@dunky.dev/state-machine'
 
 const toggle = machine({
   initial: 'inactive',
@@ -38,7 +38,7 @@ Returns a **service**, built but not running. Call `.start()` to boot effects an
 Infers `State`, `Context`, and `Event` straight from the literal: no type arguments, no manual annotations. Named guards / actions / effects / delays stay as loose strings.
 
 ```ts
-import { setup } from '@dunky-dev/state-machine'
+import { setup } from '@dunky.dev/state-machine'
 
 const config = setup.infer().createMachine({
   initial: 'closed',
@@ -70,7 +70,7 @@ Inside the config, `act` callbacks get the same inference: `$.context.open` is `
 Pin `Context` and `Event` explicitly, then name a registry of guards / actions / effects / delays. Every reference in the config is compile-checked and autocompleted against the registry keys; a typo is a type error.
 
 ```ts
-import { setup } from '@dunky-dev/state-machine'
+import { setup } from '@dunky.dev/state-machine'
 
 type Ctx = { open: boolean; locked: boolean }
 type Ev = { type: 'toggle' }

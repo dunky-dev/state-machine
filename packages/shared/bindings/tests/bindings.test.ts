@@ -1,5 +1,5 @@
 /**
- * Bindings vocabulary (re-exported from the engine surface).
+ * Bindings vocabulary — the standalone, engine-free contract.
  *
  * Pins the agnostic event + attr vocabulary a component's connect() emits,
  * BEFORE any target translation. These are types; the test asserts the shape

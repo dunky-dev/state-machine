@@ -13,7 +13,7 @@
  * `paintValue(i)` returns the cell's current computed output (0..1e6) for the
  * heatmap. `update(i, v)` applies one guarded transition with input `v`.
  */
-import { machine, type Machine } from '@dunky-dev/state-machine'
+import { machine, type Machine } from '@dunky.dev/state-machine'
 import { createMachine as createXMachine, createActor as createXActor, assign } from 'xstate'
 import { createMachine as createZagMachine } from '@zag-js/core'
 import { VanillaMachine } from '@zag-js/vanilla'

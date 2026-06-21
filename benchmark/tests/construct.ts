@@ -18,7 +18,7 @@
 import { createActor, createMachine as createXMachine, assign } from 'xstate'
 import { createMachine as createZagMachine } from '@zag-js/core'
 import { VanillaMachine } from '@zag-js/vanilla'
-import { machine } from '@dunky-dev/state-machine'
+import { machine } from '@dunky.dev/state-machine'
 
 type Ctx = { value: number; other: number }
 type Ev = { type: 'hit' | 'miss' }

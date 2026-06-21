@@ -11,7 +11,7 @@ export default defineConfig({
     // the engine package is workspace-linked; aliasing straight to its `src`
     // means Vite serves the real TS source (no build step, edits hot-reload)
     alias: {
-      '@dunky-dev/state-machine': resolve(__dirname, '../../packages/core/src'),
+      '@dunky.dev/state-machine': resolve(__dirname, '../../packages/core/src'),
     },
     dedupe: ['react', 'react-dom'],
   },

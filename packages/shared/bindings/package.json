@@ -1,10 +1,10 @@
 {
-  "name": "@dunky.dev/state-machine",
+  "name": "@dunky.dev/state-machine-bindings",
   "version": "0.0.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dunky-dev/state-machine.git",
-    "directory": "packages/core"
+    "directory": "packages/shared/bindings"
   },
   "files": [
     "dist"
@@ -30,6 +30,5 @@
   },
   "scripts": {
     "build": "tsdown"
-  },
-  "dependencies": {}
+  }
 }

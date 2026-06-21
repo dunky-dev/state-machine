@@ -21,7 +21,7 @@
  * (`pnpm benchmark`).
  */
 import { Bench } from 'tinybench'
-import { compose } from '@dunky-dev/state-machine'
+import { compose } from '@dunky.dev/state-machine'
 import { makeCoreMachine, bump, SINK } from '../competitors'
 import { report } from '../report'
 

@@ -6,7 +6,7 @@ description: Gate transitions with conditions.
 A guard is a predicate that gates a transition: return `false` and it doesn't fire. It receives `{ context, event, computed }`.
 
 ```ts
-import { machine } from '@dunky-dev/state-machine'
+import { machine } from '@dunky.dev/state-machine'
 
 const m = machine({
   initial: 'idle',
@@ -64,7 +64,7 @@ machine({
 ## Combinators
 
 ```ts
-import { and, or, not } from '@dunky-dev/state-machine'
+import { and, or, not } from '@dunky.dev/state-machine'
 
 on: {
   toggle: {

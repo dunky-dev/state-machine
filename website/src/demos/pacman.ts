@@ -5,7 +5,7 @@ import {
   type Action,
   type Composition,
   type Machine,
-} from '@dunky-dev/state-machine'
+} from '@dunky.dev/state-machine'
 
 // 1 = wall, 0 = path. A small, symmetric maze that reads as "Pac-Man".
 // prettier-ignore
@@ -311,13 +311,17 @@ export function createBoardMachine(): BoardMachine {
         on: {
           reset: {
             target: 'playing',
+            // Build a FRESH dots Set / cherry on each reset. A static `act({...})`
+            // would bake one Set instance in at construction time; since `eat`
+            // mutates that Set in place (delete), reusing it would replay an
+            // already-eaten board — leaving dots permanently gone after a reset.
             actions: [
-              act({
+              act(() => ({
                 dots: initialDots([PAC_START, GHOST_START]),
                 cherry: { ...CHERRY_START } as Pt | null,
                 score: 0,
                 status: 'playing' as BoardCtx['status'],
-              }),
+              })),
             ],
           },
         },

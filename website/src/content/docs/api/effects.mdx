@@ -6,7 +6,7 @@ description: Side-effects with cleanup, scoped to a state.
 An effect runs when a state is **entered** and returns an optional cleanup that runs when the state is **left**. Setup and teardown share one closure, so whatever the effect starts on enter is torn down by the exact cleanup that captured it.
 
 ```ts
-import { machine, createStore } from '@dunky-dev/state-machine'
+import { machine, createStore } from '@dunky.dev/state-machine'
 
 const tooltipStore = createStore({ openId: null as string | null })
 
@@ -49,7 +49,7 @@ effects: [
 **`ComponentEffect`:** needs the DOM or reads a prop. Declared outside the machine, passed to `useMachine` in your React component. A `ComponentEffect` is a `[fn, deps]` tuple: the function gets the running machine and current props, and `deps` names the props it reads so the bridge re-runs it only when those change:
 
 ```ts
-import { type ComponentEffect } from '@dunky-dev/react-state-machine'
+import { type ComponentEffect } from '@dunky.dev/react-state-machine'
 import type { DisclosureMachine, DisclosureProps } from './machine'
 
 // Close on Escape, but only if the `closeOnEscape` prop is true.
@@ -74,7 +74,7 @@ export const disclosureEffects = [onEscapeKey]
 Then pass it to `useMachine` in your component:
 
 ```tsx
-import { useMachine, normalize } from '@dunky-dev/react-state-machine'
+import { useMachine, normalize } from '@dunky.dev/react-state-machine'
 import { createDisclosureConfig, connectDisclosure } from './machine'
 import { disclosureEffects } from './effects'
 

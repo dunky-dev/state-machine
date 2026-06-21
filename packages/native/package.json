@@ -1,5 +1,5 @@
 {
-  "name": "@dunky-dev/native-state-machine",
+  "name": "@dunky.dev/native-state-machine",
   "version": "0.0.0",
   "repository": {
     "type": "git",
@@ -32,9 +32,9 @@
     "build": "tsdown"
   },
   "peerDependencies": {
-    "@dunky-dev/react-state-machine": "workspace:^",
-    "@dunky-dev/shared-state-machine": "workspace:^",
-    "@dunky-dev/state-machine": "workspace:^",
+    "@dunky.dev/react-state-machine": "workspace:^",
+    "@dunky.dev/shared-state-machine": "workspace:^",
+    "@dunky.dev/state-machine": "workspace:^",
     "react": "*",
     "react-native": "*"
   }
