@@ -58,10 +58,10 @@ When the view wants to ask "is the list visible?" across several states, tag the
 
 ```ts
 states: {
-  idle:      {},
-  open:      { tags: ['expanded'] },
+  idle: {},
+  open: { tags: ['expanded'] },
   filtering: { tags: ['expanded'] },
 }
 
-m.hasTag('expanded')  // true in 'open' or 'filtering' — one query, no OR-chain
+m.hasTag('expanded') // true in 'open' or 'filtering' — one query, no OR-chain
 ```

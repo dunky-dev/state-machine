@@ -58,6 +58,6 @@ import { act } from '@dunky.dev/state-machine'
 
 on: {
   increment: { actions: act($ => ({ count: $.context.count + 1 })) },
-  reset:     { actions: act({ count: 0 }) },
+  reset: { actions: act({ count: 0 }) },
 }
 ```

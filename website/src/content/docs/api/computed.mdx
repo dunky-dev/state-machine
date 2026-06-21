@@ -32,7 +32,7 @@ states: {
   idle: {
     on: {
       submit: {
-        guard:   ({ computed }) => !computed.isEmpty,
+        guard: ({ computed }) => !computed.isEmpty,
         actions: ({ computed }) => console.log('items:', computed.count),
       },
     },

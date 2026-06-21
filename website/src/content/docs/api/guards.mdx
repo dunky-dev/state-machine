@@ -33,8 +33,8 @@ Give an event an array of transitions — the first whose guard passes wins. A g
 on: {
   tick: [
     { guard: ({ context }) => context.n >= 10, target: 'max' },
-    { guard: ({ context }) => context.n > 0,   target: 'some' },
-    { target: 'zero' },  // no guard = fallback
+    { guard: ({ context }) => context.n > 0, target: 'some' },
+    { target: 'zero' }, // no guard = fallback
   ],
 }
 ```

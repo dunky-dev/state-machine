@@ -737,33 +737,61 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
             >
               <pre
                 class="trade-code"><code><span class="kw">const</span> &#123; createMachine &#125; = <span class="fn">setup</span>&lt;PairContext, PairEvent, PairComputed&gt;().<span class="fn">config</span>(&#123;
-  guards:  &#123; canBuy: $ =&gt; $.context.entryPrice === <span class="num">0</span>,
-              canSell: $ =&gt; $.context.entryPrice &gt; <span class="num">0</span> &#125;,
-  actions: &#123; recordEntry: <span class="fn">act</span>($ =&gt; (&#123; entryPrice: $.context.price &#125;)),
-              updatePrice: <span class="fn">act</span>($ =&gt; (&#123; prevPrice: $.context.price,
-                price: $.event.price, history: [...$.context.history.<span class="fn">slice</span>(-<span class="num">79</span>), $.event.price] &#125;)) &#125;,
-  effects: &#123; priceTicker: (&#123; send &#125;) =&gt; &#123;
-    <span class="kw">const</span> id = <span class="fn">setInterval</span>(() =&gt; send(&#123; type: <span class="str">'TICK'</span>, price: <span class="fn">randomWalk</span>() &#125;), <span class="num">350</span>)
-    <span class="kw">return</span> () =&gt; <span class="fn">clearInterval</span>(id)  <span class="cmt">// ← cleanup on state exit</span>
-  &#125; &#125;,
+  guards: &#123;
+    canBuy: $ =&gt; $.context.entryPrice === <span class="num">0</span>,
+    canSell: $ =&gt; $.context.entryPrice &gt; <span class="num">0</span>,
+  &#125;,
+  actions: &#123;
+    recordEntry: <span class="fn">act</span>($ =&gt; (&#123; entryPrice: $.context.price &#125;)),
+    updatePrice: <span class="fn">act</span>($ =&gt; (&#123;
+      prevPrice: $.context.price,
+      price: $.event.price,
+      history: [...$.context.history.<span class="fn">slice</span>(-<span class="num">79</span>), $.event.price],
+    &#125;)),
+  &#125;,
+  effects: &#123;
+    priceTicker: (&#123; send &#125;) =&gt; &#123;
+      <span class="kw">const</span> id = <span class="fn">setInterval</span>(
+        () =&gt; send(&#123; type: <span class="str">'TICK'</span>, price: <span class="fn">randomWalk</span>() &#125;),
+        <span class="num">350</span>,
+      )
+      <span class="kw">return</span> () =&gt; <span class="fn">clearInterval</span>(id) <span class="cmt">// ← cleanup on state exit</span>
+    &#125;,
+  &#125;,
 &#125;)
 
 <span class="kw">const</span> pair = <span class="fn">createMachine</span>(&#123;
   initial: <span class="str">'idle'</span>,
   context: &#123; price, prevPrice: price, history: [price], entryPrice: <span class="num">0</span>, pnl: <span class="num">0</span> &#125;,
-  computed: &#123; pnl: $ =&gt; $.context.price - $.context.entryPrice,
-               delta: $ =&gt; $.context.price - $.context.prevPrice,
-               isUp: $ =&gt; $.context.price &gt;= $.context.prevPrice &#125;,
-  on: &#123; TICK: &#123; actions: [<span class="str">'updatePrice'</span>] &#125; &#125;,  <span class="cmt">// ← fires in all states</span>
-  watch: &#123; price: [$ =&gt; &#123; <span class="kw">if</span> ($.context.entryPrice &gt; <span class="num">0</span>)
-    $.setContext(&#123; pnl: $.context.price - $.context.entryPrice &#125;) &#125;] &#125;,
+  computed: &#123;
+    pnl: $ =&gt; $.context.price - $.context.entryPrice,
+    delta: $ =&gt; $.context.price - $.context.prevPrice,
+    isUp: $ =&gt; $.context.price &gt;= $.context.prevPrice,
+  &#125;,
+  on: &#123; TICK: &#123; actions: [<span class="str">'updatePrice'</span>] &#125; &#125;, <span class="cmt">// ← fires in all states</span>
+  watch: &#123;
+    price: [
+      $ =&gt; &#123;
+        <span class="kw">if</span> ($.context.entryPrice &gt; <span class="num">0</span>)
+          $.setContext(&#123; pnl: $.context.price - $.context.entryPrice &#125;)
+      &#125;,
+    ],
+  &#125;,
   states: &#123;
-    <span class="st">idle</span>:    &#123; effects: [<span class="str">'priceTicker'</span>], on: &#123; BUY: &#123; guard: <span class="str">'canBuy'</span>, target: <span class="str">'buying'</span> &#125; &#125; &#125;,
-    <span class="st">buying</span>:  &#123; on: &#123; CANCEL: <span class="str">'idle'</span> &#125;,
-               after: &#123; <span class="num">600</span>: &#123; target: <span class="str">'holding'</span>, actions: [<span class="str">'recordEntry'</span>] &#125; &#125; &#125;,
+    <span class="st">idle</span>: &#123;
+      effects: [<span class="str">'priceTicker'</span>],
+      on: &#123; BUY: &#123; guard: <span class="str">'canBuy'</span>, target: <span class="str">'buying'</span> &#125; &#125;,
+    &#125;,
+    <span class="st">buying</span>: &#123;
+      on: &#123; CANCEL: <span class="str">'idle'</span> &#125;,
+      after: &#123; <span class="num">600</span>: &#123; target: <span class="str">'holding'</span>, actions: [<span class="str">'recordEntry'</span>] &#125; &#125;,
+    &#125;,
     <span class="st">holding</span>: &#123; on: &#123; SELL: &#123; guard: <span class="str">'canSell'</span>, target: <span class="str">'selling'</span> &#125; &#125; &#125;,
-    <span class="st">selling</span>: &#123; after: &#123; <span class="num">600</span>: &#123; target: <span class="str">'idle'</span>,
-               actions: [<span class="fn">act</span>(&#123; entryPrice: <span class="num">0</span>, pnl: <span class="num">0</span> &#125;)] &#125; &#125; &#125;,
+    <span class="st">selling</span>: &#123;
+      after: &#123;
+        <span class="num">600</span>: &#123; target: <span class="str">'idle'</span>, actions: [<span class="fn">act</span>(&#123; entryPrice: <span class="num">0</span>, pnl: <span class="num">0</span> &#125;)] &#125;,
+      &#125;,
+    &#125;,
   &#125;,
 &#125;)</code></pre>
             </div>
@@ -805,38 +833,64 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
             >
               <pre
                 class="trade-code"><code><span class="kw">const</span> &#123; createMachine &#125; = <span class="fn">setup</span>&lt;CursorCtx, CursorEv, CursorComputed&gt;().<span class="fn">config</span>(&#123;
-  guards:  &#123; arrived: $ =&gt; $.context.progress &gt;= <span class="num">1</span> &#125;,
-  actions: &#123; stepProgress: <span class="fn">act</span>($ =&gt; (&#123;
-               progress: <span class="fn">Math.min</span>(<span class="num">1</span>, $.context.progress + $.context.speed),
-               x: $.computed.ex, y: $.computed.ey &#125;)),
-             pickNewTarget: (&#123; context, setContext &#125;) =&gt; <span class="fn">setContext</span>(&#123;
-               x0: context.x, y0: context.y,
-               x1: <span class="num">6</span> + <span class="fn">Math.random</span>() * <span class="num">86</span>, y1: <span class="num">6</span> + <span class="fn">Math.random</span>() * <span class="num">86</span>,
-               progress: <span class="num">0</span> &#125;) &#125;,
-  delays:  &#123; idlePause: $ =&gt; $.context.pauseMs &#125;,
+  guards: &#123; arrived: $ =&gt; $.context.progress &gt;= <span class="num">1</span> &#125;,
+  actions: &#123;
+    stepProgress: <span class="fn">act</span>($ =&gt; (&#123;
+      progress: <span class="fn">Math.min</span>(<span class="num">1</span>, $.context.progress + $.context.speed),
+      x: $.computed.ex,
+      y: $.computed.ey,
+    &#125;)),
+    pickNewTarget: (&#123; context, setContext &#125;) =&gt;
+      <span class="fn">setContext</span>(&#123;
+        x0: context.x,
+        y0: context.y,
+        x1: <span class="num">6</span> + <span class="fn">Math.random</span>() * <span class="num">86</span>,
+        y1: <span class="num">6</span> + <span class="fn">Math.random</span>() * <span class="num">86</span>,
+        progress: <span class="num">0</span>,
+      &#125;),
+  &#125;,
+  delays: &#123; idlePause: $ =&gt; $.context.pauseMs &#125;,
 &#125;)
 
 <span class="kw">const</span> cursor = <span class="fn">createMachine</span>(&#123;
-  computed: &#123; <span class="cmt">// eased position — rendered directly by subscribers</span>
-    ex: $ =&gt; $.context.x0 + ($.context.x1 - $.context.x0) * <span class="fn">easeInOut</span>($.context.progress),
-    ey: $ =&gt; $.context.y0 + ($.context.y1 - $.context.y0) * <span class="fn">easeInOut</span>($.context.progress) &#125;,
+  computed: &#123;
+    <span class="cmt">// eased position — rendered directly by subscribers</span>
+    ex: $ =&gt;
+      $.context.x0 +
+      ($.context.x1 - $.context.x0) * <span class="fn">easeInOut</span>($.context.progress),
+    ey: $ =&gt;
+      $.context.y0 +
+      ($.context.y1 - $.context.y0) * <span class="fn">easeInOut</span>($.context.progress),
+  &#125;,
   states: &#123;
-    <span class="st">idle</span>: &#123; entry: [<span class="str">'setPauseMs'</span>],
-            after: &#123; idlePause: &#123; target: <span class="str">'moving'</span>, actions: [<span class="str">'pickNewTarget'</span>] &#125; &#125; &#125;,
-    <span class="st">moving</span>: &#123; after: &#123; <span class="num">16</span>: [  <span class="cmt">// ≈60fps self-driving loop via after timer</span>
-      &#123; guard: <span class="str">'arrived'</span>, target: <span class="str">'idle'</span> &#125;,
-      &#123; actions: [<span class="str">'stepProgress'</span>], target: <span class="str">'moving'</span> &#125;,
-    ] &#125; &#125;,
+    <span class="st">idle</span>: &#123;
+      entry: [<span class="str">'setPauseMs'</span>],
+      after: &#123; idlePause: &#123; target: <span class="str">'moving'</span>, actions: [<span class="str">'pickNewTarget'</span>] &#125; &#125;,
+    &#125;,
+    <span class="st">moving</span>: &#123;
+      after: &#123;
+        <span class="num">16</span>: [
+          <span class="cmt">// ≈60fps self-driving loop via after timer</span>
+          &#123; guard: <span class="str">'arrived'</span>, target: <span class="str">'idle'</span> &#125;,
+          &#123; actions: [<span class="str">'stepProgress'</span>], target: <span class="str">'moving'</span> &#125;,
+        ],
+      &#125;,
+    &#125;,
   &#125;,
 &#125;)
 
 <span class="kw">const</span> sticky = <span class="fn">createMachine</span>(&#123;
-  computed: &#123; normalizedX: $ =&gt; <span class="fn">Math.min</span>(<span class="num">85</span>, $.context.x),
-               normalizedY: $ =&gt; <span class="fn">Math.min</span>(<span class="num">80</span>, $.context.y) &#125;,
+  computed: &#123;
+    normalizedX: $ =&gt; <span class="fn">Math.min</span>(<span class="num">85</span>, $.context.x),
+    normalizedY: $ =&gt; <span class="fn">Math.min</span>(<span class="num">80</span>, $.context.y),
+  &#125;,
   states: &#123;
-    <span class="st">placed</span>:   &#123; on: &#123; DRAG_START: &#123; target: <span class="str">'dragging'</span>, actions: [<span class="str">'startDrag'</span>] &#125; &#125; &#125;,
-    <span class="st">dragging</span>: &#123; on: &#123; DRAG_MOVE:  &#123; actions: [<span class="str">'moveTo'</span>] &#125;,
-                         DROP:      &#123; target: <span class="str">'placed'</span> &#125; &#125; &#125;,
+    <span class="st">placed</span>: &#123;
+      on: &#123; DRAG_START: &#123; target: <span class="str">'dragging'</span>, actions: [<span class="str">'startDrag'</span>] &#125; &#125;,
+    &#125;,
+    <span class="st">dragging</span>: &#123;
+      on: &#123; DRAG_MOVE: &#123; actions: [<span class="str">'moveTo'</span>] &#125;, DROP: &#123; target: <span class="str">'placed'</span> &#125; &#125;,
+    &#125;,
   &#125;,
 &#125;)
 
@@ -1777,6 +1831,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
          CONTRIBUTE SECTION
          ==================================================================== */
       .contrib-section {
+        background: white;
         padding: 6rem 1.5rem 7rem;
         text-align: center;
         border-top: 1px solid var(--color-border);

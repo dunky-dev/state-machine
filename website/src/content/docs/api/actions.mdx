@@ -31,8 +31,8 @@ const m = machine({
 import { act } from '@dunky.dev/state-machine'
 
 on: {
-  save:  { actions: act({ saved: true }) },
-  bump:  { actions: act({ touched: true }, $ => ({ n: $.context.n + 1 })) },
+  save: { actions: act({ saved: true }) },
+  bump: { actions: act({ touched: true }, $ => ({ n: $.context.n + 1 })) },
 }
 ```
 
@@ -44,7 +44,7 @@ Run actions whenever a state is entered or left — regardless of which transiti
 states: {
   open: {
     entry: ['focusFirstItem'],
-    exit:  ['restoreFocus'],
+    exit: ['restoreFocus'],
     on: { close: { target: 'closed' } },
   },
   closed: {},

@@ -274,6 +274,7 @@ states: {
   opening: { tags: ['visible'] },
   open: { tags: ['visible'] },
 }
+
 m.hasTag('visible') // true while in opening OR open
 m.matches('open') // exact-state check
 ```
@@ -852,9 +853,9 @@ Tagging keeps that query from scaling with the state count (see
 
 ```ts
 states: {
-  idle:     {},
-  open:     { tags: ['expanded'] },
-  filtering:{ tags: ['expanded'] },   // still showing the list, just narrowing it
+  idle: {},
+  open: { tags: ['expanded'] },
+  filtering: { tags: ['expanded'] }, // still showing the list, just narrowing it
 }
 
 m.hasTag('expanded') // true in open OR filtering — one query, no OR-chain
