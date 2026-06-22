@@ -1,5 +1,24 @@
 # @dunky.dev/native-state-machine
 
+## 0.2.0
+
+### Minor Changes
+
+- [`d0e20a5`](https://github.com/dunky-dev/state-machine/commit/d0e20a5ac3ca953c923e05819034e420394af83b) Thanks [@ivanbanov](https://github.com/ivanbanov)! - Rename the framework adapters to the `state-machine-*` suffix convention so the whole scope is consistent (`state-machine`, `state-machine-react`, `state-machine-native`, `state-machine-opentui`, `state-machine-utils`, `state-machine-bindings`).
+
+  - `@dunky.dev/react-state-machine` → `@dunky.dev/state-machine-react`
+  - `@dunky.dev/native-state-machine` → `@dunky.dev/state-machine-native`
+  - `@dunky.dev/opentui-state-machine` → `@dunky.dev/state-machine-opentui`
+
+  The previous prefix-named packages are deprecated on npm in favor of these.
+
+### Patch Changes
+
+- Updated dependencies [[`d0e20a5`](https://github.com/dunky-dev/state-machine/commit/d0e20a5ac3ca953c923e05819034e420394af83b)]:
+  - @dunky.dev/state-machine-react@0.2.0
+  - @dunky.dev/state-machine@0.2.0
+  - @dunky.dev/state-machine-utils@0.2.0
+
 ## 0.1.0
 
 ### Minor Changes
@@ -17,15 +36,15 @@
   **⚡️ Blazing fast.** Design systems and complex UIs can run hundreds of live machines at once. Dunky is tuned for exactly that load. [See the benchmark →](https://github.com/dunky-dev/state-machine/tree/main/benchmark#readme)
 
   ```ts
-  import { setup } from '@dunky.dev/state-machine'
+  import { setup } from "@dunky.dev/state-machine";
 
   const toggle = setup({
-    initial: 'off',
+    initial: "off",
     states: {
-      off: { on: { TOGGLE: 'on' } },
-      on: { on: { TOGGLE: 'off' } },
+      off: { on: { TOGGLE: "on" } },
+      on: { on: { TOGGLE: "off" } },
     },
-  })
+  });
   ```
 
   This is our first public release (`0.1.0`). The engine is stable and tested; the target bridges are early and evolving. Come kick the tires, watch the live benchmark, and tell us where it breaks.
