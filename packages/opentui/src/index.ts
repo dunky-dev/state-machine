@@ -1,5 +1,5 @@
 // =============================================================================
-// @dunky.dev/opentui-state-machine
+// @dunky.dev/state-machine-opentui
 //
 // The OpenTUI (terminal) binding TARGET: the substrate-specific translation of
 // the agnostic binding vocabulary into OpenTUI renderable props. Pure functions

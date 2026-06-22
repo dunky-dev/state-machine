@@ -1,4 +1,4 @@
-# `@dunky.dev/react-state-machine`
+# `@dunky.dev/state-machine-react`
 
 The **React bindings** for [`@dunky.dev/state-machine`](../core/README.md).
 The core engine is renderer-agnostic; this package is the thin React edge that
@@ -74,7 +74,7 @@ the generated `useApi` owns the `useEffect`s:
 
 ```ts
 // a target component's effects.ts (illustrative — components live outside this repo)
-import type { ComponentEffect } from '@dunky.dev/react-state-machine'
+import type { ComponentEffect } from '@dunky.dev/state-machine-react'
 
 type TooltipEffect = ComponentEffect<TooltipMachine, TooltipMachineProps>
 

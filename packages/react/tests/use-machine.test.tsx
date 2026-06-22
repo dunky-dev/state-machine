@@ -17,7 +17,7 @@ import {
   type Connect,
   type TransitionConfig,
 } from '@dunky.dev/state-machine'
-import { type ComponentEffects, useMachine } from '@dunky.dev/react-state-machine'
+import { type ComponentEffects, useMachine } from '@dunky.dev/state-machine-react'
 
 type ToggleState = 'closed' | 'open'
 interface ToggleCtx {

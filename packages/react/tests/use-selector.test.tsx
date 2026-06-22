@@ -10,7 +10,7 @@
 import { act, render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act as write, machine, type TransitionConfig } from '@dunky.dev/state-machine'
-import { useSelector } from '@dunky.dev/react-state-machine'
+import { useSelector } from '@dunky.dev/state-machine-react'
 
 type S = 'idle'
 interface Ctx {

@@ -8,7 +8,7 @@
  * pass-through.
  */
 import { describe, expect, it, vi } from 'vitest'
-import { normalize } from '@dunky.dev/react-state-machine'
+import { normalize } from '@dunky.dev/state-machine-react'
 
 describe('react normalize — handlers', () => {
   it('maps onPress to onClick (the DOM activation event)', () => {

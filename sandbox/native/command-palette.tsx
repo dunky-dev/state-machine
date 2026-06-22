@@ -2,8 +2,8 @@ import { useEffect, useRef } from 'react'
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 // Same split as the OpenTUI app: lifecycle hook from the React binding (RN uses a
 // React renderer), prop translator from the native package.
-import { useMachine } from '@dunky.dev/react-state-machine'
-import { mergeProps, normalize } from '@dunky.dev/native-state-machine'
+import { useMachine } from '@dunky.dev/state-machine-react'
+import { mergeProps, normalize } from '@dunky.dev/state-machine-native'
 import {
   commandPaletteMachineConfig,
   type CommandPaletteProps,

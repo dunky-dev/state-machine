@@ -8,7 +8,7 @@ export {
   useSelector,
   type ComponentEffect,
   type ComponentEffects,
-} from '@dunky.dev/react-state-machine'
+} from '@dunky.dev/state-machine-react'
 
 export { normalize, type Bindings } from './normalize'
 // RN-aware mergeProps (handler compose + style array) layered on the

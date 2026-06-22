@@ -11,7 +11,7 @@
  *     accessibilityLabelledBy, id → nativeID.
  */
 import { describe, expect, it, vi } from 'vitest'
-import { normalize } from '@dunky.dev/native-state-machine'
+import { normalize } from '@dunky.dev/state-machine-native'
 
 describe('native normalize — handlers', () => {
   it('keeps onPress as-is (RN Pressable.onPress)', () => {

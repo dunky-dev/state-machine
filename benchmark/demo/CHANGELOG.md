@@ -1,5 +1,12 @@
 # benchmark-demo
 
+## 0.1.1
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @dunky.dev/state-machine@0.2.0
+
 ## 0.1.0
 
 ### Minor Changes

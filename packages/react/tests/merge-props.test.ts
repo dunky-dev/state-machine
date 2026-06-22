@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { mergeProps } from '@dunky.dev/react-state-machine'
+import { mergeProps } from '@dunky.dev/state-machine-react'
 
 describe('mergeProps', () => {
   it('inherits handler composition from the agnostic base', () => {

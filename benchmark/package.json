@@ -1,14 +1,14 @@
 {
   "name": "benchmark",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "scripts": {
     "benchmark": "NODE_ENV=production node --expose-gc --import tsx index.ts"
   },
   "dependencies": {
-    "@dunky.dev/react-state-machine": "workspace:^",
-    "@dunky.dev/state-machine": "workspace:^"
+    "@dunky.dev/state-machine": "workspace:^",
+    "@dunky.dev/state-machine-react": "workspace:^"
   },
   "devDependencies": {
     "@types/jsdom": "^21.1.7",

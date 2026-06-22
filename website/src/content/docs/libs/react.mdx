@@ -5,7 +5,7 @@ description: React bindings for @dunky.dev/state-machine.
 
 import Install from '../../../components/install.astro'
 
-<Install pkg='@dunky.dev/react-state-machine' />
+<Install pkg='@dunky.dev/state-machine-react' />
 
 The React package is a thin edge layer. Behavior lives in the core machine and the component's `connect` function; this package only adapts them to React: lifecycle, rendering, prop translation, and platform effects.
 
@@ -14,7 +14,7 @@ The React package is a thin edge layer. Behavior lives in the core machine and t
 The one bridge hook. Every component calls it with the four agnostic pieces and gets back the view API:
 
 ```tsx
-import { useMachine, normalize } from '@dunky.dev/react-state-machine'
+import { useMachine, normalize } from '@dunky.dev/state-machine-react'
 import { createDisclosureConfig, connectDisclosure, disclosureEffects } from './disclosure'
 
 type Props = {
@@ -130,7 +130,7 @@ When a consumer spreads their own props onto the same element the component cont
 For a leaf component that should only re-render when one slice of the machine changes (useful when a single machine drives many rows and each row should only wake for its own value):
 
 ```tsx
-import { useSelector } from '@dunky.dev/react-state-machine'
+import { useSelector } from '@dunky.dev/state-machine-react'
 
 function Row({ machine, value }) {
   const isHighlighted = useSelector(machine, () => machine.context.highlightedValue === value)
@@ -154,7 +154,7 @@ const pos = useSelector(
 Some behavior can't live in the machine because it touches the DOM or reads props the machine never sees. Declare each as a `[setup/teardown, depPropNames]` tuple; `useMachine` runs one `useEffect` per entry, keyed on its named prop deps:
 
 ```ts
-import type { ComponentEffect } from '@dunky.dev/react-state-machine'
+import type { ComponentEffect } from '@dunky.dev/state-machine-react'
 import type { DisclosureMachine, DisclosureProps } from './machine'
 
 type Effect = ComponentEffect<DisclosureMachine, DisclosureProps>

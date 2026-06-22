@@ -9,10 +9,10 @@
     "android": "expo run:android"
   },
   "dependencies": {
-    "@dunky.dev/native-state-machine": "workspace:^",
-    "@dunky.dev/react-state-machine": "workspace:^",
     "@dunky.dev/state-machine": "workspace:^",
     "@dunky.dev/state-machine-bindings": "workspace:^",
+    "@dunky.dev/state-machine-native": "workspace:^",
+    "@dunky.dev/state-machine-react": "workspace:^",
     "@dunky.dev/state-machine-utils": "workspace:^",
     "@sandbox/cmdk-core": "workspace:^",
     "expo": "^54.0.0",

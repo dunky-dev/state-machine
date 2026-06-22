@@ -47,12 +47,12 @@ importers:
 
   benchmark:
     dependencies:
-      '@dunky.dev/react-state-machine':
-        specifier: workspace:^
-        version: link:../packages/react
       '@dunky.dev/state-machine':
         specifier: workspace:^
         version: link:../packages/core
+      '@dunky.dev/state-machine-react':
+        specifier: workspace:^
+        version: link:../packages/react
     devDependencies:
       '@types/jsdom':
         specifier: ^21.1.7
@@ -126,12 +126,12 @@ importers:
 
   packages/native:
     dependencies:
-      '@dunky.dev/react-state-machine':
-        specifier: workspace:^
-        version: link:../react
       '@dunky.dev/state-machine':
         specifier: workspace:^
         version: link:../core
+      '@dunky.dev/state-machine-react':
+        specifier: workspace:^
+        version: link:../react
       '@dunky.dev/state-machine-utils':
         specifier: workspace:^
         version: link:../shared/utils
@@ -182,18 +182,18 @@ importers:
 
   sandbox/native:
     dependencies:
-      '@dunky.dev/native-state-machine':
-        specifier: workspace:^
-        version: link:../../packages/native
-      '@dunky.dev/react-state-machine':
-        specifier: workspace:^
-        version: link:../../packages/react
       '@dunky.dev/state-machine':
         specifier: workspace:^
         version: link:../../packages/core
       '@dunky.dev/state-machine-bindings':
         specifier: workspace:^
         version: link:../../packages/shared/bindings
+      '@dunky.dev/state-machine-native':
+        specifier: workspace:^
+        version: link:../../packages/native
+      '@dunky.dev/state-machine-react':
+        specifier: workspace:^
+        version: link:../../packages/react
       '@dunky.dev/state-machine-utils':
         specifier: workspace:^
         version: link:../../packages/shared/utils
@@ -222,18 +222,18 @@ importers:
 
   sandbox/opentui:
     dependencies:
-      '@dunky.dev/opentui-state-machine':
-        specifier: workspace:^
-        version: link:../../packages/opentui
-      '@dunky.dev/react-state-machine':
-        specifier: workspace:^
-        version: link:../../packages/react
       '@dunky.dev/state-machine':
         specifier: workspace:^
         version: link:../../packages/core
       '@dunky.dev/state-machine-bindings':
         specifier: workspace:^
         version: link:../../packages/shared/bindings
+      '@dunky.dev/state-machine-opentui':
+        specifier: workspace:^
+        version: link:../../packages/opentui
+      '@dunky.dev/state-machine-react':
+        specifier: workspace:^
+        version: link:../../packages/react
       '@dunky.dev/state-machine-utils':
         specifier: workspace:^
         version: link:../../packages/shared/utils
@@ -259,15 +259,15 @@ importers:
 
   sandbox/react:
     dependencies:
-      '@dunky.dev/react-state-machine':
-        specifier: workspace:^
-        version: link:../../packages/react
       '@dunky.dev/state-machine':
         specifier: workspace:^
         version: link:../../packages/core
       '@dunky.dev/state-machine-bindings':
         specifier: workspace:^
         version: link:../../packages/shared/bindings
+      '@dunky.dev/state-machine-react':
+        specifier: workspace:^
+        version: link:../../packages/react
       '@dunky.dev/state-machine-utils':
         specifier: workspace:^
         version: link:../../packages/shared/utils
