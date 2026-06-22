@@ -14,6 +14,7 @@ const RAMP_STEP = 1500
 const RAMP_EVERY_MS = 1200
 const PAINT_EVERY_MS = 100 // throttle canvas paint to ~10fps (off the hot path)
 const OVERFLOW_AT = 3000 // backlog over this = decisively "falling behind"
+const TEST_DURATION_MS = 30_000 // fixed-length "30s test" run
 
 const ENGINE_IDS: PanelId[] = ['Dunky', 'xstate', 'zag'] // raw doesn't count
 
@@ -37,6 +38,8 @@ export function App() {
   const [fps, setFps] = React.useState(0)
   const [rate, setRate] = React.useState(0)
   const [stats, setStats] = React.useState<Record<PanelId, Stat>>(zeroStats)
+  // 0..1 remaining-time fraction during a 30s test (null = not a timed run)
+  const [remaining, setRemaining] = React.useState<number | null>(null)
 
   const size = side * side
   const feed = React.useMemo(() => createFeed(size), [size])
@@ -58,12 +61,13 @@ export function App() {
     setRunning(false)
     setFps(0)
     setRate(0)
+    setRemaining(null)
     setStats(zeroStats())
     // drop each panel's queue/applied state so the next run starts clean
     for (const id of Object.keys(handles.current) as PanelId[]) handles.current[id]?.clear()
   }
 
-  function start() {
+  function start(timed = false) {
     if (runningRef.current) {
       reset() // Stop = reset the whole interface to idle
       return
@@ -71,11 +75,13 @@ export function App() {
     reset() // clean slate before a fresh run
     runningRef.current = true
     setRunning(true)
+    if (timed) setRemaining(1)
     let curRate = RAMP_START
     setRate(curRate)
-    let lastRamp = performance.now()
-    let lastSample = performance.now()
-    let lastPaint = performance.now()
+    const startedAt = performance.now()
+    let lastRamp = startedAt
+    let lastSample = startedAt
+    let lastPaint = startedAt
     let frames = 0
     const applied: Record<PanelId, number> = { raw: 0, Dunky: 0, xstate: 0, zag: 0 }
     // queued captured at first overflow, per panel (persists across samples)
@@ -91,7 +97,23 @@ export function App() {
       if (!runningRef.current) return
       frames++
 
-      if (now - lastRamp >= RAMP_EVERY_MS) {
+      if (timed) {
+        const elapsed = now - startedAt
+        setRemaining(Math.max(0, 1 - elapsed / TEST_DURATION_MS))
+        if (elapsed >= TEST_DURATION_MS) {
+          runningRef.current = false
+          cancelAnimationFrame(loop.current)
+          setRunning(false)
+          setRemaining(0)
+          return
+        }
+      }
+
+      // Keep ramping the load only while at least one engine is still keeping up.
+      // Once the last one falls behind we hold the rate steady — a timed run then
+      // coasts at that frozen rate for the rest of the 30s.
+      const allBehind = ENGINE_IDS.every(id => overflowedAt[id] !== null)
+      if (!allBehind && now - lastRamp >= RAMP_EVERY_MS) {
         curRate += RAMP_STEP
         lastRamp = now
         setRate(curRate)
@@ -145,8 +167,9 @@ export function App() {
 
         // auto-stop the instant the LAST engine falls behind — freeze everything
         // immediately so the "fell behind by N" flags reflect the moment of
-        // divergence and don't keep growing.
-        if (ENGINE_IDS.every(id => overflowedAt[id] !== null)) {
+        // divergence and don't keep growing. A timed run ignores this and keeps
+        // going for the full duration.
+        if (!timed && ENGINE_IDS.every(id => overflowedAt[id] !== null)) {
           runningRef.current = false
           cancelAnimationFrame(loop.current)
           setRunning(false)
@@ -172,6 +195,30 @@ export function App() {
         boxSizing: 'border-box',
       }}
     >
+      {/* shrinking top bar — full width at the start of a 30s test, drains to 0 */}
+      {remaining !== null && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 4,
+            background: '#161b22',
+            zIndex: 10,
+          }}
+        >
+          <div
+            style={{
+              height: '100%',
+              width: `${remaining * 100}%`,
+              background: '#d29922',
+              // no transition — driven each frame, so it tracks real elapsed time
+            }}
+          />
+        </div>
+      )}
+
       <header style={{ marginBottom: 16 }}>
         <h1 style={{ margin: '0 0 4px', fontSize: 20 }}>Dunky — engine throughput, live</h1>
         <p style={{ margin: 0, opacity: 0.6, fontSize: 13, maxWidth: 920 }}>
@@ -179,8 +226,9 @@ export function App() {
           that feeds a computed. One change stream feeds all four; each gets an equal{' '}
           <b>{DRAIN_BUDGET_MS}ms/frame</b> to apply its queue, and the load ramps until they
           diverge. The grid is a throttled canvas heatmap (paint kept off the hot path), so what
-          you're watching is <b>engine cost</b>. It runs until all three engines fall behind, then
-          stops. Idle until you start.
+          you're watching is <b>engine cost</b>. <b>Start</b> runs until all three engines fall
+          behind, then stops; <b>30s test</b> runs the full half-minute regardless. Idle until you
+          start.
         </p>
       </header>
 
@@ -197,7 +245,7 @@ export function App() {
         }}
       >
         <button
-          onClick={start}
+          onClick={() => start(false)}
           style={{
             padding: '8px 18px',
             fontSize: 14,
@@ -211,6 +259,24 @@ export function App() {
           }}
         >
           {running ? 'Stop' : 'Start'}
+        </button>
+
+        <button
+          onClick={() => start(true)}
+          disabled={running}
+          style={{
+            padding: '8px 18px',
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: running ? 'default' : 'pointer',
+            borderRadius: 6,
+            border: '1px solid #30363d',
+            background: 'transparent',
+            color: '#e6edf3',
+            opacity: running ? 0.4 : 1,
+          }}
+        >
+          30s test
         </button>
 
         <label style={{ fontSize: 13 }}>
