@@ -258,7 +258,7 @@ export function App() {
             minWidth: 90,
           }}
         >
-          ⏹️ {running ? 'Stop' : 'Start'}
+          🏁 {running ? 'Stop' : 'Start'}
         </button>
 
         <button
