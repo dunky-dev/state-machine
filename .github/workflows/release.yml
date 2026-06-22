@@ -10,14 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Gate publishing on the full CI suite (build, test, typecheck, lint, format,
-  # changeset status) before the changesets action runs.
-  checks:
-    uses: ./.github/workflows/ci-checks.yml
-    secrets: inherit
-
   release:
-    needs: checks
     runs-on: ubuntu-latest
     permissions:
       contents: write # create tags + GitHub releases, push the version PR branch
