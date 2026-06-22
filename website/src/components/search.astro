@@ -1,0 +1,88 @@
+---
+// Starlight Search override: render the default cmd+k search, then add
+// arrow-key navigation. Pagefind's default UI only supports Tab + click;
+// this wires Up/Down to move a highlight across results and Enter to follow
+// the highlighted one, so the keyboard flow matches what people expect.
+import Default from '@astrojs/starlight/components/Search.astro'
+---
+
+<Default {...Astro.props}><slot /></Default>
+
+<script is:inline>
+  ;(() => {
+    const RESULT = 'a.pagefind-ui__result-link'
+    const ACTIVE = 'data-kbd-active'
+
+    /** All visible result links inside the open search dialog, in DOM order. */
+    const results = (dialog) => Array.from(dialog.querySelectorAll(RESULT))
+
+    const setActive = (links, index) => {
+      links.forEach((el, i) => {
+        if (i === index) {
+          el.setAttribute(ACTIVE, '')
+          el.scrollIntoView({ block: 'nearest' })
+        } else {
+          el.removeAttribute(ACTIVE)
+        }
+      })
+    }
+
+    const currentIndex = (links) => links.findIndex((el) => el.hasAttribute(ACTIVE))
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Enter') return
+
+      const dialog = document.querySelector('dialog[aria-label]')
+      if (!dialog || !dialog.open) return
+
+      const links = results(dialog)
+      if (!links.length) return
+
+      const index = currentIndex(links)
+
+      if (e.key === 'Enter') {
+        // Let the input's own Enter (open first result) stand when nothing is
+        // highlighted; otherwise follow the highlighted result.
+        if (index === -1) return
+        e.preventDefault()
+        links[index].click()
+        return
+      }
+
+      e.preventDefault()
+      const last = links.length - 1
+      const next =
+        e.key === 'ArrowDown'
+          ? index < 0 || index === last
+            ? 0
+            : index + 1
+          : index <= 0
+            ? last
+            : index - 1
+      setActive(links, next)
+    })
+
+    // Reset the highlight whenever the result set changes (new query / cleared).
+    const observer = new MutationObserver(() => {
+      const dialog = document.querySelector('dialog[aria-label]')
+      if (dialog && dialog.open) {
+        results(dialog).forEach((el) => el.removeAttribute(ACTIVE))
+      }
+    })
+    // Observe lazily once the modal mounts its content.
+    const startObserving = () => {
+      const root = document.querySelector('#starlight__search')
+      if (root) observer.observe(root, { childList: true, subtree: true })
+    }
+    if (document.readyState !== 'loading') startObserving()
+    else document.addEventListener('DOMContentLoaded', startObserving)
+  })()
+</script>
+
+<style is:global>
+  a.pagefind-ui__result-link[data-kbd-active] {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+    border-radius: 0.25rem;
+  }
+</style>
