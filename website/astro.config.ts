@@ -42,6 +42,11 @@ function rehypeBaseLinks() {
 export default defineConfig({
   site: 'https://dunky-dev.github.io',
   base,
+  // Vercel serves the static output only at slash-less paths (`/api/context`);
+  // the trailing-slash variant 404s. `'never'` makes Astro emit slash-less
+  // canonical links AND flips Starlight's search to strip the trailing slash
+  // from Pagefind result URLs, so cmd+k results resolve instead of 404ing.
+  trailingSlash: 'never',
   markdown: {
     rehypePlugins: [rehypeBaseLinks],
   },
@@ -58,6 +63,9 @@ export default defineConfig({
       components: {
         // Wrap Starlight's default Head to mount Vercel Analytics on doc pages.
         Head: './src/components/head.astro',
+        // Wrap the default Search to add Up/Down/Enter keyboard navigation,
+        // which Pagefind's default UI doesn't provide on its own.
+        Search: './src/components/search.astro',
       },
       sidebar: [
         {

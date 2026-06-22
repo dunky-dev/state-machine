@@ -1,0 +1,8 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "types": ["react"]
+  },
+  "include": ["index.ts", "app.tsx", "command-palette.tsx"]
+}

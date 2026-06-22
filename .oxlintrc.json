@@ -44,5 +44,5 @@
     }
   },
   "globals": {},
-  "ignorePatterns": ["**/dist/**"]
+  "ignorePatterns": ["**/dist/**", "website/src/snippets/**"]
 }

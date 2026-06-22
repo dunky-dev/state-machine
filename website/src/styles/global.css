@@ -1,6 +1,9 @@
 @import 'tailwindcss';
 
 @theme {
+  --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Roboto Mono', 'Droid Sans Mono',
+    'Liberation Mono', 'Courier New', monospace;
   --color-bg: #ffffff;
   --color-panel: #f6f6f8;
   --color-fg: #16161a;
@@ -9,10 +12,6 @@
   --color-border: #e7e7ec;
   --color-up: #11a36b;
   --color-down: #e0473a;
-  --color-code: #273136; /* background */
-  --color-code-fg: #f2fffc; /* foreground */
-  --color-code-border: #3a4449; /* dark2 */
-  --color-code-muted: #6b7678; /* muted */
 }
 
 :root {
@@ -66,11 +65,11 @@ body {
   color: var(--color-fg);
 }
 .prose-doc :where(code) {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 0.9em;
 }
 .prose-doc :where(pre) {
-  background: var(--color-code);
+  background: #273136;
   border: 1px solid var(--color-border);
   border-radius: 0.5rem;
   padding: 1rem;

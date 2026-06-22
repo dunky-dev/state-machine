@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "cmdk",
+    "slug": "cmdk-native",
+    "version": "0.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": { "supportsTablet": true, "bundleIdentifier": "dev.dunky.cmdk" },
+    "android": { "package": "dev.dunky.cmdk" }
+  }
+}

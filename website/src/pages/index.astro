@@ -3,6 +3,10 @@ import Header from "../components/header.astro";
 import Footer from "../components/footer.astro";
 import Analytics from "@vercel/analytics/astro";
 import "../styles/global.css";
+import { Code } from "@astrojs/starlight/components";
+import pacmanSrc from "../snippets/pacman.code.ts?raw";
+import tradingSrc from "../snippets/trading-panel.code.ts?raw";
+import whiteboardSrc from "../snippets/whiteboard.code.ts?raw";
 
 const base = import.meta.env.BASE_URL;
 const repo = "https://github.com/dunky-dev/state-machine";
@@ -12,87 +16,12 @@ const shareText =
   "Dunky: a state machine designed for UIs. Define states once, render anywhere.";
 const shareUrl = "https://dunky.dev";
 const shareOnX = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
-
-// The three machines, written out (set:html so literal braces survive the JSX
-// parser), faithful to the real @dunky.dev/state-machine API + the pacman demo:
-// `const x = machine({...})`, `on: { EVENT: { target, actions: act(...) } }`,
-// and compose() members driven independently via .send({ type }).
-const pacmanCode = `<span class="cmt">// 🟡 pacman: eats until the ghost gets him</span>
-<span class="kw">const</span> pacman = <span class="fn">machine</span>({
-  initial: <span class="str">'eating'</span>,
-  context: { x: <span class="num">1</span>, y: <span class="num">1</span>, dir: <span class="str">'right'</span>, mouth: <span class="str">'open'</span> },
-  states: {
-    <span class="st" data-machine="pacman" data-state="eating">eating</span>: { on: {
-      step: { actions: <span class="fn">act</span>($ => ({ x: $.event.x, y: $.event.y })) },
-      die:  { target: <span class="str">'dead'</span> },
-    } },
-    <span class="st" data-machine="pacman" data-state="dead">dead</span>: { on: { revive: { target: <span class="str">'eating'</span> } } },
-  },
-})`;
-
-const ghostCode = `<span class="cmt">// 👻 ghost: chases on each tick, stops on a catch</span>
-<span class="kw">const</span> ghost = <span class="fn">machine</span>({
-  initial: <span class="str">'roaming'</span>,
-  context: { x: <span class="num">11</span>, y: <span class="num">10</span>, dir: <span class="str">'up'</span> },
-  states: {
-    <span class="st" data-machine="ghost" data-state="roaming">roaming</span>: { on: {
-      tick: { actions: <span class="fn">act</span>($ => chase($.context, $.event)) },
-      stop: { target: <span class="str">'stopped'</span> },
-    } },
-    <span class="st" data-machine="ghost" data-state="stopped">stopped</span>: { on: { reset: { target: <span class="str">'roaming'</span> } } },
-  },
-})`;
-
-const boardCode = `<span class="cmt">// 🍒 board: dots, cherry, score</span>
-<span class="kw">const</span> board = <span class="fn">machine</span>({
-  initial: <span class="str">'playing'</span>,
-  context: { dots, cherry, score: <span class="num">0</span> },
-  states: {
-    <span class="st" data-machine="board" data-state="playing">playing</span>: { on: {
-      eat:    { actions: <span class="fn">act</span>($ => scoreAt($.context, $.event)) },
-      caught: { target: <span class="str">'caught'</span> },
-    } },
-    <span class="st" data-machine="board" data-state="caught">caught</span>: { on: { reset: { target: <span class="str">'playing'</span> } } },
-  },
-})`;
-
-const composeCode = `<span class="cmt">// ⏱️ a clock machine self-drives via \`after\`: no external loop</span>
-<span class="kw">const</span> clock = <span class="fn">machine</span>({
-  initial: <span class="str">'running'</span>,
-  states: { <span class="st">running</span>: { after: { <span class="num">200</span>: { target: <span class="str">'running'</span> } } } },
-})
-
-<span class="cmt">// 🎲 compose the four; sync() fans each beat to all regions in order</span>
-<span class="kw">const</span> game = <span class="fn">compose</span>({ clock, pacman, ghost, board })
-game.<span class="fn">sync</span>(() => {
-  <span class="kw">const</span> { x, y } = step(pacman.context)
-  pacman.<span class="fn">send</span>({ type: <span class="str">'step'</span>, x, y })
-  board.<span class="fn">send</span>({ type: <span class="str">'eat'</span>, x, y })
-  ghost.<span class="fn">send</span>({ type: <span class="str">'tick'</span>, targetX: x, targetY: y })
-})
-
-game.<span class="fn">start</span>()`;
-
-// the closing quick-start, a real, minimal machine (matches the README).
-const quickStartCode = `<span class="kw">import</span> { machine, act } <span class="kw">from</span> <span class="str">'@dunky.dev/state-machine'</span>
-
-<span class="kw">const</span> toggle = <span class="fn">machine</span>({
-  initial: <span class="str">'inactive'</span>,
-  context: { count: <span class="num">0</span> },
-  states: {
-    inactive: { on: { flip: { target: <span class="str">'active'</span>, actions: <span class="fn">act</span>($ => ({ count: $.context.count + <span class="num">1</span> })) } } },
-    active:   { on: { flip: { target: <span class="str">'inactive'</span> } } },
-  },
-})
-
-toggle.<span class="fn">start</span>()
-toggle.<span class="fn">send</span>({ type: <span class="str">'flip'</span> })
-toggle.state    <span class="cmt">// 'active'</span>
-toggle.context  <span class="cmt">// { count: 1 }</span>`;
 ---
 
 <!doctype html>
-<html lang="en">
+<!-- data-theme="dark" pins Expressive Code to its dark syntax theme so the
+     homepage's code blocks render on a dark surface everywhere. -->
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -125,7 +54,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
         >
           <!-- brand lockup: Dunky wordmark logo + STATE-MACHINE eyebrow. -->
           <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <img src={`${base}logo.svg`} alt="Dunky" class="h-12" />
+            <img src={`${base}logo/logo.svg`} alt="Dunky" class="h-12" />
             <span class="select-none" aria-hidden="true">/</span>
             <span class="mt-2 font-mono text-lg font-semibold uppercase">
               State&#8209;Machine
@@ -272,21 +201,11 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
             </p>
           </div>
 
-          <!-- all four snippets in ONE dark "IDE" card, three machine files +
-               the compose that unites them, each with its own filename header,
-               separated by hairline dividers. An emoji prefix tells them apart. -->
-          <div class="dark-card ide-card">
-            <pre
-              class="overflow-x-auto px-4 py-3 font-mono text-[12px] leading-relaxed"><code set:html={pacmanCode} /></pre>
-
-            <pre
-              class="overflow-x-auto px-4 py-3 font-mono text-[12px] leading-relaxed"><code set:html={ghostCode} /></pre>
-
-            <pre
-              class="overflow-x-auto px-4 py-3 font-mono text-[12px] leading-relaxed"><code set:html={boardCode} /></pre>
-
-            <pre
-              class="overflow-x-auto px-4 py-3 font-mono text-[12px] leading-relaxed"><code set:html={composeCode} /></pre>
+          <!-- the pacman demo's machines (pacman · ghost · board + the compose
+               that unites them), rendered with Starlight's <Code> (Expressive
+               Code) so the syntax theme matches the docs everywhere. -->
+          <div class="ide-card">
+            <Code code={pacmanSrc.trim()} lang="ts" />
           </div>
         </section>
 
@@ -737,37 +656,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
               aria-labelledby="trade-code-toggle"
               hidden
             >
-              <pre
-                class="trade-code"><code><span class="kw">const</span> &#123; createMachine &#125; = <span class="fn">setup.as</span>&lt;PairContext, PairEvent, PairComputed&gt;().<span class="fn">config</span>(&#123;
-  guards:  &#123; canBuy: $ =&gt; $.context.entryPrice === <span class="num">0</span>,
-              canSell: $ =&gt; $.context.entryPrice &gt; <span class="num">0</span> &#125;,
-  actions: &#123; recordEntry: <span class="fn">act</span>($ =&gt; (&#123; entryPrice: $.context.price &#125;)),
-              updatePrice: <span class="fn">act</span>($ =&gt; (&#123; prevPrice: $.context.price,
-                price: $.event.price, history: [...$.context.history.<span class="fn">slice</span>(-<span class="num">79</span>), $.event.price] &#125;)) &#125;,
-  effects: &#123; priceTicker: (&#123; send &#125;) =&gt; &#123;
-    <span class="kw">const</span> id = <span class="fn">setInterval</span>(() =&gt; send(&#123; type: <span class="str">'TICK'</span>, price: <span class="fn">randomWalk</span>() &#125;), <span class="num">350</span>)
-    <span class="kw">return</span> () =&gt; <span class="fn">clearInterval</span>(id)  <span class="cmt">// ← cleanup on state exit</span>
-  &#125; &#125;,
-&#125;)
-
-<span class="kw">const</span> pair = <span class="fn">createMachine</span>(&#123;
-  initial: <span class="str">'idle'</span>,
-  context: &#123; price, prevPrice: price, history: [price], entryPrice: <span class="num">0</span>, pnl: <span class="num">0</span> &#125;,
-  computed: &#123; pnl: $ =&gt; $.context.price - $.context.entryPrice,
-               delta: $ =&gt; $.context.price - $.context.prevPrice,
-               isUp: $ =&gt; $.context.price &gt;= $.context.prevPrice &#125;,
-  on: &#123; TICK: &#123; actions: [<span class="str">'updatePrice'</span>] &#125; &#125;,  <span class="cmt">// ← fires in all states</span>
-  watch: &#123; price: [$ =&gt; &#123; <span class="kw">if</span> ($.context.entryPrice &gt; <span class="num">0</span>)
-    $.setContext(&#123; pnl: $.context.price - $.context.entryPrice &#125;) &#125;] &#125;,
-  states: &#123;
-    <span class="st">idle</span>:    &#123; effects: [<span class="str">'priceTicker'</span>], on: &#123; BUY: &#123; guard: <span class="str">'canBuy'</span>, target: <span class="str">'buying'</span> &#125; &#125; &#125;,
-    <span class="st">buying</span>:  &#123; on: &#123; CANCEL: &#123; target: <span class="str">'idle'</span> &#125; &#125;,
-               after: &#123; <span class="num">2000</span>: &#123; target: <span class="str">'holding'</span>, actions: [<span class="str">'recordEntry'</span>] &#125; &#125; &#125;,
-    <span class="st">holding</span>: &#123; on: &#123; SELL: &#123; guard: <span class="str">'canSell'</span>, target: <span class="str">'selling'</span> &#125; &#125; &#125;,
-    <span class="st">selling</span>: &#123; after: &#123; <span class="num">600</span>: &#123; target: <span class="str">'idle'</span>,
-               actions: [<span class="fn">act</span>(&#123; entryPrice: <span class="num">0</span>, pnl: <span class="num">0</span> &#125;)] &#125; &#125; &#125;,
-  &#125;,
-&#125;)</code></pre>
+              <Code code={tradingSrc.trim()} lang="ts" />
             </div>
           </div>
         </div>
@@ -805,44 +694,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
               aria-labelledby="wb-code-toggle"
               hidden
             >
-              <pre
-                class="trade-code"><code><span class="kw">const</span> &#123; createMachine &#125; = <span class="fn">setup.as</span>&lt;CursorCtx, CursorEv, CursorComputed&gt;().<span class="fn">config</span>(&#123;
-  guards:  &#123; arrived: $ =&gt; $.context.progress &gt;= <span class="num">1</span> &#125;,
-  actions: &#123; stepProgress: <span class="fn">act</span>($ =&gt; (&#123;
-               progress: <span class="fn">Math.min</span>(<span class="num">1</span>, $.context.progress + $.context.speed),
-               x: $.computed.ex, y: $.computed.ey &#125;)),
-             pickNewTarget: (&#123; context, setContext &#125;) =&gt; <span class="fn">setContext</span>(&#123;
-               x0: context.x, y0: context.y,
-               x1: <span class="num">6</span> + <span class="fn">Math.random</span>() * <span class="num">86</span>, y1: <span class="num">6</span> + <span class="fn">Math.random</span>() * <span class="num">86</span>,
-               progress: <span class="num">0</span> &#125;) &#125;,
-  delays:  &#123; idlePause: $ =&gt; $.context.pauseMs &#125;,
-&#125;)
-
-<span class="kw">const</span> cursor = <span class="fn">createMachine</span>(&#123;
-  computed: &#123; <span class="cmt">// eased position: rendered directly by subscribers</span>
-    ex: $ =&gt; $.context.x0 + ($.context.x1 - $.context.x0) * <span class="fn">easeInOut</span>($.context.progress),
-    ey: $ =&gt; $.context.y0 + ($.context.y1 - $.context.y0) * <span class="fn">easeInOut</span>($.context.progress) &#125;,
-  states: &#123;
-    <span class="st">idle</span>: &#123; entry: [<span class="str">'setPauseMs'</span>],
-            after: &#123; idlePause: &#123; target: <span class="str">'moving'</span>, actions: [<span class="str">'pickNewTarget'</span>] &#125; &#125; &#125;,
-    <span class="st">moving</span>: &#123; after: &#123; <span class="num">16</span>: [  <span class="cmt">// ≈60fps self-driving loop via after timer</span>
-      &#123; guard: <span class="str">'arrived'</span>, target: <span class="str">'idle'</span> &#125;,
-      &#123; actions: [<span class="str">'stepProgress'</span>], target: <span class="str">'moving'</span> &#125;,
-    ] &#125; &#125;,
-  &#125;,
-&#125;)
-
-<span class="kw">const</span> sticky = <span class="fn">createMachine</span>(&#123;
-  computed: &#123; normalizedX: $ =&gt; <span class="fn">Math.min</span>(<span class="num">85</span>, $.context.x),
-               normalizedY: $ =&gt; <span class="fn">Math.min</span>(<span class="num">80</span>, $.context.y) &#125;,
-  states: &#123;
-    <span class="st">placed</span>:   &#123; on: &#123; DRAG_START: &#123; target: <span class="str">'dragging'</span>, actions: [<span class="str">'startDrag'</span>] &#125; &#125; &#125;,
-    <span class="st">dragging</span>: &#123; on: &#123; DRAG_MOVE:  &#123; actions: [<span class="str">'moveTo'</span>] &#125;,
-                         DROP:      &#123; target: <span class="str">'placed'</span> &#125; &#125; &#125;,
-  &#125;,
-&#125;)
-
-<span class="fn">compose</span>(&#123; ...cursors, ...stickies &#125;).<span class="fn">start</span>()</code></pre>
+              <Code code={whiteboardSrc.trim()} lang="ts" />
             </div>
           </div>
         </div>
@@ -1571,15 +1423,16 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
       });
     </script>
 
-    <!-- is:global because the code spans are injected via set:html and so don't
-         receive Astro's scope hash, scoped selectors wouldn't match them. -->
+    <!-- is:global so we can style the Expressive Code (<Code>) output, whose
+         markup is generated outside Astro's scope hash, scoped selectors
+         wouldn't match it. -->
     <style is:global>
       /* feature band: dark background that bleeds to the LEFT viewport edge
          while the content stays aligned with the rest of the left column. The
          .band-left-bg layer paints from the content's left edge out to -100vw. */
       .band-left {
         position: relative;
-        color: var(--color-code-fg);
+        color: var(--color-fg);
       }
       .band-left-bg {
         position: absolute;
@@ -1593,7 +1446,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
       }
       /* premium typography for the light feature band */
       .band-eyebrow {
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: var(--font-mono);
         font-size: 11px;
         font-weight: 600;
         letter-spacing: 0.22em;
@@ -1643,7 +1496,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
       }
       .band-num {
         flex: none;
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: var(--font-mono);
         font-size: 36px;
         font-weight: 600;
         line-height: 2.1;
@@ -1785,7 +1638,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
         margin: 0 auto;
       }
       .contrib-eyebrow {
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: var(--font-mono);
         font-size: 11px;
         font-weight: 600;
         letter-spacing: 0.22em;
@@ -1869,43 +1722,28 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
       /* Dark surface for code panels + demo cards, so source/glyphs stay legible
          against the light page. Use class "dark-card" on the card element. */
       .dark-card {
-        background: var(--color-code);
-        border: 1px solid var(--color-code-border);
-        color: var(--color-code-fg);
+        background: #273136;
+        border: 1px solid #3a4449;
+        color: #f2fffc;
         border-radius: 1rem;
         box-shadow:
           0 1px 2px rgba(0, 0, 0, 0.08),
           0 12px 30px rgba(0, 0, 0, 0.12);
       }
       .dark-card .panel-head {
-        border-bottom: 1px solid var(--color-code-border);
-        color: var(--color-code-muted);
+        border-bottom: 1px solid #3a4449;
+        color: #6b7678;
       }
 
-      /* IDE card: one dark surface holding several files, divided by hairlines */
-      .ide-card > figure + figure {
-        border-top: 1px solid var(--color-code-border);
+      /* IDE card: the pacman machines as one Expressive Code block on a dark
+         surface. On a non-Starlight page EC's `pre` background falls back to
+         transparent (its --ec-frm-edBg points at Starlight gray vars that don't
+         exist here), so paint the dark code surface explicitly. */
+      .ide-card .expressive-code {
+        margin: 0;
       }
-
-      /* --- code panel: syntax tokens, Monokai Pro (Filter Machine) palette --- */
-      .cmt {
-        color: #6b7678; /* comment */
-      }
-      .kw {
-        color: #ff6d7e; /* red, keyword */
-      }
-      .str {
-        color: #ffed72; /* yellow, string */
-      }
-      .fn {
-        color: #a2e57b; /* green, function */
-      }
-      .num {
-        color: #ffb86b; /* orange, number */
-      }
-      /* the three state lines render as plain code, no live highlight */
-      .st {
-        color: var(--color-code-fg);
+      .ide-card .expressive-code .frame pre {
+        background: #273136;
       }
 
       /* live state table, fixed layout so columns never reflow as values tick */
@@ -1935,10 +1773,10 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
         width: 48%;
       }
       .pac-table th {
-        color: var(--color-code-muted);
+        color: #6b7678;
       }
       .pac-table thead th {
-        border-bottom: 1px solid var(--color-code-border);
+        border-bottom: 1px solid #3a4449;
       }
       .pac-table td {
         vertical-align: top;
@@ -1988,7 +1826,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
          ==================================================================== */
       .stage-label {
         margin-top: 0.75rem;
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: var(--font-mono);
         font-size: 12px;
         color: var(--color-muted);
         text-align: center;
@@ -2001,7 +1839,10 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
       /* the game inside a frame renders smaller than the hero board. Each device
          picks its own --tui so the LAPTOP reads biggest, the TERMINAL mid, the
          iPHONE smallest. Each screen wraps the game snugly, no dead space. */
-      .frame {
+      /* device frames only (laptop/phone/terminal). :not(.not-content) excludes
+         Expressive Code's figure.frame, which shares the class but must stay
+         selectable for copy/paste. */
+      .frame:not(.not-content) {
         user-select: none;
       }
       .frame .frame-tui {
@@ -2073,7 +1914,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
         padding: 2px 8px;
         border-radius: 999px;
         background: #16181e;
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: var(--font-mono);
         font-size: 9px;
         color: #8a8f9a;
         text-align: center;
@@ -2179,8 +2020,8 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
       }
       /* TERMINAL: title bar with traffic-light dots */
       .terminal {
-        background: var(--color-code);
-        border: 1px solid var(--color-code-border);
+        background: #273136;
+        border: 1px solid #3a4449;
         border-radius: 0.7rem;
         overflow: hidden;
         box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
@@ -2189,7 +2030,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
         display: flex;
         gap: 6px;
         padding: 0.55rem 0.75rem;
-        border-bottom: 1px solid var(--color-code-border);
+        border-bottom: 1px solid #3a4449;
       }
       .terminal-bar span {
         width: 10px;
@@ -2294,7 +2135,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
         gap: 0.5rem;
       }
       .console-text {
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: var(--font-mono);
         font-size: 9px;
         font-weight: 700;
         letter-spacing: 0.14em;
@@ -2332,7 +2173,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
 
       /* title column */
       .lab-eyebrow {
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: var(--font-mono);
         font-size: 11px;
         font-weight: 600;
         letter-spacing: 0.22em;
@@ -2387,7 +2228,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
         line-height: 1;
       }
       .lab-demo-title {
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: var(--font-mono);
         font-size: 11px;
         font-weight: 600;
         letter-spacing: 0.1em;
@@ -2396,7 +2237,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
         flex: 1;
       }
       .lab-demo-badge {
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: var(--font-mono);
         font-size: 10px;
         font-weight: 700;
         letter-spacing: 0.08em;
@@ -2421,7 +2262,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
         border-top: 1px solid rgba(255, 255, 255, 0.06);
       }
       .lab-code-hint {
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: var(--font-mono);
         font-size: 10px;
         color: rgba(242, 255, 252, 0.3);
         white-space: nowrap;
@@ -2463,7 +2304,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
         background: rgba(255, 255, 255, 0.09) !important;
       }
       .trade-sym-name {
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: var(--font-mono);
         font-size: 9px;
         font-weight: 700;
         letter-spacing: 0.1em;
@@ -2475,7 +2316,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
         color: rgba(242, 255, 252, 0.75);
       }
       .trade-sym-price {
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: var(--font-mono);
         font-size: 12px;
         font-weight: 700;
         font-variant-numeric: tabular-nums;
@@ -2485,7 +2326,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
       }
       .trade-sym-arrow {
         font-size: 8px;
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: var(--font-mono);
         line-height: 1;
       }
       .trade-sym-arrow.up {
@@ -2531,7 +2372,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
         margin-bottom: 0.75rem;
       }
       .trade-price {
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: var(--font-mono);
         font-size: 1.85rem;
         font-weight: 700;
         font-variant-numeric: tabular-nums;
@@ -2539,7 +2380,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
         letter-spacing: -0.02em;
       }
       .trade-delta {
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: var(--font-mono);
         font-size: 0.8rem;
         font-variant-numeric: tabular-nums;
         font-weight: 600;
@@ -2564,7 +2405,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
         align-items: center;
         gap: 0.5rem;
         margin-bottom: 0.85rem;
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: var(--font-mono);
         font-size: 11px;
       }
       .trade-order-label {
@@ -2593,7 +2434,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
       }
       .trade-btn {
         flex: 1;
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: var(--font-mono);
         font-size: 10px;
         font-weight: 700;
         letter-spacing: 0.12em;
@@ -2636,7 +2477,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
         align-items: center;
         justify-content: space-between;
         padding: 0.65rem 1.25rem;
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: var(--font-mono);
         font-size: 10px;
         font-weight: 600;
         letter-spacing: 0.12em;
@@ -2657,14 +2498,21 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
       .trade-accordion-panel {
         padding: 0;
       }
-      .trade-code {
+      /* the accordion's <Code> (Expressive Code) fills the panel edge-to-edge,
+         squared off so it docks flush into the demo card. */
+      .trade-accordion-panel .expressive-code {
         margin: 0;
-        padding: 0.9rem 1.25rem 1rem;
         font-size: 11px;
-        line-height: 1.7;
-        background: rgba(0, 0, 0, 0.25);
-        border-top: 1px solid rgba(255, 255, 255, 0.05);
-        overflow-x: auto;
+      }
+      /* dock the light code panel flush into the dark demo card: square the top
+         (it meets the "machine code" bar), round only the bottom, drop side
+         borders so it spans edge-to-edge. */
+      .trade-accordion-panel .expressive-code .frame pre {
+        background: #273136;
+        border-radius: 0 0 0.9rem 0.9rem;
+        border-left: 0;
+        border-right: 0;
+        border-bottom: 0;
       }
 
       /* ---- WHITEBOARD DEMO ---- */
@@ -2715,7 +2563,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
         position: absolute;
         top: 16px;
         left: 10px;
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: var(--font-mono);
         font-size: 9px;
         font-weight: 600;
         color: #fff;
@@ -2762,7 +2610,7 @@ toggle.context  <span class="cmt">// { count: 1 }</span>`;
         flex: 1;
       }
       .wb-sticky-state {
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: var(--font-mono);
         font-size: 8px;
         font-weight: 700;
         letter-spacing: 0.1em;

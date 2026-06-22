@@ -13,6 +13,7 @@ export default defineConfig({
     'packages/core',
     'packages/react',
     'packages/native',
+    'packages/opentui',
     'packages/shared/utils',
     'packages/shared/bindings',
   ],

@@ -3,3 +3,7 @@ packages:
   - benchmark
   - benchmark/demo
   - website
+  - sandbox/shared
+  - sandbox/react
+  - sandbox/opentui
+  - sandbox/native
