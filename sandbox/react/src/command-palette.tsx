@@ -84,7 +84,9 @@ export function CommandPalette(props: CommandPaletteProps) {
 
 const styles: Record<string, React.CSSProperties> = {
   trigger: {
-    display: 'inline-flex',
+    display: 'flex',
+    justifyContent: 'space-between',
+    minWidth: 300,
     alignItems: 'center',
     gap: 8,
     padding: '10px 14px',
@@ -122,12 +124,15 @@ const styles: Record<string, React.CSSProperties> = {
   },
   input: {
     width: '100%',
+    minWidth: 300,
     boxSizing: 'border-box',
     padding: '18px 20px',
     fontSize: 16,
     border: 'none',
     borderBottom: '1px solid rgba(13,15,22,0.08)',
     outline: 'none',
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
   },
   list: { listStyle: 'none', margin: 0, padding: 8, maxHeight: 320, overflowY: 'auto' },
   item: {

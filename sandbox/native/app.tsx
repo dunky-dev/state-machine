@@ -8,12 +8,9 @@ export default function App() {
   const [last, setLast] = useState('—')
 
   return (
-    <View style={styles.root}>
+    <View style={styles.main}>
       <StatusBar style='dark' />
-      <Text style={styles.title}>cmdk · native</Text>
-      <Text style={styles.lead}>
-        The same state machine as the DOM and terminal demos. Only the renderer differs.
-      </Text>
+      <Text style={styles.title}>⌘K Command Pallete</Text>
       <CommandPalette
         commands={DEMO_COMMANDS}
         onSelect={c => {
@@ -21,21 +18,25 @@ export default function App() {
           Alert.alert('Selected', c.label)
         }}
       />
-      <Text style={styles.hint}>last selected · {last}</Text>
+      <Text style={styles.lead}>
+        One state machine drives this ⌘K palette.{'\n'}
+        The same machine + connect runs the terminal (OpenTUI) and React Native versions
+      </Text>
+      <Text style={styles.hint}>Last selected: {last}</Text>
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  root: {
+  main: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 16,
     padding: 24,
-    backgroundColor: '#eef1f6',
+    backgroundColor: '#ffffff',
   },
-  title: { fontSize: 26, fontWeight: '700', color: '#0d0f16' },
-  lead: { fontSize: 15, lineHeight: 22, color: '#5b6172', textAlign: 'center', maxWidth: 340 },
-  hint: { fontSize: 13, color: '#8990a0' },
+  title: { fontSize: 28, fontWeight: '700', letterSpacing: -0.5, color: '#1c1e26' },
+  lead: { maxWidth: 460, textAlign: 'center', color: '#5b6172', lineHeight: 24 },
+  hint: { fontSize: 16, fontWeight: '700', color: '#8990a0' },
 })

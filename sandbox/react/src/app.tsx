@@ -7,11 +7,8 @@ export function App() {
 
   return (
     <main style={styles.main}>
-      <h1 style={styles.title}>cmdk · DOM</h1>
-      <p style={styles.lead}>
-        One state machine drives this ⌘K palette. The same machine + connect runs the terminal
-        (OpenTUI) and React Native versions — only the renderer differs.
-      </p>
+      <h1 style={styles.title}>⌘K Command Pallete</h1>
+      <br />
       <CommandPalette
         commands={DEMO_COMMANDS}
         onSelect={c => {
@@ -19,8 +16,14 @@ export function App() {
           window.alert(`Selected: ${c.label}`)
         }}
       />
+      <br />
+      <p style={styles.lead}>
+        One state machine drives this ⌘K palette.
+        <br />
+        The same machine + connect runs the terminal (OpenTUI) and React Native versions
+      </p>
       <p style={styles.hint}>
-        Press <kbd style={styles.kbd}>⌘K</kbd> · last selected · <strong>{last}</strong>
+        <strong>Last selected: {last}</strong>
       </p>
     </main>
   )
@@ -42,7 +45,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   title: { margin: 0, fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em' },
   lead: { margin: 0, maxWidth: 460, textAlign: 'center', color: '#5b6172', lineHeight: 1.6 },
-  hint: { margin: 0, color: '#8990a0', fontSize: 13 },
+  hint: { margin: 0, color: '#8990a0', fontSize: 16 },
   kbd: {
     fontFamily: 'ui-monospace, monospace',
     fontSize: 11,
