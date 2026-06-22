@@ -48,10 +48,10 @@ importers:
   benchmark:
     dependencies:
       '@dunky.dev/react-state-machine':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../packages/react
       '@dunky.dev/state-machine':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../packages/core
     devDependencies:
       '@types/jsdom':
@@ -97,7 +97,7 @@ importers:
   benchmark/demo:
     dependencies:
       '@dunky.dev/state-machine':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/core
     devDependencies:
       '@vitejs/plugin-react':
@@ -183,22 +183,22 @@ importers:
   sandbox/native:
     dependencies:
       '@dunky.dev/native-state-machine':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/native
       '@dunky.dev/react-state-machine':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/react
       '@dunky.dev/state-machine':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/core
       '@dunky.dev/state-machine-bindings':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/shared/bindings
       '@dunky.dev/state-machine-utils':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/shared/utils
       '@sandbox/cmdk-core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../shared
       expo:
         specifier: ^54.0.0
@@ -223,19 +223,19 @@ importers:
   sandbox/opentui:
     dependencies:
       '@dunky.dev/opentui-state-machine':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/opentui
       '@dunky.dev/react-state-machine':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/react
       '@dunky.dev/state-machine':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/core
       '@dunky.dev/state-machine-bindings':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/shared/bindings
       '@dunky.dev/state-machine-utils':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/shared/utils
       '@opentui/core':
         specifier: ^0.4.1
@@ -244,7 +244,7 @@ importers:
         specifier: ^0.4.1
         version: 0.4.1(react-devtools-core@6.1.5)(react@19.2.6)(typescript@6.0.3)(web-tree-sitter@0.25.10)(ws@8.21.0)
       '@sandbox/cmdk-core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../shared
       react:
         specifier: ^19.2.6
@@ -260,19 +260,19 @@ importers:
   sandbox/react:
     dependencies:
       '@dunky.dev/react-state-machine':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/react
       '@dunky.dev/state-machine':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/core
       '@dunky.dev/state-machine-bindings':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/shared/bindings
       '@dunky.dev/state-machine-utils':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/shared/utils
       '@sandbox/cmdk-core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../shared
       react:
         specifier: ^19.2.6
@@ -297,10 +297,10 @@ importers:
   sandbox/shared:
     dependencies:
       '@dunky.dev/state-machine':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/core
       '@dunky.dev/state-machine-bindings':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../../packages/shared/bindings
 
   website:
@@ -309,7 +309,7 @@ importers:
         specifier: ^0.40.0
         version: 0.40.0(astro@6.4.8(@types/node@24.13.2)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))(typescript@6.0.3)
       '@dunky.dev/state-machine':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../packages/core
       '@vercel/analytics':
         specifier: ^2.0.1

@@ -1,9 +1,6 @@
 packages:
   - packages/**/*
+  - sandbox/**/*
   - benchmark
   - benchmark/demo
   - website
-  - sandbox/shared
-  - sandbox/react
-  - sandbox/opentui
-  - sandbox/native

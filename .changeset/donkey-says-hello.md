@@ -13,11 +13,11 @@ Every UI is two things wearing one costume: _behavior_ and _render_. The behavio
 
 ### Why Dunky
 
-**🔒 Locked in by design.** No external prop, no callback, no handle reaches into the machine — its behavior is a closed box, sealed off from the outside world. Consumers don't drive the machine; they react to it. Behavior you can trust because nothing can reach in and bend it.
+**🔒 Locked in by design.** No external prop, no callback, no handle into the machine. Its behavior is closed to the world. Consumers react to the machine from outside.
 
-**🌍 Take it anywhere.** Because it's a closed box, the machine carries its own universal, interactive UI — clickable, focusable, accessible — on _any_ JS surface. React DOM, React Native, a terminal. Same states, same transitions, same intent. Only the render differs.
+**🌍 Take it anywhere.** The machine carries a universal, interactive UI of its own, clickable on any JS surface, precisely because it's a closed box.
 
-**⚡️ Blazing fast.** Design systems and dense UIs can run hundreds of live machines at once — a trading wall, a canvas board, a data grid. Dunky is tuned for exactly that load: **~8× XState's event throughput** and **3×+ lighter than Zag** at scale, holding the frame where it counts. [See the benchmark →](https://github.com/dunky-dev/state-machine/tree/main/benchmark#readme)
+**⚡️ Blazing fast.** Design systems and complex UIs can run hundreds of live machines at once. Dunky is tuned for exactly that load. [See the benchmark →](https://github.com/dunky-dev/state-machine/tree/main/benchmark#readme)
 
 ```ts
 import { setup } from '@dunky.dev/state-machine'

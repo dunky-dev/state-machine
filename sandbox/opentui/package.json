@@ -7,14 +7,14 @@
     "dev": "bun run src/index.tsx"
   },
   "dependencies": {
-    "@dunky.dev/opentui-state-machine": "workspace:*",
-    "@dunky.dev/react-state-machine": "workspace:*",
-    "@dunky.dev/state-machine": "workspace:*",
-    "@dunky.dev/state-machine-bindings": "workspace:*",
-    "@dunky.dev/state-machine-utils": "workspace:*",
+    "@dunky.dev/opentui-state-machine": "workspace:^",
+    "@dunky.dev/react-state-machine": "workspace:^",
+    "@dunky.dev/state-machine": "workspace:^",
+    "@dunky.dev/state-machine-bindings": "workspace:^",
+    "@dunky.dev/state-machine-utils": "workspace:^",
     "@opentui/core": "^0.4.1",
     "@opentui/react": "^0.4.1",
-    "@sandbox/cmdk-core": "workspace:*",
+    "@sandbox/cmdk-core": "workspace:^",
     "react": "^19.2.6"
   },
   "devDependencies": {
