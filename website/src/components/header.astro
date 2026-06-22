@@ -5,7 +5,9 @@
 // On the homepage the bar is hidden and only slides in after the visitor has
 // scrolled past the hero (~500px). Pass `revealOnScroll` to enable that; every
 // other page keeps the bar pinned and always visible.
-const base = import.meta.env.BASE_URL
+// `trailingSlash: 'never'` strips BASE_URL's trailing slash, so normalize to
+// exactly one slash before the `${base}…` concatenations below resolve.
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/')
 const repo = 'https://github.com/dunky-dev/state-machine'
 
 interface Props {

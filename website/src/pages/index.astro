@@ -8,7 +8,11 @@ import pacmanSrc from "../snippets/pacman.code.ts?raw";
 import tradingSrc from "../snippets/trading-panel.code.ts?raw";
 import whiteboardSrc from "../snippets/whiteboard.code.ts?raw";
 
-const base = import.meta.env.BASE_URL;
+// With `trailingSlash: 'never'`, Astro hands us BASE_URL without a trailing
+// slash (e.g. `/state-machine`), so `${base}get-started` would render as
+// `/state-machineget-started`. Normalize to exactly one trailing slash so the
+// `${base}…` concatenations below (links, logo, favicon) all resolve.
+const base = import.meta.env.BASE_URL.replace(/\/?$/, "/");
 const repo = "https://github.com/dunky-dev/state-machine";
 
 // "Share on X", an intent URL (prefilled tweet + link), not a profile link.
@@ -26,7 +30,7 @@ const shareOnX = `https://twitter.com/intent/tweet?text=${encodeURIComponent(sha
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Dunky: a state machine built for performance</title>
-    <link rel="icon" href={`${base}logo-symbol.svg`} type="image/svg+xml" />
+    <link rel="icon" href={`${base}logo/logo-symbol.svg`} type="image/svg+xml" />
     <meta
       name="description"
       content="A state machine built for performance, inspired by XState and Zag. Define a behavior once, render it anywhere."
