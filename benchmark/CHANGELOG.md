@@ -1,5 +1,13 @@
 # benchmark
 
+## 0.1.2
+
+### Patch Changes
+
+- Updated dependencies [[`d0e20a5`](https://github.com/dunky-dev/state-machine/commit/d0e20a5ac3ca953c923e05819034e420394af83b)]:
+  - @dunky.dev/state-machine-react@0.2.0
+  - @dunky.dev/state-machine@0.2.0
+
 ## 0.1.1
 
 ### Patch Changes
