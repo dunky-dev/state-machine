@@ -18,7 +18,7 @@
       "@dunky.dev/react-state-machine": ["./packages/react/src"],
       "@dunky.dev/native-state-machine": ["./packages/native/src"],
       "@dunky.dev/opentui-state-machine": ["./packages/opentui/src"],
-      "@dunky.dev/shared-state-machine": ["./packages/shared/utils/src"],
+      "@dunky.dev/state-machine-utils": ["./packages/shared/utils/src"],
       "@dunky.dev/state-machine-bindings": ["./packages/shared/bindings/src"]
     },
     "types": ["@types/node", "vitest/globals"]

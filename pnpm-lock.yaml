@@ -129,12 +129,12 @@ importers:
       '@dunky.dev/react-state-machine':
         specifier: workspace:^
         version: link:../react
-      '@dunky.dev/shared-state-machine':
-        specifier: workspace:^
-        version: link:../shared/utils
       '@dunky.dev/state-machine':
         specifier: workspace:^
         version: link:../core
+      '@dunky.dev/state-machine-utils':
+        specifier: workspace:^
+        version: link:../shared/utils
       react:
         specifier: '*'
         version: 19.2.6
@@ -144,18 +144,18 @@ importers:
 
   packages/opentui:
     dependencies:
-      '@dunky.dev/shared-state-machine':
+      '@dunky.dev/state-machine-utils':
         specifier: workspace:^
         version: link:../shared/utils
 
   packages/react:
     dependencies:
-      '@dunky.dev/shared-state-machine':
-        specifier: workspace:^
-        version: link:../shared/utils
       '@dunky.dev/state-machine':
         specifier: workspace:^
         version: link:../core
+      '@dunky.dev/state-machine-utils':
+        specifier: workspace:^
+        version: link:../shared/utils
     devDependencies:
       '@testing-library/react':
         specifier: ^16.1.0
@@ -188,15 +188,15 @@ importers:
       '@dunky.dev/react-state-machine':
         specifier: workspace:*
         version: link:../../packages/react
-      '@dunky.dev/shared-state-machine':
-        specifier: workspace:*
-        version: link:../../packages/shared/utils
       '@dunky.dev/state-machine':
         specifier: workspace:*
         version: link:../../packages/core
       '@dunky.dev/state-machine-bindings':
         specifier: workspace:*
         version: link:../../packages/shared/bindings
+      '@dunky.dev/state-machine-utils':
+        specifier: workspace:*
+        version: link:../../packages/shared/utils
       '@sandbox/cmdk-core':
         specifier: workspace:*
         version: link:../shared
@@ -228,15 +228,15 @@ importers:
       '@dunky.dev/react-state-machine':
         specifier: workspace:*
         version: link:../../packages/react
-      '@dunky.dev/shared-state-machine':
-        specifier: workspace:*
-        version: link:../../packages/shared/utils
       '@dunky.dev/state-machine':
         specifier: workspace:*
         version: link:../../packages/core
       '@dunky.dev/state-machine-bindings':
         specifier: workspace:*
         version: link:../../packages/shared/bindings
+      '@dunky.dev/state-machine-utils':
+        specifier: workspace:*
+        version: link:../../packages/shared/utils
       '@opentui/core':
         specifier: ^0.4.1
         version: 0.4.1(typescript@6.0.3)(web-tree-sitter@0.25.10)
@@ -262,15 +262,15 @@ importers:
       '@dunky.dev/react-state-machine':
         specifier: workspace:*
         version: link:../../packages/react
-      '@dunky.dev/shared-state-machine':
-        specifier: workspace:*
-        version: link:../../packages/shared/utils
       '@dunky.dev/state-machine':
         specifier: workspace:*
         version: link:../../packages/core
       '@dunky.dev/state-machine-bindings':
         specifier: workspace:*
         version: link:../../packages/shared/bindings
+      '@dunky.dev/state-machine-utils':
+        specifier: workspace:*
+        version: link:../../packages/shared/utils
       '@sandbox/cmdk-core':
         specifier: workspace:*
         version: link:../shared

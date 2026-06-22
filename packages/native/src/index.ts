@@ -12,5 +12,5 @@ export {
 
 export { normalize, type Bindings } from './normalize'
 // RN-aware mergeProps (handler compose + style array) layered on the
-// substrate-agnostic mergeProps in @dunky.dev/shared-state-machine.
+// substrate-agnostic mergeProps in @dunky.dev/state-machine-utils.
 export { mergeProps } from './merge-props'

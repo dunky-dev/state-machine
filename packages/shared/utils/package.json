@@ -1,5 +1,5 @@
 {
-  "name": "@dunky.dev/shared-state-machine",
+  "name": "@dunky.dev/state-machine-utils",
   "version": "0.0.0",
   "license": "MIT",
   "repository": {

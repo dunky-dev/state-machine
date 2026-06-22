@@ -9,7 +9,7 @@
   "dependencies": {
     "@dunky.dev/opentui-state-machine": "workspace:*",
     "@dunky.dev/react-state-machine": "workspace:*",
-    "@dunky.dev/shared-state-machine": "workspace:*",
+    "@dunky.dev/state-machine-utils": "workspace:*",
     "@dunky.dev/state-machine": "workspace:*",
     "@dunky.dev/state-machine-bindings": "workspace:*",
     "@opentui/core": "^0.4.1",

@@ -11,7 +11,7 @@
   "dependencies": {
     "@dunky.dev/native-state-machine": "workspace:*",
     "@dunky.dev/react-state-machine": "workspace:*",
-    "@dunky.dev/shared-state-machine": "workspace:*",
+    "@dunky.dev/state-machine-utils": "workspace:*",
     "@dunky.dev/state-machine": "workspace:*",
     "@dunky.dev/state-machine-bindings": "workspace:*",
     "@sandbox/cmdk-core": "workspace:*",

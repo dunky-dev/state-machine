@@ -41,8 +41,8 @@
     "react-dom": "^19.2.6"
   },
   "peerDependencies": {
-    "@dunky.dev/shared-state-machine": "workspace:^",
     "@dunky.dev/state-machine": "workspace:^",
+    "@dunky.dev/state-machine-utils": "workspace:^",
     "react": "*"
   }
 }

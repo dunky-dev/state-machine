@@ -33,6 +33,6 @@
     "build": "tsdown"
   },
   "peerDependencies": {
-    "@dunky.dev/shared-state-machine": "workspace:^"
+    "@dunky.dev/state-machine-utils": "workspace:^"
   }
 }
