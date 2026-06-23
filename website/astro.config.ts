@@ -112,6 +112,7 @@ export default defineConfig({
           items: [
             { label: 'React', link: 'libs/react' },
             { label: 'React Native', link: 'libs/react-native' },
+            { label: 'OpenTUI', link: 'libs/opentui' },
           ],
         },
         {

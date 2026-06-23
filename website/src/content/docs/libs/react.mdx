@@ -15,27 +15,27 @@ The one bridge hook. Every component calls it with the four agnostic pieces and 
 
 ```tsx
 import { useMachine, normalize } from '@dunky.dev/state-machine-react'
-import { createDisclosureConfig, connectDisclosure, disclosureEffects } from './disclosure'
+import { createDialogConfig, connectDialog, dialogEffects } from './dialog'
 
-type Props = {
+type DialogProps = {
   open?: boolean
-  onOpenChange?: (details: { open: boolean }) => void
+  onOpenChange?: (open: boolean) => void
   closeOnEscape?: boolean
 }
 
-function Disclosure(props: Props) {
+function Dialog(props: DialogProps) {
   const { api } = useMachine(
-    createDisclosureConfig, // (props) => MachineConfig; seeds context once
-    connectDisclosure, // pure connect(): snapshot → view api
-    disclosureEffects, // ComponentEffect[]: DOM listeners, gated by props
+    createDialogConfig, // (props) => MachineConfig; seeds context once
+    connectDialog, // pure connect(): snapshot → view api
+    dialogEffects, // ComponentEffect[]: DOM listeners, gated by props
     props,
   )
 
   return (
-    <div>
-      <button {...normalize(api.triggerProps)}>Toggle</button>
-      {api.isOpen && <div {...normalize(api.panelProps)}>Content</div>}
-    </div>
+    <>
+      <button {...normalize(api.triggerProps)}>Open</button>
+      {api.isOpen && <div {...normalize(api.contentProps)}>Dialog content</div>}
+    </>
   )
 }
 ```
@@ -44,10 +44,10 @@ function Disclosure(props: Props) {
 
 ### The three imports
 
-Those three values are where the tooltip's behavior actually lives, and none of it is React. You write them once, in a `./tooltip` module, and they run unchanged on any platform:
+Those three values are where the dialog's behavior actually lives, and none of it is React. You write them once, in a `./dialog` module, and they run unchanged on any platform:
 
 ```ts
-// tooltip.ts: plain functions, no React
+// dialog.ts: plain functions, no React
 import type { Connect } from '@dunky.dev/state-machine'
 
 type State = 'closed' | 'open'
@@ -56,39 +56,42 @@ type Event = { type: 'open' } | { type: 'close' }
 type Api = {
   isOpen: boolean
   triggerProps: object
-  tooltipProps: object
+  contentProps: object
 }
 
-// createTooltipConfig: (props) => machine config. Defines the states
+// createDialogConfig: (props) => machine config. Defines the states
 // ('closed' | 'open'), the events, and seeds context from the first props.
-export const createTooltipConfig = (props: Props) => ({
+export const createDialogConfig = (props: DialogProps) => ({
   initial: props.open ? 'open' : 'closed',
-  context: { closeOnEscape: props.closeOnEscape ?? false },
+  context: { closeOnEscape: props.closeOnEscape ?? true },
   states: {
     closed: { on: { open: 'open' } },
     open: { on: { close: 'closed' } },
   },
 })
 
-// connectTooltip: a pure connect() that turns a machine snapshot into the view API
-// your JSX spreads. `isOpen`, `triggerProps`, `tooltipProps` come from here.
+// connectDialog: a pure connect() that turns a machine snapshot into the view API
+// your JSX spreads. `isOpen`, `triggerProps`, `contentProps` come from here.
 // The type args are <State, Context, Event, Props, Api>.
-export const connectTooltip: Connect<State, Context, Event, Props, Api> = ({ state, send }) => ({
+export const connectDialog: Connect<State, Context, Event, DialogProps, Api> = ({
+  state,
+  send,
+}) => ({
   isOpen: state === 'open',
   triggerProps: {
-    onPointerEnter: () => send({ type: 'open' }),
-    onPointerLeave: () => send({ type: 'close' }),
+    onPress: () => send({ type: 'open' }),
+    expanded: state === 'open',
   },
-  tooltipProps: { role: 'tooltip' },
+  contentProps: { role: 'dialog', modal: true },
 })
 
-// tooltipEffects: DOM listeners that can't live in the machine. Here, one that
-// closes the tooltip on Escape. `onEscapeKey` is a [setup/teardown, deps] tuple;
+// dialogEffects: DOM listeners that can't live in the machine. Here, one that
+// closes the dialog on Escape. `onEscapeKey` is a [setup/teardown, deps] tuple;
 // see the ComponentEffect section below for its full body.
-export const tooltipEffects = [onEscapeKey]
+export const dialogEffects = [onEscapeKey]
 ```
 
-So `useMachine` is the only React-specific piece: `createTooltipConfig` is the machine definition, `connectTooltip` is the snapshot-to-view-API mapping, and `tooltipEffects` are the DOM listeners. See [Setup](/api/setup) for configs and [Connector](/api/connector) for how `connect` works in depth.
+So `useMachine` is the only React-specific piece: `createDialogConfig` is the machine definition, `connectDialog` is the snapshot-to-view-API mapping, and `dialogEffects` are the DOM listeners. See [Setup](/api/setup) for configs and [Connector](/api/connector) for how `connect` works in depth.
 
 ## `normalize`: bindings → DOM props
 
@@ -96,7 +99,7 @@ So `useMachine` is the only React-specific piece: `createTooltipConfig` is the m
 
 ```ts
 normalize(api.triggerProps)
-// { onClick, aria-describedby, role, tabIndex, ... }
+// { onClick, aria-expanded, role, tabIndex, ... }
 ```
 
 | Binding                                         | DOM prop                                                            |
@@ -155,9 +158,9 @@ Some behavior can't live in the machine because it touches the DOM or reads prop
 
 ```ts
 import type { ComponentEffect } from '@dunky.dev/state-machine-react'
-import type { DisclosureMachine, DisclosureProps } from './machine'
+import type { DialogMachine, DialogProps } from './dialog'
 
-type Effect = ComponentEffect<DisclosureMachine, DisclosureProps>
+type Effect = ComponentEffect<DialogMachine, DialogProps>
 
 const onEscapeKey: Effect = [
   (machine, props) => {
@@ -173,9 +176,9 @@ const onEscapeKey: Effect = [
 
 // Must be a static module constant; useMachine runs one hook per entry,
 // so the list length must never change between renders.
-export const disclosureEffects = [onEscapeKey]
+export const dialogEffects = [onEscapeKey]
 ```
 
-The machine only receives `send({ type: 'close' })`; it has no idea a keyboard event exists.
+The machine only receives `send({ type: 'close' })`; it has no idea a keyboard event exists. The React Native version of this same dialog swaps the DOM `keydown` listener for a `BackHandler` — the machine is unchanged. See [React Native](/libs/react-native) for that side.
 
 See [Effects](/api/effects) for the full mental model of where each type of effect lives.

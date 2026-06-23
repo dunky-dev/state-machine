@@ -1,0 +1,97 @@
+---
+title: OpenTUI
+description: OpenTUI (terminal) bindings for @dunky.dev/state-machine.
+---
+
+import Install from '../../../components/install.astro'
+
+<Install pkg='@dunky.dev/state-machine-opentui' />
+
+The OpenTUI package is **only the prop translator**. Unlike [React](/libs/react) and [React Native](/libs/react-native), it ships no `useMachine` hook and has no framework dependency — `normalize` and `mergeProps` are pure object-to-object functions, so they work the same under any of OpenTUI's reactive bindings (`@opentui/react`, `@opentui/solid`, …). **The machine itself is unchanged.** The same `createDialogConfig` and `connectDialog` that drive the DOM run the terminal.
+
+## Bring your own lifecycle hook
+
+The lifecycle binding — turning the engine's connector into a live component — is the consuming app's concern. OpenTUI renders through a React reconciler, so the standard pairing is `useMachine` from the **React** package plus `normalize` from **this** package:
+
+```tsx
+import { useMachine } from '@dunky.dev/state-machine-react'
+import { normalize } from '@dunky.dev/state-machine-opentui'
+import { createDialogConfig, connectDialog } from './dialog'
+
+function Dialog(props: DialogProps) {
+  const { api } = useMachine(createDialogConfig, connectDialog, [], props)
+
+  const triggerProps = normalize(api.triggerProps)
+  const contentProps = normalize(api.contentProps)
+
+  return (
+    <box style={{ flexDirection: 'column' }}>
+      <box {...triggerProps}>
+        <text>Open</text>
+      </box>
+      {api.isOpen && (
+        <box {...contentProps} style={{ border: true, padding: 1 }} title=' Dialog '>
+          <text>Dialog content</text>
+        </box>
+      )}
+    </box>
+  )
+}
+```
+
+`useMachine` runs the same shared machine, `connect` produces the same logical bindings — only `normalize` and the JSX elements differ from the DOM version. The `createDialogConfig` / `connectDialog` from the [React page](/libs/react) are imported here unchanged.
+
+## Keyboard handling is global
+
+A terminal has no per-element focus model like the DOM, so the dialog's Escape-to-close can't be a `keydown` listener scoped to one element — key navigation goes through OpenTUI's `useKeyboard`. It sends the **same logical events** the DOM version's `ComponentEffect` would — the machine can't tell the difference:
+
+```tsx
+import { useKeyboard } from '@opentui/react'
+
+useKeyboard(key => {
+  if (api.isOpen && key.name === 'escape') {
+    machine.send({ type: 'close' })
+  }
+})
+```
+
+This is the terminal counterpart to the DOM `onEscapeKey` effect on the [React page](/libs/react) and the `BackHandler` effect on [React Native](/libs/react-native): three different transports, the same `send({ type: 'close' })`.
+
+## `normalize`: bindings → OpenTUI props
+
+`connect` returns substrate-agnostic bindings (`onPress`, `role`, `onValueChange`). The OpenTUI `normalize` translates them to OpenTUI's terminal I/O vocabulary — the pointer model is the mouse, reported in terminal cells, and there is **no accessibility tree**, so the entire ARIA vocabulary is dropped rather than forwarded as props the renderer ignores.
+
+| Binding                             | OpenTUI prop                                                |
+| ----------------------------------- | ----------------------------------------------------------- |
+| `onPress`                           | `onMouseDown` (a press is a button-down on a cell)          |
+| `onPointerDown` / `onPointerUp`     | `onMouseDown` / `onMouseUp`                                 |
+| `onPointerMove`                     | `onMouseMove`                                               |
+| `onPointerEnter` / `onPointerLeave` | `onMouseOver` / `onMouseOut`                                |
+| `onValueChange`                     | `onChange` (payload adapted to `{ value }`)                 |
+| `onWheel`                           | `onMouseScroll` (payload adapted to a line-quantized delta) |
+| `onKeyDown`                         | `onKeyDown`                                                 |
+| `hidden`                            | `visible` (inverted — the visual analog)                    |
+| `focusable`                         | `focusable` (OpenTUI's own focus flag)                      |
+| `disabled`                          | `disabled` (preserved so the component can dim/skip)        |
+
+Dropped — no terminal analog: `onPointerCancel`, `onContextMenu`, `onDoublePress`, `onKeyUp`, `onScroll`/`onScrollEnd`, `onFocus`/`onBlur` (OpenTUI signals focus via the `focused` **prop**, not handlers), and the whole ARIA attribute set (`role`, `id`, `label`, `describedBy`, `expanded`, `selected`, `valueNow`, the live-region + grid attrs, …). The dialog's `role: 'dialog'` and `modal: true` simply vanish here — the terminal has no screen-reader surface to carry them.
+
+`onValueChange` and `onWheel` are wrapped so the component still receives an agnostic `ChangePayload` / `WheelPayload` even though OpenTUI calls them with a different shape: `<input>`'s `onChange` hands a bare string, `<select>`'s hands `(index, option)` — the adapter normalizes both. `undefined` values are dropped; unknown attrs (`style`, `data-*`) pass through unchanged.
+
+## `mergeProps`: consumer + component props
+
+When a consumer spreads their own props onto an element the component controls:
+
+```tsx
+<box {...mergeProps(props, normalize(api.triggerProps))} />
+```
+
+- **Event handlers are chained, consumer-first.**
+- **`style` is merged into one object** (library wins on conflicting keys). Unlike React Native, OpenTUI's `style` is a plain object, not an array — so styles merge rather than wrap.
+- **Everything else: component wins.**
+
+There is no `className` in a terminal, so — like React Native — there is no `className` branch.
+
+## Same machine, three targets
+
+`createDialogConfig` and `connectDialog` are written once and shared across the DOM, the terminal, and React Native. The machine never changes; only `normalize` and the lifecycle wiring (a DOM `keydown` effect, OpenTUI's `useKeyboard`, or RN's `BackHandler`) differ between targets.

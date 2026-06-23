@@ -5,6 +5,19 @@ description: Define a behavior once. Render it anywhere.
 
 **A state machine, designed for UIs.** Every interface starts as a description: _open/closed, hovered, dragging, on this event, go there._ That description is pure intent, and it rarely changes. What changes is the code you write to express it, tangled into whatever framework you happen to be using. Dunky turns the description into the thing that actually runs: an agnostic machine that holds the behavior and nothing else, portable everywhere JavaScript does, and built for heavy load.
 
+```
+     AGNOSTIC                                                     SUBSTRATE
+          🫏 ⚙️      >>      🧠        >>      🔌        >>     ✨
+     ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+     │   dunky      │  │   machine    │  │   binding    │  │  behavior    │
+     │              │  │              │  │              │  │              │
+     │  the engine  │  │ states +     │  │ neutral wire │  │ live feature │
+     │  that runs   │  │ events +     │  │ agnostic     │  │ on DOM /     │
+     │  machines    │  │ logic        │  │ events/attrs │  │ TUI / RN     │
+     └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘
+         powers            decides           connects          appears
+```
+
 ## How did it all end up here?
 
 I've spent the last decade building design systems. New company, new tech stack, new framework, but always the same story: rebuild the button, the tooltip, the dialog, the combobox. From scratch. Again.
@@ -35,10 +48,10 @@ Properly specified behavior is a gift to AI tooling. And properly driven AI is a
 
 Dunky splits the problem into three independent layers:
 
-| Layer        | Package                          | Job                     |
-| ------------ | -------------------------------- | ----------------------- |
-| **Behavior** | `@dunky.dev/state-machine`       | _What_ a component does |
-| **Styles**   | `@dunky.dev/style-engine`        | _How_ it looks          |
+| Layer        | Package                                        | Job                     |
+| ------------ | ---------------------------------------------- | ----------------------- |
+| **Behavior** | `@dunky.dev/state-machine`                     | _What_ a component does |
+| **Styles**   | `@dunky.dev/style-engine`                      | _How_ it looks          |
 | **Render**   | `@dunky.dev/state-machine-react` (and friends) | _Where_ it renders      |
 
 You're here for layer one.
