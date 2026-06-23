@@ -74,14 +74,16 @@ The machine's behavior flows out through a few thin layers until it reaches real
 elements — the left two are agnostic, the right three are per-target:
 
 ```
-agnostic                                                            substrate
-+-----------+   +-----------+   +-----------+   +-----------+   +-----------+
-|   core    |-->| connector |-->| normalize |-->| effects   |-->|   view    |
-|  engine   |   | state ->  |   | bindings  |   | platform  |   | spreads   |
-| behavior  |   | bindings  |   | -> props  |   | (rare)    |   | on elems  |
-+-----------+   +-----------+   +-----------+   +-----------+   +-----------+
-  onPress         onPress         onClick /       keydown,       <button
-               (state as props)   Pressable       BackHandler    onClick=...>
+AGNOSTIC                                                            SUBSTRATE
+    🫏 ⚙️       -->        🧠        -->       🔌         -->       ✨
++--------------+     +--------------+     +--------------+     +--------------+
+|   dunky      |     |   machine    |     |   binding    |     |  behavior    |
+|              |     |              |     |              |     |              |
+|  the engine  |     | states +     |     | neutral wire |     | live feature |
+|  that runs   |     | events +     |     | agnostic     |     | on DOM /     |
+|  machines    |     | logic        |     | events/attrs |     | TUI / RN     |
++--------------+     +--------------+     +--------------+     +--------------+
+   powers              decides              connects             appears
 ```
 
 - **core** — the state-machine engine. Pure behavior: states, transitions,
