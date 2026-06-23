@@ -1,5 +1,34 @@
 # benchmark-demo
 
+## 0.1.3
+
+### Patch Changes
+
+- [#28](https://github.com/dunky-dev/state-machine/pull/28) [`3cfb4fd`](https://github.com/dunky-dev/state-machine/commit/3cfb4fd0549b1f7d410c4d6364a2efad6ff863d2) Thanks [@ivanbanov](https://github.com/ivanbanov)! - Rework the live demo's two run modes and how it scores them.
+
+  **Survival test** — ramp the load until every engine drowns, then stop:
+
+  ```
+  load ▲                          ┌──────────────┐
+       │            ramps up      │ each engine: │
+       │         ───────────────▶ │ survived N/s │
+       │                          │ + N/ops      │
+       └──────────────────────────┴──────────────┘
+  ```
+
+  **15s test** — run the full 15s, then rank by who lasted longest:
+
+  ```
+  ┌──────────┐  longest survivor   ┌──────────┐
+  │  lib1    │ ──────────────────▶ │  faster  │ ✓ green
+  ├──────────┤                     ├──────────┤
+  │  lib2    │ ──────────────────▶ │  slower  │ ✗ red
+  └──────────┘                     └──────────┘
+  ```
+
+  - **`updates/s`** is now a run-average (`totalApplied / totalElapsed`), shown as **% of vanilla** — the old last-250ms snapshot jumped around and tied fast engines with the control.
+  - **"survived Ns"** replaces "fell behind by N": time-to-divergence ranks with speed (faster lasts longer).
+
 ## 0.1.2
 
 ### Patch Changes
