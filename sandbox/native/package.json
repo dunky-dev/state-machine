@@ -4,7 +4,7 @@
   "private": true,
   "main": "index.ts",
   "scripts": {
-    "start": "expo start --clear",
+    "dev": "expo start --clear",
     "ios": "expo run:ios",
     "android": "expo run:android"
   },
