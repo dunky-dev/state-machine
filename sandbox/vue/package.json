@@ -1,0 +1,24 @@
+{
+  "name": "@sandbox/cmdk-vue",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@dunky.dev/state-machine": "workspace:^",
+    "@dunky.dev/state-machine-bindings": "workspace:^",
+    "@dunky.dev/state-machine-utils": "workspace:^",
+    "@dunky.dev/state-machine-vue": "workspace:^",
+    "@sandbox/cmdk-core": "workspace:^",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.0",
+    "vite": "^8.0.14",
+    "vue-tsc": "^2.2.0"
+  }
+}
