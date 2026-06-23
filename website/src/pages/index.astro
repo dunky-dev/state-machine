@@ -31,7 +31,11 @@ const shareOnX = `https://twitter.com/intent/tweet?text=${encodeURIComponent(sha
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Dunky: a state machine built for performance</title>
-    <link rel="icon" href={`${base}logo/logo-symbol.svg`} type="image/svg+xml" />
+    <link
+      rel="icon"
+      href={`${base}logo/logo-symbol.svg`}
+      type="image/svg+xml"
+    />
     <meta
       name="description"
       content="A state machine built for performance, inspired by XState and Zag. Define a behavior once, render it anywhere."
@@ -144,7 +148,6 @@ const shareOnX = `https://twitter.com/intent/tweet?text=${encodeURIComponent(sha
         >
           <div class="band-left-bg" aria-hidden="true"></div>
           <div class="relative py-16 sm:py-20">
-            <p class="band-eyebrow">Why Dunky</p>
             <ul class="mt-8 flex flex-col">
               <li class="band-item">
                 <span class="band-num">🔒</span>
@@ -425,9 +428,12 @@ const shareOnX = `https://twitter.com/intent/tweet?text=${encodeURIComponent(sha
             class="pointer-events-none absolute inset-0 z-10 h-full w-full overflow-visible"
             aria-hidden="true"></svg>
 
-          <!-- mobile: all three stacked; md+: all three in one row -->
+          <!-- stacked until the row is wide enough to hold the full-size frames
+               (3×350px + gaps). Below xl the 3-col tracks are narrower than a
+               frame, so the laptop overflowed its column and clipped off-screen —
+               keep one column until xl, where the tracks finally fit. -->
           <section
-            class="mt-12 grid select-none grid-cols-1 items-end justify-items-center gap-10 sm:mt-24 md:grid-cols-3"
+            class="mt-12 grid select-none grid-cols-1 items-end justify-items-center gap-10 sm:mt-24 xl:grid-cols-3"
             aria-label="The same machine rendered in three frames"
           >
             <!-- LAPTOP, the screen shows a BROWSER window (chrome bar + URL) -->
@@ -1450,14 +1456,8 @@ const shareOnX = `https://twitter.com/intent/tweet?text=${encodeURIComponent(sha
         z-index: 0;
         border-radius: 0 16px 16px;
       }
-      /* premium typography for the light feature band */
-      .band-eyebrow {
-        font-family: var(--font-mono);
-        font-size: 11px;
-        font-weight: 600;
-        letter-spacing: 0.22em;
-        text-transform: uppercase;
-        color: color-mix(in srgb, var(--color-fg) 45%, transparent);
+      .band-body {
+        padding-right: 16px;
       }
       /* SHOWCASE, one large, soft premium panel unifying the "One machine"
          statement and the device lineup. The dark game cassette overlaps its
@@ -1634,6 +1634,7 @@ const shareOnX = `https://twitter.com/intent/tweet?text=${encodeURIComponent(sha
          CONTRIBUTE SECTION
          ==================================================================== */
       .contrib-section {
+        background-color: white;
         padding: 6rem 1.5rem 7rem;
         text-align: center;
         border-top: 1px solid var(--color-border);
@@ -1880,6 +1881,22 @@ const shareOnX = `https://twitter.com/intent/tweet?text=${encodeURIComponent(sha
         border-radius: 0.9rem 0.9rem 0.4rem 0.4rem;
         overflow: hidden;
         box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
+      }
+      /* below md the screen is the small 280×216 size, but the board defaults to
+         --tui:17px (≈221×204) — too big for that screen, so it overflowed and
+         clipped on the right/bottom. Across the WHOLE sub-md range, shrink the
+         board so it sits strictly inside the small screen and centers with margin
+         on every side. (Also keeps the 128%-wide base inside narrow viewports.) */
+      @media (max-width: 767px) {
+        .laptop-screen {
+          width: 210px;
+          height: 190px;
+        }
+        /* board is 13×12 cells, so 10px → ~130×120 — strictly SMALLER than the
+           210×190 screen body (after the chrome bar). */
+        .laptop .frame-tui {
+          --tui: 10px;
+        }
       }
       @media (min-width: 768px) {
         .laptop-screen {
