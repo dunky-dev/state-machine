@@ -18,6 +18,15 @@ const TEST_DURATION_MS = 15_000 // fixed-length "15s test" run
 
 const ENGINE_IDS: PanelId[] = ['Dunky', 'xstate', 'zag'] // raw doesn't count
 
+// Dark theme palette. Page is a slightly lighter dark than the black boxes
+// (cards / control bar are #010409) so they read as distinct surfaces.
+const PAGE_BG = '#0d1117'
+const FG = '#ffffff'
+const BORDER = '#30363d'
+const GREEN = '#3fb950'
+const RED = '#f85149'
+const BLUE = '#79c0ff'
+
 type Stat = {
   backlog: number
   appliedPerSec: number
@@ -49,9 +58,13 @@ export function App() {
   const [fps, setFps] = React.useState(0)
   const [rate, setRate] = React.useState(0)
   const [stats, setStats] = React.useState<Record<PanelId, Stat>>(zeroStats)
-  // 0..1 remaining-time fraction during a 30s test (null = not a timed run)
-  const [remaining, setRemaining] = React.useState<number | null>(null)
-  // true once a 30s test has run to completion — only THEN do we reveal the
+  // 0..1 progress of the current run — drives the red top bar. For a timed run
+  // it's elapsed/duration; for survival it's how many engines have fallen behind.
+  // null = idle (no run, bar hidden).
+  const [progress, setProgress] = React.useState<number | null>(null)
+  // tracks whether the active run is a timed (15s) one
+  const [isTimedRun, setIsTimedRun] = React.useState(false)
+  // true once a 15s test has run to completion — only THEN do we reveal the
   // "fell behind by N" flags for a timed run (they're hidden mid-run so the
   // coasting backlog doesn't read as a live verdict).
   const [timedDone, setTimedDone] = React.useState(false)
@@ -76,7 +89,8 @@ export function App() {
     setRunning(false)
     setFps(0)
     setRate(0)
-    setRemaining(null)
+    setProgress(null)
+    setIsTimedRun(false)
     setTimedDone(false)
     setStats(zeroStats())
     // drop each panel's queue/applied state so the next run starts clean
@@ -91,7 +105,8 @@ export function App() {
     reset() // clean slate before a fresh run
     runningRef.current = true
     setRunning(true)
-    if (timed) setRemaining(1)
+    setIsTimedRun(timed)
+    setProgress(0)
     let curRate = RAMP_START
     setRate(curRate)
     const startedAt = performance.now()
@@ -121,12 +136,13 @@ export function App() {
 
       if (timed) {
         const elapsed = now - startedAt
-        setRemaining(Math.max(0, 1 - elapsed / TEST_DURATION_MS))
+        // timed run: bar fills linearly with elapsed time over the 15s
+        setProgress(Math.min(1, elapsed / TEST_DURATION_MS))
         if (elapsed >= TEST_DURATION_MS) {
           runningRef.current = false
           cancelAnimationFrame(loop.current)
           setRunning(false)
-          setRemaining(0)
+          setProgress(1)
           setTimedDone(true) // run complete → reveal the final "fell behind" flags
           return
         }
@@ -200,6 +216,15 @@ export function App() {
         frames = 0
         lastSample = t
 
+        // Survival run: the bar fills as engines die — each of the three engines
+        // that falls behind fills it a third, with a gentle time-based creep before
+        // the first death so it isn't stuck at zero. (Timed runs fill it above.)
+        if (!timed) {
+          const downCount = ENGINE_IDS.filter(id => fellBehindAtSec[id] !== null).length
+          const creep = Math.min(0.3, ((t - startedAt) / 1000) * 0.02) // ≤0.3 over ~15s
+          setProgress(Math.max(creep, downCount / ENGINE_IDS.length))
+        }
+
         // auto-stop the instant the LAST engine falls behind — freeze everything
         // immediately so the flags reflect the moment of divergence. A timed run
         // ignores this and keeps going for the full duration.
@@ -216,54 +241,60 @@ export function App() {
     loop.current = requestAnimationFrame(frame)
   }
 
-  const fpsColor = fps >= 50 ? '#3fb950' : fps >= 30 ? '#d29922' : '#f85149'
+  const fpsColor = fps >= 50 ? GREEN : fps >= 30 ? '#d29922' : RED
+
+  // light-theme aliases (the rest of the JSX reads these names)
+  const fg = FG
+  const borderNeutral = BORDER
+  const green = GREEN
+  const red = RED
 
   return (
     <div
       style={{
         fontFamily: 'ui-sans-serif, system-ui, sans-serif',
-        color: '#e6edf3',
-        background: '#010409',
+        color: fg,
+        background: PAGE_BG,
         minHeight: '100vh',
         padding: 20,
         boxSizing: 'border-box',
       }}
     >
-      {/* shrinking top bar — full width at the start of a 30s test, drains to 0 */}
-      {remaining !== null && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 4,
-            background: '#161b22',
-            zIndex: 10,
-          }}
-        >
+      {/* Run progress — a thick red bar pinned to the top of the screen. Filled
+          by elapsed time (15s test) or by engines-fallen-behind (survival). */}
+      {progress !== null && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 6, zIndex: 10 }}>
           <div
             style={{
               height: '100%',
-              width: `${remaining * 100}%`,
-              background: '#d29922',
-              // no transition — driven each frame, so it tracks real elapsed time
+              width: `${progress * 100}%`,
+              background: RED,
+              // driven each frame, so it tracks real progress with no easing lag
             }}
           />
         </div>
       )}
 
       <header style={{ marginBottom: 16 }}>
-        <h1 style={{ margin: '0 0 4px', fontSize: 20 }}>Dunky — engine throughput, live</h1>
-        <p style={{ margin: 0, opacity: 0.6, fontSize: 13, maxWidth: 920 }}>
-          Every cell is a real state machine doing engine work per update — a guarded transition
-          that feeds a computed. One change stream feeds all four; each gets an equal{' '}
-          <b>{DRAIN_BUDGET_MS}ms/frame</b> to apply its queue, and the load ramps until they
-          diverge. The grid is a throttled canvas heatmap (paint kept off the hot path), so what
-          you're watching is <b>engine cost</b>. <b>Survival test</b> runs until all three engines
-          fall behind, then stops; <b>15s test</b> runs the full fifteen seconds regardless. Idle
-          until you start.
-        </p>
+        <h1 style={{ margin: '0 0 8px', fontSize: 20 }}>Dunky — engine throughput, live</h1>
+        <ul
+          style={{
+            margin: 0,
+            paddingLeft: 18,
+            fontSize: 13,
+            maxWidth: 920,
+            lineHeight: 1.6,
+          }}
+        >
+          <li>Every cell is a real state machine: a guarded transition feeding a computed.</li>
+          <li>
+            One change stream feeds all four; each gets <b>{DRAIN_BUDGET_MS}ms/frame</b> to drain
+            its queue as the load ramps.
+          </li>
+          <li>
+            Paint is a throttled canvas heatmap, off the hot path — you're seeing engine cost.
+          </li>
+        </ul>
       </header>
 
       <div
@@ -273,8 +304,10 @@ export function App() {
           alignItems: 'center',
           flexWrap: 'wrap',
           padding: '12px 16px',
+          background: '#010409', // black control bar
+          color: '#e6edf3',
           border: '1px solid #30363d',
-          borderRadius: 8,
+          borderRadius: 10,
           marginBottom: 12,
         }}
       >
@@ -334,11 +367,11 @@ export function App() {
             gap: 8,
             padding: '4px 14px',
             borderRadius: 6,
-            background: '#161b22',
+            background: 'rgba(255,255,255,0.06)',
             border: '1px solid #30363d',
           }}
         >
-          <span style={{ fontSize: 28, fontWeight: 700, color: '#d29922' }}>
+          <span style={{ fontSize: 28, fontWeight: 700, color: '#ffd666' }}>
             {rate.toLocaleString()}
           </span>
           <span style={{ fontSize: 13, opacity: 0.7 }}>updates/frame {running && '↑'}</span>
@@ -352,26 +385,40 @@ export function App() {
         </div>
       </div>
 
-      <p style={{ margin: '0 0 16px', fontSize: 12, opacity: 0.55, maxWidth: 1000 }}>
-        <b>updates/s</b> is the headline — the run-average engine work each clears under the same{' '}
-        {DRAIN_BUDGET_MS}ms/frame budget (higher is better), shown as a <b>% of vanilla</b> (the
-        control). The <b>15s test</b> runs the full fifteen seconds and crowns the engine that{' '}
-        <b>survived</b> the rising load longest <b style={{ color: '#3fb950' }}>faster</b>, the rest{' '}
-        <b style={{ color: '#f85149' }}>slower</b>. The <b>survival test</b> ramps until every
-        engine falls behind, reporting how long each lasted and how many ops it applied.{' '}
-        <b>Vanilla</b> is the control; the comparison that matters is Dunky vs XState vs Zag.
-      </p>
+      <ul
+        style={{
+          margin: '0 0 16px',
+          paddingLeft: 18,
+          fontSize: 12,
+          maxWidth: 1000,
+          lineHeight: 1.6,
+        }}
+      >
+        <li>
+          <b>updates/s</b> (shown as <b>% of vanilla</b>) is the headline — higher is better.
+        </li>
+        <li>
+          <b>☠️ Survival test</b> — ramps until every engine falls behind; reports how long each
+          lasted.
+        </li>
+        <li>
+          <b>⏱️ 15s test</b> — runs the full fifteen seconds; crowns the longest survivor.
+        </li>
+        <li>
+          <b>Vanilla</b> is the control — the real comparison is Dunky vs XState vs Zag.
+        </li>
+      </ul>
 
-      {/* The 30s test's verdict, computed once the run completes: the ENGINE that
-          survived the rising load longest is the winner (green · "faster"); the
-          rest are red · "slower". Vanilla is the control and is excluded from the
-          ranking — it's the 100% baseline every panel's % diff is measured against. */}
+      {/* The 15s test's verdict, computed once the run completes: the ENGINE with
+          the highest updates/s is the winner (green · "faster"); the rest are red ·
+          "slower". Vanilla is the control and is excluded from the ranking — it's
+          the 100% baseline every panel's % diff is measured against. */}
       {(() => {
-        const timedVerdict = remaining !== null && timedDone
+        const timedVerdict = isTimedRun && timedDone
         const bestEngine = timedVerdict
           ? ENGINE_IDS.reduce<PanelId | null>((best, id) => {
-              const t = stats[id].fellBehindAtSec ?? -1
-              return best === null || t > (stats[best].fellBehindAtSec ?? -1) ? id : best
+              const ops = stats[id].appliedPerSec
+              return best === null || ops > stats[best].appliedPerSec ? id : best
             }, null)
           : null
         const vanillaOps = stats.raw.appliedPerSec
@@ -389,19 +436,22 @@ export function App() {
           >
             {PANELS.map(p => {
               const s = stats[p.id]
-              // A timed (30s) run hides the survival flag WHILE running — the coasting
+              // A timed (15s) run hides the survival flag WHILE running — the coasting
               // backlog mid-run isn't the verdict — and reveals it only once the run
               // completes. An untimed run shows it live (it auto-stops at the moment of
               // divergence, so the flag is the verdict the instant it appears).
-              const isTimedRun = remaining !== null
               const showBehind = !isTimedRun || timedDone
               const behind = showBehind && s.fellBehindAtSec !== null
 
-              // 30s verdict colouring: winner green, every other ENGINE red. Vanilla
+              // 15s verdict colouring: winner green, every other ENGINE red. Vanilla
               // (the control) and the live survival test keep the neutral treatment.
               const isWinner = timedVerdict && p.id === bestEngine
               const isLoser = timedVerdict && p.isEngine && p.id !== bestEngine
-              const borderColor = isWinner ? '#3fb950' : isLoser || behind ? '#f85149' : '#30363d'
+              const borderColor = isWinner
+                ? '#00aa00'
+                : isLoser || behind
+                  ? '#ff0000'
+                  : borderNeutral
 
               // % vs Vanilla — always relative to the control's updates/s.
               const pctVsVanilla =
@@ -409,63 +459,65 @@ export function App() {
                   ? Math.round((s.appliedPerSec / vanillaOps) * 100)
                   : null
 
+              // badge accent for the % chip beside the name
+              const badgeColor = timedVerdict ? (isWinner ? green : red) : '#79c0ff'
+
               return (
                 <div
                   key={`${p.id}-${side}`}
                   style={{
-                    border: `1px solid ${borderColor}`,
-                    borderRadius: 8,
+                    border: `1px solid ${isWinner || isLoser || behind ? borderColor : '#30363d'}`,
+                    borderRadius: 10,
                     padding: 12,
-                    background: '#0d1117',
+                    background: '#010409', // the whole card is one black box
+                    color: '#e6edf3',
                     transition: 'border-color 200ms',
                   }}
                 >
-                  {/* Results stacked on their own lines above the square — each
-                      metric on a break so the panel reads top-to-bottom instead of
-                      one cramped inline row. */}
+                  {/* name (left) + a % of vanilla badge (right) */}
                   <div
                     style={{
                       display: 'flex',
                       justifyContent: 'space-between',
-                      alignItems: 'baseline',
+                      alignItems: 'center',
+                      gap: 8,
                     }}
                   >
                     <strong style={{ fontSize: 14 }}>{p.label}</strong>
-                    {isWinner && (
-                      <span style={{ color: '#3fb950', fontWeight: 700, fontSize: 13 }}>
-                        faster
+                    {pctVsVanilla !== null && (
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: 999,
+                          color: badgeColor,
+                          background: `${badgeColor}22`,
+                          border: `1px solid ${badgeColor}55`,
+                          whiteSpace: 'nowrap',
+                        }}
+                        title='updates/s as a percentage of the vanilla control'
+                      >
+                        {pctVsVanilla}% of vanilla
                       </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 13, marginTop: 6 }}>
+                    <b style={{ color: '#79c0ff' }}>{s.appliedPerSec.toLocaleString()}</b>
+                    <span style={{ opacity: 0.6 }}> updates/s</span>
+                    {isWinner && (
+                      <span style={{ color: '#3fb950', fontWeight: 700 }}> · faster</span>
                     )}
                     {isLoser && (
-                      <span style={{ color: '#f85149', fontWeight: 700, fontSize: 13 }}>
-                        slower
-                      </span>
+                      <span style={{ color: '#ff6b6b', fontWeight: 700 }}> · slower</span>
                     )}
                   </div>
-                  <div style={{ fontSize: 13, marginTop: 4 }}>
-                    <b style={{ color: '#58a6ff' }}>{s.appliedPerSec.toLocaleString()}</b>
-                    <span style={{ opacity: 0.6 }}> updates/s</span>
-                  </div>
-                  {pctVsVanilla !== null && (
-                    <div style={{ fontSize: 12, opacity: 0.6 }}>{pctVsVanilla}% of vanilla</div>
-                  )}
-                  {/* live survival test: how long it lasted + total ops applied */}
+                  {/* live survival test: how long it lasted + total ops applied.
+                      The timed (15s) verdict is purely "who was faster", so no line. */}
                   {behind && !timedVerdict && (
-                    <div style={{ fontSize: 12, color: '#f85149', fontWeight: 600 }}>
+                    <div style={{ fontSize: 12, color: '#ff6b6b', fontWeight: 600, marginTop: 4 }}>
                       survived {(s.fellBehindAtSec ?? 0).toFixed(1)}s ·{' '}
                       {s.totalOps.toLocaleString()} ops
-                    </div>
-                  )}
-                  {/* timed verdict: how long each survived the rising load */}
-                  {behind && timedVerdict && (
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: isWinner ? '#3fb950' : '#f85149',
-                        fontWeight: 600,
-                      }}
-                    >
-                      survived {(s.fellBehindAtSec ?? 0).toFixed(1)}s
                     </div>
                   )}
                   <div style={{ fontSize: 11, opacity: 0.55, margin: '8px 0 10px' }}>{p.blurb}</div>

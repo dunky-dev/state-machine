@@ -131,6 +131,7 @@ export const Panel = React.forwardRef<PanelHandle, { id: PanelId; side: number; 
           aspectRatio: '1 / 1',
           display: 'block',
           background: '#010409',
+          borderRadius: 4,
           imageRendering: 'pixelated',
         }}
       />
