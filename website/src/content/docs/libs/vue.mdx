@@ -11,36 +11,36 @@ The Vue package is a thin edge layer. Behavior lives in the core machine and the
 
 ## `useMachine`
 
-The one bridge composable. Every component calls it with the four agnostic pieces and gets back the view API:
+The one bridge composable. Every component calls it with the four agnostic pieces and gets back the view API. In an SFC, call it in `<script setup>` and spread the bindings with `v-bind`:
 
-```ts
-import { defineComponent, h } from 'vue'
+```vue
+<script setup lang="ts">
 import { useMachine, normalize } from '@dunky.dev/state-machine-vue'
 import { createDialogConfig, connectDialog, dialogEffects } from './dialog'
 
-const Dialog = defineComponent({
-  props: {
-    open: Boolean,
-    onOpenChange: Function,
-    closeOnEscape: { type: Boolean, default: true },
-  },
-  setup(props) {
-    const { api } = useMachine(
-      createDialogConfig, // (props) => MachineConfig; seeds context once
-      connectDialog, // pure connect(): snapshot → view api
-      dialogEffects, // ComponentEffect[]: DOM listeners, gated by props
-      props, // the reactive props object
-    )
+const props = defineProps<{
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  closeOnEscape?: boolean
+}>()
 
-    return () => [
-      h('button', normalize(api.value.triggerProps), 'Open'),
-      api.value.isOpen ? h('div', normalize(api.value.contentProps), 'Dialog content') : null,
-    ]
-  },
-})
+const { api } = useMachine(
+  createDialogConfig, // (props) => MachineConfig; seeds context once
+  connectDialog, // pure connect(): snapshot → view api
+  dialogEffects, // ComponentEffect[]: DOM listeners, gated by props
+  props, // the reactive props object
+)
+</script>
+
+<template>
+  <button v-bind="normalize(api.triggerProps)">Open</button>
+  <div v-if="api.isOpen" v-bind="normalize(api.contentProps)">Dialog content</div>
+</template>
 ```
 
-`useMachine` builds the machine and connector **once** in `setup()` (the props read there seed context; later changes flow through `setProps`, not a rebuild), starts on mount, stops on unmount, and exposes the connector's stable snapshot as a `computed` — read it as `api.value`, or destructure it in a template.
+`useMachine` builds the machine and connector **once** in `setup()` (the props read there seed context; later changes flow through `setProps`, not a rebuild), starts on mount, stops on unmount, and exposes the connector's stable snapshot as a `computed`. In a `<template>` Vue auto-unwraps the ref, so you read `api.isOpen`; in `<script>` it's `api.value.isOpen`.
+
+> The examples here use SFC `<template>` syntax. The same code works in a JSX/TSX setup or a manual `h()` render function — `api` is just a `computed` ref and `normalize(...)` is a plain props object, so spread it however your renderer spreads props.
 
 ### The three imports
 
@@ -71,7 +71,7 @@ export const createDialogConfig = (props: DialogProps) => ({
 })
 
 // connectDialog: a pure connect() that turns a machine snapshot into the view API
-// your render function spreads. `isOpen`, `triggerProps`, `contentProps` come from here.
+// your template spreads. `isOpen`, `triggerProps`, `contentProps` come from here.
 export const connectDialog: Connect<State, Context, Event, DialogProps, Api> = ({
   state,
   send,
@@ -94,11 +94,13 @@ So `useMachine` is the only Vue-specific piece: `createDialogConfig` is the mach
 
 ## `normalize`: bindings → DOM props
 
-`connect` returns substrate-agnostic bindings (`onPress`, `role`, `describedBy`). `normalize` translates them to real DOM/ARIA props in Vue's `onXxx` listener form:
+`connect` returns substrate-agnostic bindings (`onPress`, `role`, `describedBy`). `normalize` translates them to real DOM/ARIA props in Vue's `onXxx` listener form, ready to spread with `v-bind`:
 
-```ts
-normalize(api.value.triggerProps)
-// { onClick, 'aria-expanded', role, tabindex, ... }
+```vue
+<template>
+  <button v-bind="normalize(api.triggerProps)">Open</button>
+  <!-- normalize(api.triggerProps) → { onClick, 'aria-expanded', role, tabindex, ... } -->
+</template>
 ```
 
 | Binding                                         | Vue DOM prop                                                        |
@@ -119,8 +121,10 @@ normalize(api.value.triggerProps)
 
 When a consumer spreads their own props onto the same element the component controls:
 
-```ts
-h('button', mergeProps(consumerProps, normalize(api.value.triggerProps)), 'Open')
+```vue
+<template>
+  <button v-bind="mergeProps(consumerProps, normalize(api.triggerProps))">Open</button>
+</template>
 ```
 
 - **Event handlers are chained, consumer-first.** If the consumer calls `e.preventDefault()`, the component's handler is skipped, a clean veto.
@@ -130,22 +134,23 @@ h('button', mergeProps(consumerProps, normalize(api.value.triggerProps)), 'Open'
 
 ## `useSelector`: fine-grained leaf subscription
 
-For a leaf component that should only update when one slice of the machine changes (useful when a single machine drives many rows and each row should only wake for its own value). It returns a **readonly ref**:
+For a leaf component that should only update when one slice of the machine changes (useful when a single machine drives many rows and each row should only wake for its own value). It returns a **readonly ref** — read `.value` in `<script>`, auto-unwrapped in `<template>`:
 
-```ts
-import { defineComponent, h } from 'vue'
+```vue
+<script setup lang="ts">
 import { useSelector } from '@dunky.dev/state-machine-vue'
 
-const Row = defineComponent({
-  props: { machine: { type: Object, required: true }, value: { required: true } },
-  setup(props) {
-    const isHighlighted = useSelector(
-      props.machine,
-      () => props.machine.context.highlightedValue === props.value,
-    )
-    return () => h('div', { 'data-highlighted': isHighlighted.value }, props.value)
-  },
-})
+const props = defineProps<{ machine: RowMachine; value: string }>()
+
+const isHighlighted = useSelector(
+  props.machine,
+  () => props.machine.context.highlightedValue === props.value,
+)
+</script>
+
+<template>
+  <div :data-highlighted="isHighlighted">{{ value }}</div>
+</template>
 ```
 
 For object selections, pass a custom equality function to avoid waking on reference changes:

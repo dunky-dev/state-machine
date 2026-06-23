@@ -53,9 +53,30 @@ It:
   Its identity only changes on a real change, so reads stay stable — no tearing,
   no over-rendering.
 
-Returns `{ api, machine }`: `api` is a `ComputedRef` of the `connect()` output
-(read `api.value`, or unwrap it in a template); `machine` is the running service
-(also handed to `useSelector`).
+Returns `{ api, machine }`: `api` is a `ComputedRef` of the `connect()` output;
+`machine` is the running service (also handed to `useSelector`). In a `<script>`
+read `api.value.x`; in a `<template>` Vue auto-unwraps the ref, so it's `api.x`.
+
+In an SFC, call it in `<script setup>` and spread the bindings with `v-bind`:
+
+```vue
+<script setup lang="ts">
+import { useMachine, normalize } from '@dunky.dev/state-machine-vue'
+import { tooltipMachineConfig, connectTooltip, tooltipEffects } from './tooltip'
+
+const props = defineProps<TooltipProps>()
+const { api } = useMachine(tooltipMachineConfig, connectTooltip, tooltipEffects, props)
+</script>
+
+<template>
+  <button v-bind="normalize(api.triggerProps)">Hover me</button>
+  <div v-if="api.open" v-bind="normalize(api.contentProps)">Tooltip</div>
+</template>
+```
+
+The same call works in a JSX/TSX setup or a manual `h()` render function — `api`
+is just a `computed` ref and `normalize(...)` a plain props object, so spread it
+however your renderer spreads props.
 
 ---
 
@@ -168,9 +189,11 @@ whole-snapshot updates are wasteful.
 props in Vue's `onXxx` listener form, so the same `connect` can target DOM, React,
 or canvas — each via its own `normalize`:
 
-```ts
-const domProps = normalize(api.triggerProps) // { onClick, 'aria-describedby', role, ... }
-// spread onto an element: h('button', normalize(api.triggerProps)) or v-bind="..."
+```vue
+<template>
+  <!-- normalize(api.triggerProps) → { onClick, 'aria-describedby', role, ... } -->
+  <button v-bind="normalize(api.triggerProps)">Open</button>
+</template>
 ```
 
 The mapping mirrors React's, with the Vue-appropriate names:
@@ -207,8 +230,10 @@ When a consumer spreads their own props onto the same element the component
 controls, the two prop sets have to merge sensibly. `mergeProps(consumer, library)`
 does it the Radix/Ark way, with Vue's `class`/`style` conventions:
 
-```ts
-const finalProps = mergeProps(consumerProps, normalize(api.triggerProps))
+```vue
+<template>
+  <button v-bind="mergeProps(consumerProps, normalize(api.triggerProps))">Open</button>
+</template>
 ```
 
 - **Event handlers are chained, consumer-first** — both run, the consumer's
