@@ -34,10 +34,12 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build demo
-        # base must match the repo name so asset URLs resolve under
-        # https://dunky-dev.github.io/state-machine/
+        # The canonical demo ships with the docs site at
+        # dunky.dev/state-machine/benchmark/demo (bundled into the Astro dist;
+        # see website/package.json). This Pages deploy is a standalone mirror at
+        # the same path, so the base must match.
         env:
-          BASE_PATH: /state-machine/
+          BASE_PATH: /state-machine/benchmark/demo/
         run: pnpm -C benchmark/demo build
 
       - uses: actions/configure-pages@v5

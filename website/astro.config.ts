@@ -40,7 +40,10 @@ function rehypeBaseLinks() {
 
 // https://astro.build/config
 export default defineConfig({
-  site: 'https://dunky-dev.github.io',
+  // Canonical host: dunky.dev 308-redirects to www, so www is the real origin.
+  // This drives canonical links, og:url, and the sitemap — must be the user-
+  // facing domain, not the github.io Pages mirror.
+  site: 'https://www.dunky.dev',
   base,
   // Vercel serves the static output only at slash-less paths (`/api/context`);
   // the trailing-slash variant 404s. `'never'` makes Astro emit slash-less
