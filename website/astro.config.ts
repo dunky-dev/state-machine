@@ -56,7 +56,21 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'Dunky',
+      // Light/default favicon (Starlight base-prefixes this one). Chrome ignores
+      // prefers-color-scheme *inside* an SVG favicon, so the dark-tab white
+      // variant is supplied as a separate <link media> in `head` below.
       favicon: '/logo/logo-symbol.svg',
+      head: [
+        {
+          tag: 'link',
+          attrs: {
+            rel: 'icon',
+            type: 'image/svg+xml',
+            href: `${basePrefix}/logo/logo-symbol-white.svg`,
+            media: '(prefers-color-scheme: dark)',
+          },
+        },
+      ],
       logo: {
         light: './public/logo/logo.svg',
         dark: './public/logo/logo-white.png',
