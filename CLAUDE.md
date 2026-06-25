@@ -36,48 +36,17 @@ the layered model:
 
 ## Workflow
 
-### Where does the code go?
+Before finishing any change:
 
-Three package groups, three jobs — never cross the lines:
-
-- **`packages/core/`** — agnostic behavior only. Pure TypeScript, no renderer,
-  no DOM, no `window`. States, transitions, guards, actions, effects, connector,
-  compose. If it touches a platform API, it belongs in a target.
-- **`packages/shared/`** — cross-target, cross-component helpers (mergeProps,
-  composeHandlers, positioning, memo). No machine logic, no runtime.
-- **`packages/<target>/`** (`react`, `native`, …) — one package per substrate.
-  Owns the lifecycle bridge (`useMachine`), the props translator (`normalize`),
-  and platform effects (`ComponentEffect`s). Nothing here reimplements state.
-
-### The machine never sees props
-
-Props enter only at the **edge** — the connector / connect function — never
-inside the machine config:
-
-- **Config the machine needs** (delays, flags) → seed into `context` once, update
-  via `setContext` when props change.
-- **Callbacks and controlled state** (`onOpenChange`, controlled `open`) → handled
-  by the connector; it observes the machine and calls back via reactions.
-- **Initial state from props** → computed before `machine()` is built.
-
-Breaking this rule couples the machine to one runtime. The same config must run
-byte-for-byte identically on React, React Native, a canvas loop, or a test.
-
-### Where does a side-effect go?
-
-Ask one question: does it need props or a platform API?
-
-- **No** → core config effect. Register it in `setup({ effects })`, name it on a
-  state. Scoped to that state, auto-cleaned on exit.
-- **Yes** → `ComponentEffect` in the target package. A plain
-  `(machine, props) => cleanup` tuple with the prop names it reads. On trigger,
-  it `send()`s a plain event the machine already understands.
-
-### Before merging
-
-1. New or changed behavior in `core/` must have a test in that package's `tests/`.
-2. Check the change is substrate-agnostic — no React lifecycle, no DOM API, no
-   RN-only import inside `packages/core/`.
+- **Check affected packages.** A change in `core/` may need follow-up in targets
+  (`react`, `native`, …) and vice versa. Always check what else the change touches.
+- **Follow the architecture.** Read `ARCHITECTURE.md` before making structural
+  decisions. When something doesn't fit cleanly, flag it and suggest a better
+  approach rather than forcing it.
+- **Suggest improvements proactively.** If you notice a cleaner design, a missing
+  test, or a pattern inconsistency while working, say so — don't just do the minimum.
+- **Use available skills.** Before running benchmarks use the `/benchmark` skill.
+  Before reviewing code use the `/code-review` skill. Check what's available.
 
 ## Diagrams in docs
 
