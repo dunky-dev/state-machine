@@ -20,7 +20,6 @@ export function createStore<T extends object, Methods extends object = object>(
     get: () => state,
     set(action) {
       const patch = typeof action === 'function' ? action(state) : action
-      // shallow-equal dedup: a no-op write doesn't notify
       let changed = false
       for (const k in patch) {
         if (!Object.is(state[k as keyof T], patch[k as keyof T])) {

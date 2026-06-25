@@ -1,12 +1,3 @@
-/**
- * Implemented as a class so the engine logic lives on the prototype (one shared
- * copy) and each instance holds only data — the per-machine footprint is flat in
- * field/state count (no per-field reactive cell, no per-instance closure tree).
- * The reactivity kernel is a tiny coarse bus: a write (context or state change)
- * bumps `version` and notifies every listener; `select` re-evaluates + value-compares
- * so it fires only on a real change (O(changed) at the listener), and `computed`
- * memoizes by snapshotting the inputs it actually read (see ./computed).
- */
 import { type ActionHost, runActions } from './actions'
 import { installComputed } from './computed'
 import { isDev, MACHINE_INIT, MAX_DRAIN } from './constants'
@@ -23,9 +14,7 @@ import type {
   TransitionConfig,
 } from './types'
 
-// Per-`states` tag-set cache: a state's tags depend only on the STATIC config, so
-// derive them once per states-map and share across every machine built from it —
-// keeps per-instance memory flat as state count grows. Keyed by the states object.
+// Tags depend only on static config — derive once per states-map, share across instances.
 const tagsCache = new WeakMap<object, Record<string, ReadonlySet<string>>>()
 function tagsForStates<State extends string>(
   states: Record<State, StateNode>,
@@ -49,60 +38,40 @@ class MachineClass<
   ctx: Context
   stateValue: State
   tagsOf: Record<State, ReadonlySet<string>>
-  // Monotonic change counter, bumped on every notify. Lets `computed` memoize
-  // (recompute only when something changed since its last read) without per-field
-  // dependency tracking.
+  // Monotonic counter bumped on every notify — lets computed memoize without per-field tracking.
   version = 0
-  // The coarse notification bus: listeners under subscribe + select. Mutated only
-  // through busAdd/busDelete so `busSnapshot` (the array we iterate in bump) is
-  // re-derived only when membership changes — steady-state notifies allocate
-  // nothing, while still iterating a stable copy (a listener ADDED during notify
-  // first fires on the next pass; one REMOVED during notify is skipped
-  // immediately — see bump).
+  // Coarse notification bus. Mutated through busAdd/busDelete so the iteration snapshot
+  // (busSnapshot) is only re-derived when membership changes — steady-state notifies allocate nothing.
   bus = new Set<() => void>()
   busSnapshot: Array<() => void> = []
   busDirty = false
-  // The run-to-completion queue. Holds events to dispatch AND deferred jobs (a
-  // watcher's action run) — both wait for the in-flight transition to finish.
-  // Discriminated by typeof: an event is an object, a job is a function.
+  // Run-to-completion queue. Events (objects) and deferred jobs (functions) both wait for
+  // the in-flight transition to finish before running.
   queue: Array<Event | (() => void)> = []
   flushing = false
   running = false
-  // Bumped on every state ENTRY. An `after` timer captures the generation it was
-  // scheduled in; if the machine exits and re-enters the same state before a
-  // deferred timer dispatches, the generation no longer matches and the stale
-  // timer is ignored — closing the exit-and-re-enter TOCTOU window that a plain
-  // `stateValue === scheduledIn` check would miss.
+  // Bumped on every state ENTRY. An `after` timer captures the generation at schedule time;
+  // if the machine exits and re-enters the same state before the timer fires, the generation
+  // no longer matches and the stale timer is ignored.
   entryCounter = 0
   stateCleanups: Array<() => void> = []
   watcherCleanups: Array<() => void> = []
-  // lazily created — a machine with no reactions/connector pays nothing
+  // Lazily created — a machine with no connector pays nothing.
   startListeners: Set<() => void> | null = null
   stopListeners: Set<() => void> | null = null
   computed: Computed
-  // stable bound refs handed to actions/effects (the only per-instance closures)
   setContext: (patch: Partial<Context>) => void
   send: (event: Event) => void
-  // live params + named registries that runAction(s) read (built once in the ctor)
   actionHost: ActionHost<Context, Event, Computed>
 
   constructor(config: TransitionConfig<State, Context, Event, Computed>) {
     this.config = config
-    // Own copy from birth, identity PERMANENT: writes mutate it in place, so a
-    // reference captured anywhere (an effect's closure, action params) is a
-    // live view forever; the config's object is never mutated. This replaces
-    // copy-on-write — its one-time reference swap silently stranded refs
-    // captured before the first write, and the sharing it bought was ~40 B per
-    // idle machine on a component-sized context (see the memory bench).
+    // Own copy from birth — identity never changes, writes mutate in place.
+    // Refs captured in effects/actions always see the live context.
     this.ctx = { ...config.context }
     this.stateValue = config.initial
-    // shared per-config tag sets (not rebuilt per instance) — see tagsForStates
     this.tagsOf = tagsForStates(config.states)
 
-    // Computed bag with read-key tracking — see ./computed. The host accessors
-    // read this machine's live context / computed / state. `target` IS
-    // `this.computed`, so a computed→computed dep resolves in place against the
-    // same bag.
     this.computed = {} as Computed
     if (config.computed) {
       installComputed(this.computed, config.computed, {
@@ -112,8 +81,6 @@ class MachineClass<
       })
     }
 
-    // Live action params (context/computed re-read each run) + the named
-    // registries. Built once; `runAction(s)` close over it.
     this.actionHost = {
       actions: config.implementations?.actions,
       guards: config.implementations?.guards,
@@ -124,7 +91,6 @@ class MachineClass<
     }
 
     this.setContext = patch => {
-      // dedup: a no-op write must not notify (Object.is, early-out)
       let changed = false
       for (const key in patch) {
         if (!Object.is(this.ctx[key], patch[key])) {
@@ -139,8 +105,6 @@ class MachineClass<
     this.send = event => this.doSend(event)
   }
 
-  // ---- kernel notify ----
-  // Bus membership goes through these so the iteration snapshot can be cached.
   private busAdd(listener: () => void): void {
     this.bus.add(listener)
     this.busDirty = true
@@ -152,26 +116,15 @@ class MachineClass<
 
   private bump(): void {
     this.version++
-    // Iterate a STABLE snapshot, not the live Set, so a listener added during
-    // notify first fires on the NEXT pass. The snapshot is re-derived only when
-    // membership changed since the last notify — steady-state notifies allocate
-    // nothing. The live-membership check skips listeners REMOVED mid-pass:
-    // unsubscribe takes effect immediately, because firing a removed listener
-    // (e.g. a reaction whose teardown just ran) breaks the unsubscribe contract.
+    // Iterate a stable snapshot so mid-pass (un)subscribes take effect after the current pass.
+    // Skip the has() guard in the steady state; flip to checked mode if membership changes mid-pass.
     if (this.busDirty) {
       this.busSnapshot = [...this.bus]
       this.busDirty = false
     }
-    // Until a listener (un)subscribes mid-pass, the snapshot IS live membership,
-    // so the per-listener has() check is pure overhead — skip it. The instant a
-    // listener mutates the bus during the pass, busAdd/busDelete flip busDirty and
-    // we resume checking for the remainder (the removed-mid-pass guarantee). This
-    // keeps the fan-out path (K selectors, one write) at K calls + 0 Set lookups
-    // in the steady state.
     for (const l of this.busSnapshot) if (!this.busDirty || this.bus.has(l)) l()
   }
 
-  // ---- reads ----
   get state(): State {
     return this.stateValue
   }
@@ -191,14 +144,7 @@ class MachineClass<
     this.bump()
   }
 
-  // ---- guards / resolution ----
-  // A guard resolver bound to THIS event's params + the config's guard registry,
-  // handed to `resolve` (transition selection) so guard names resolve against the
-  // runtime's single registry. Params are built LAZILY: a candidate list whose
-  // winner is guardless (the common UI case — `open → closed` on a click) never
-  // touches a guard, so `makeGuardParams` (an object + a self-referential closure)
-  // is deferred until the first guard actually runs, and memoized across the rest
-  // of the list. The hottest send shape skips it entirely (see `selectTransition`).
+  // Guard params are built lazily — guardless transitions (the common case) never allocate them.
   private resolverFor(event: Event): (guard: GuardArg<Context, Event, Computed>) => boolean {
     let params: ReturnType<typeof makeGuardParams<Context, Event, Computed>> | undefined
     return guard =>
@@ -209,11 +155,7 @@ class MachineClass<
         this.config.implementations?.guards,
       )).guard(guard)
   }
-  // Pick the transition for an event, fast-pathing the dominant shape: a single
-  // guardless `Transition` object resolves to itself with NO resolver built and
-  // NO array allocated (`resolve` wraps a bare entry in a 1-element array). Only a
-  // fn entry, an array (fallthrough), or a guarded object falls through to the
-  // general `resolve` — which then lazily builds the resolver above.
+  // Fast-path: a single guardless object resolves to itself with no resolver or array allocated.
   private selectTransition(
     entry: ReturnType<typeof lookupOn<State, Context, Event, Computed>>,
     event: Event,
@@ -226,9 +168,6 @@ class MachineClass<
     runActions(this.actionHost, actions, event)
   }
 
-  // ---- transition: exit (cleanup effects + exit actions) → transition actions →
-  // switch → entry actions + start effects. Self-transition (no state change)
-  // runs actions only, skipping exit/entry. Effect boot/cleanup only while running.
   private applyTransition(t: Transition<State, Context, Event, Computed>, event: Event): void {
     const cur = this.stateValue
     const next = t.target ?? cur
@@ -244,10 +183,7 @@ class MachineClass<
       if (this.running) this.startEffects(next, event)
     }
   }
-  // ---- queue: run-to-completion ----
-  // Push an item and drain, unless a drain is already in flight — a re-entrant
-  // enqueue (a send from an action, a watcher detecting a mid-transition write)
-  // waits until the current transition fully finishes.
+  // Re-entrant enqueues (send from an action, watcher mid-transition) wait for the current drain.
   private enqueue(item: Event | (() => void)): void {
     this.queue.push(item)
     if (this.flushing) return
@@ -258,8 +194,6 @@ class MachineClass<
       this.flushing = false
     }
   }
-  // Drain until empty, FIFO. The caller owns the `flushing` flag. An event
-  // resolves + applies a transition; a job (deferred watcher run) just runs.
   private drainQueue(): void {
     let ticks = 0
     while (this.queue.length) {
@@ -282,7 +216,6 @@ class MachineClass<
     this.enqueue(event)
   }
 
-  // ---- delays / after ----
   private resolveDelay(key: string, event: Event): number {
     const asNum = Number(key)
     if (!Number.isNaN(asNum)) return asNum
@@ -295,12 +228,8 @@ class MachineClass<
     }
     return fn(makeGuardParams(this.ctx, event, this.computed, this.config.implementations?.guards))
   }
-  // A fired timer applies the first `after` transition whose guard passes — only
-  // if still in the scheduling state and still running. If a drain is in flight,
-  // defer to a microtask so it runs after the current transition completes.
   private dispatchAfter(scheduledIn: State, key: string, event: Event, generation: number): void {
-    // Ignore a stale timer: not running, moved to a different state, OR exited and
-    // re-entered the same state since scheduling (generation changed).
+    // Stale timer: machine stopped, moved to a different state, or re-entered the same state.
     if (!this.running || this.stateValue !== scheduledIn || this.entryCounter !== generation) {
       return
     }
@@ -319,10 +248,7 @@ class MachineClass<
     }
   }
 
-  // ---- effects: schedule `after` timers, then run state effects; stash cleanups ----
   private startEffects(state: State, event: Event): void {
-    // Each entry is a new generation — a timer scheduled now is bound to it, so a
-    // later exit+re-enter invalidates a still-pending (deferred) dispatch.
     const generation = ++this.entryCounter
     const after = this.config.states[state].after
     if (after) {
@@ -344,8 +270,6 @@ class MachineClass<
         continue
       }
       const cleanup = fn({
-        // handing the object itself is safe: its identity never changes (writes
-        // mutate in place), so an effect's long-lived closures read live values
         context: this.ctx,
         setContext: this.setContext,
         event,
@@ -360,11 +284,6 @@ class MachineClass<
     this.stateCleanups.length = 0
   }
 
-  // ---- watch: machine-global data reaction. A bus listener re-reads the field
-  // and, on a real change (no fire on setup), queues the actions through the
-  // run-to-completion queue — they run AFTER the transition that changed the
-  // field settles, like an event sent from an action. Cleanups live in their
-  // OWN list — watchers span the whole run, not a single state. ----
   private readField(key: string): unknown {
     return key in this.ctx
       ? (this.ctx as Record<string, unknown>)[key]
@@ -381,11 +300,8 @@ class MachineClass<
         const next = this.readField(key)
         if (Object.is(prev, next)) return
         prev = next
-        // Defer, don't run: this listener fires inside bump() — mid-transition,
-        // inside the notify pass. Running actions here would be re-entrant
-        // (other listeners observe a half-applied transition; a watcher writing
-        // context recurses into a nested bump, unbounded). The `running` check
-        // re-runs at job time: a stop() mid-drain drops a pending watcher run.
+        // Defer: this fires inside bump() (mid-transition). Running actions immediately
+        // would be re-entrant. The `running` check at job time drops pending runs on stop().
         this.enqueue(() => {
           if (this.running) this.runActions(actions, { type: MACHINE_INIT } as Event)
         })
@@ -399,15 +315,12 @@ class MachineClass<
     this.watcherCleanups.length = 0
   }
 
-  // ---- lifecycle: built stopped; send() works regardless of running (pure
-  // state), but effects/watchers/timers run only while running. ----
   start = (): void => {
     if (this.running) return
     this.running = true
     this.startWatchers()
-    // Boot the CURRENT state's effects, not the initial state's: stop() doesn't
-    // reset stateValue and send() works while stopped, so a (re)start may find
-    // the machine in any state (e.g. StrictMode's mount→unmount→mount).
+    // Boot the CURRENT state's effects — stop() doesn't reset stateValue, so a
+    // restart (e.g. StrictMode mount→unmount→mount) may be in any state.
     this.startEffects(this.stateValue, { type: MACHINE_INIT } as Event)
     if (this.startListeners) for (const fn of this.startListeners) fn()
   }
@@ -420,7 +333,7 @@ class MachineClass<
   }
   onStart = (fn: () => void): (() => void) => {
     ;(this.startListeners ??= new Set()).add(fn)
-    if (this.running) fn() // already running → run now so a late registrant doesn't miss it
+    if (this.running) fn() // already running — fire immediately so late registrants don't miss it
     return () => this.startListeners?.delete(fn)
   }
   onStop = (fn: () => void): (() => void) => {
@@ -428,15 +341,11 @@ class MachineClass<
     return () => this.stopListeners?.delete(fn)
   }
 
-  // ---- subscription: coarse (any change) ----
   subscribe = (listener: () => void): (() => void) => {
     this.busAdd(listener)
     return () => this.busDelete(listener)
   }
 
-  // A Selection re-evaluates its selector on every bus notify and fires its
-  // listener only when the selected value changes (Object.is default / equals).
-  // `value` is a plain eval. No fire on subscribe.
   private makeSelection<Value>(selector: () => Value): Selection<Value> {
     const add = this.busAdd.bind(this)
     const remove = this.busDelete.bind(this)
@@ -471,9 +380,6 @@ class MachineClass<
   }
 }
 
-/**
- * Build a stopped machine service. See the file header for the architecture.
- */
 export function machine<
   State extends string,
   Context extends object,
