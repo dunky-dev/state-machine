@@ -59,8 +59,6 @@ type Api = {
   contentProps: object
 }
 
-// createDialogConfig: (props) => machine config. Defines the states
-// ('closed' | 'open'), the events, and seeds context from the first props.
 export const createDialogConfig = (props: DialogProps) => ({
   initial: props.open ? 'open' : 'closed',
   context: { closeOnEscape: props.closeOnEscape ?? true },
@@ -70,9 +68,6 @@ export const createDialogConfig = (props: DialogProps) => ({
   },
 })
 
-// connectDialog: a pure connect() that turns a machine snapshot into the view API
-// your JSX spreads. `isOpen`, `triggerProps`, `contentProps` come from here.
-// The type args are <State, Context, Event, Props, Api>.
 export const connectDialog: Connect<State, Context, Event, DialogProps, Api> = ({
   state,
   send,
@@ -85,9 +80,6 @@ export const connectDialog: Connect<State, Context, Event, DialogProps, Api> = (
   contentProps: { role: 'dialog', modal: true },
 })
 
-// dialogEffects: DOM listeners that can't live in the machine. Here, one that
-// closes the dialog on Escape. `onEscapeKey` is a [setup/teardown, deps] tuple;
-// see the ComponentEffect section below for its full body.
 export const dialogEffects = [onEscapeKey]
 ```
 
@@ -174,8 +166,6 @@ const onEscapeKey: Effect = [
   ['closeOnEscape'], // re-run only when this prop changes
 ]
 
-// Must be a static module constant; useMachine runs one hook per entry,
-// so the list length must never change between renders.
 export const dialogEffects = [onEscapeKey]
 ```
 

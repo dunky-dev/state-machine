@@ -66,12 +66,9 @@ const toggle = setup({
     flip: assign({
       open: ({ context }) => !context.open,
     }),
-    // the machine itself calls the host's callback; it lives in context
     notify: ({ context }) => context.onOpenChange?.(context.open),
   },
 }).createMachine({
-  // host data enters the machine here: both defaultOpen and the callback
-  // become part of its state
   context: ({ input }) => ({
     open: input.defaultOpen,
     onOpenChange: input.onOpenChange,
@@ -96,15 +93,13 @@ import { createMachine } from '@zag-js/core'
 
 const toggle = createMachine({
   props({ props }) {
-    // host props (defaultOpen, onOpenChange) are declared on the machine…
     return { defaultOpen: false, ...props }
   },
   context({ bindable, prop }) {
-    // …and pulled in here: one bindable cell per field, seeded from a prop
     return {
       open: bindable(() => ({
         defaultValue: prop('defaultOpen'),
-        onChange: open => prop('onOpenChange')?.({ open }), // callback fires from inside
+        onChange: open => prop('onOpenChange')?.({ open }),
       })),
     }
   },
@@ -123,7 +118,6 @@ prop and the callback live on the _connector_, at the edge:
 ```ts
 import { machine, connector } from '@dunky.dev/state-machine'
 
-// The machine. No props, no callbacks, no host. Just states and events.
 const toggle = machine({
   initial: 'closed',
   context: {},
@@ -133,7 +127,7 @@ const toggle = machine({
   },
 })
 
-// connect maps a snapshot → view API. `onPress` is an abstract binding, not `onClick`.
+// `onPress` is an abstract binding; normalize() maps it to onClick / onPress per target
 const connect = ({ state, send }) => ({
   isOpen: state === 'open',
   triggerProps: {
@@ -141,15 +135,9 @@ const connect = ({ state, send }) => ({
   },
 })
 
-// A reaction calls the host from the OUTSIDE when a
-// derived value flips. It lives on `connect`, not on the machine.
+// reaction: fires the prop-callback from outside the machine when the value changes
 connect.reactions = [
-  [
-    // selector
-    toggle => toggle.matches('open'),
-    // callback
-    (open, props) => props.onOpenChange?.({ open }),
-  ],
+  [toggle => toggle.matches('open'), (open, props) => props.onOpenChange?.({ open })],
 ]
 
 const toggleConnection = connector(toggle, connect, props)

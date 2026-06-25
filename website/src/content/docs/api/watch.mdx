@@ -12,7 +12,7 @@ const m = machine({
   initial: 'idle',
   context: { query: '' },
   watch: {
-    query: ['runSearch'], // whenever `query` changes → run runSearch
+    query: ['runSearch'],
   },
   states: { idle: {} },
   implementations: {

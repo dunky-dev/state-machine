@@ -20,7 +20,7 @@ const { createMachine } = setup.as<CursorCtx, CursorEv, CursorComputed>().config
 
 const cursor = createMachine({
   computed: {
-    // eased position: rendered directly by subscribers
+    // interpolated position read directly by subscribers on each frame
     ex: $ => $.context.x0 + ($.context.x1 - $.context.x0) * easeInOut($.context.progress),
     ey: $ => $.context.y0 + ($.context.y1 - $.context.y0) * easeInOut($.context.progress),
   },
