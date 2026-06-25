@@ -1,4 +1,4 @@
-name: checks
+name: CI checks
 
 # The full CI suite as parallel jobs. Runs directly on every PR, and is also
 # reused by release.yml as a gate before releasing (workflow_call).
