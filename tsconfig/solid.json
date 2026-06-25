@@ -1,0 +1,18 @@
+{
+  // The Solid project: JSX is `preserve` + `solid-js` as the import source, so
+  // the Solid package and its tests see the Solid JSX namespace (not React's).
+  // Referenced from tsconfig/all.json so `tsc -b` typechecks it alongside the
+  // React project. `paths` is inherited from base (resolved relative to the base
+  // file's location), so no redeclaration is needed.
+  //
+  // `include`/`exclude` are relative to THIS file (tsconfig/), so they reach into
+  // the Solid package. `packages/solid/tsconfig.json` is a thin shim extending
+  // this, kept so editors + tsdown find a tsconfig inside the package.
+  "extends": "./base.json",
+  "compilerOptions": {
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js"
+  },
+  "include": ["../packages/solid/src", "../packages/solid/tests"],
+  "exclude": ["../**/node_modules", "../**/dist"]
+}

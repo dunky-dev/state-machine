@@ -10,7 +10,7 @@
     "website:dev": "pnpm -C website dev",
     "website:prod": "pnpm -C website build",
     "build": "tsdown",
-    "typecheck": "tsc -b tsconfig.all.json",
+    "typecheck": "tsc -b tsconfig/all.json",
     "lint": "oxlint .",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
@@ -30,8 +30,10 @@
     "oxfmt": "^0.52.0",
     "oxlint": "^1.67.0",
     "publint": "^0.3.21",
+    "solid-js": "^1.9.13",
     "tsdown": "^0.22.2",
     "typescript": "^6.0.3",
+    "vite-plugin-solid": "^2.11.12",
     "vitest": "^4.1.7"
   },
   "packageManager": "pnpm@10.20.0"
