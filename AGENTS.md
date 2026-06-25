@@ -80,6 +80,19 @@ package READMEs).
 - **Reusable multi-file fixtures go in `tests/fixtures/`.** Anything shared across test files
   lives there, not inlined or duplicated.
 
+## Versioning
+
+Changelog entries describe the **feature or decision**, not the code change.
+Add a code snippet when the API surface changed or the usage is non-obvious.
+Include context for non-obvious decisions — why the change was made, not just
+what it does.
+
+| Bump      | When                                          |
+| --------- | --------------------------------------------- |
+| **Major** | Breaking changes; stable milestone (1.0.0)    |
+| **Minor** | New backward-compatible feature               |
+| **Patch** | Bug fix, dependency update, cleanup, refactor |
+
 ## Benchmark
 
 When the user asks to run the benchmark, check performance, or run perf
