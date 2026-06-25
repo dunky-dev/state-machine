@@ -1,13 +1,6 @@
 import { isDev } from './constants'
 import type { Guard, GuardArg, GuardParams } from './types'
 
-/**
- * Resolve a guard arg — an inline predicate or a registered name — against
- * `params`, looking names up in `registry`. The single channel the combinators
- * (`and`/`or`/`not`) and the runtime both go through, so `and('a', not(b))`
- * resolves names against one registry. Missing name → throw in dev, warn + false
- * in prod.
- */
 export function resolveGuard<Context extends object, Event, Computed>(
   guard: GuardArg<Context, Event, Computed>,
   params: GuardParams<Context, Event, Computed>,
@@ -24,12 +17,6 @@ export function resolveGuard<Context extends object, Event, Computed>(
   return fn(params)
 }
 
-/**
- * Build the params a guard/delay reads for one event: context + event + computed,
- * plus a self-referential `guard` that resolves nested guards against the same
- * params and registry (the channel the combinators use). The `params` object is
- * referenced inside its own `guard` member, so it's assembled then closed over.
- */
 export function makeGuardParams<Context extends object, Event, Computed>(
   context: Context,
   event: Event,

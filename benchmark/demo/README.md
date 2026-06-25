@@ -13,7 +13,14 @@ cd benchmark/demo && pnpm dev
 ```
 
 Then open the printed URL (default <http://localhost:5173>). It's idle until you
-press **Start**.
+start a run. Two modes:
+
+- **⏱️ 15s test** — runs the full fifteen seconds and crowns the engine with the
+  highest `updates/s` (shown as a `% of vanilla` badge per panel).
+- **☠️ Survival test** — ramps the load until every engine falls behind, reporting
+  how long each survived before its backlog blew past the budget.
+
+A thick red bar at the top of the screen tracks run progress.
 
 ## Why it's built this way
 
@@ -46,7 +53,7 @@ nothing. This demo is deliberately **engine-bound**, not DOM-bound:
 | **Dunky**              | machine per cell · guarded transition + memoized computed     |
 | **XState**             | actor per cell · guarded transition + assign-derived field    |
 | **Zag**                | VanillaMachine per cell · guarded transition + bindable cells |
-| **Plain JS** (control) | no engine — the same guard walk + derive as plain JS          |
+| **Vanilla** (control)  | no engine — the same guard walk + derive as plain JS          |
 
 > **One asymmetry, disclosed:** Dunky's derived value is a **lazy/memoized
 > `computed`** (recomputes only when its input changes); XState and Zag recompute
@@ -54,18 +61,23 @@ nothing. This demo is deliberately **engine-bound**, not DOM-bound:
 > so all three recompute every update anyway — but it's a genuine model difference,
 > not a thumb on the scale.
 
-The load **ramps automatically** until the engines diverge. Reading the result:
+The load **ramps automatically** until the engines diverge. Reading each panel:
 
-- **`updates/s`** (the blue headline) — how much engine work each cleared under
-  the same budget. Higher is better.
-- **`queued`** — the backlog it couldn't keep up with; the panel tints red once
-  it's falling behind.
-- As the load ramps, an engine whose per-update cost is higher can't clear its
-  queue within the shared budget, so its backlog grows while a cheaper one's stays
-  near zero. Watch the panels diverge and draw your own conclusion — the demo
-  measures, it doesn't assert a winner.
+- **`updates/s`** — how much engine work it cleared under the same budget. Higher
+  is better.
+- **`% of vanilla`** (the badge by the name) — that `updates/s` as a fraction of
+  the Vanilla control's, so each engine's overhead reads at a glance.
+- **15s test:** the fastest engine is tagged `· faster` (green), the rest `· slower`
+  (red).
+- **Survival test:** once an engine's backlog blows past the budget its panel turns
+  red and shows `survived Ns · N ops` — how long it lasted and how much it applied.
 
-**Plain JS is the control, and that's the point of including it:** machine
+As the load ramps, an engine whose per-update cost is higher can't clear its queue
+within the shared budget, so it falls behind while a cheaper one keeps up. Watch
+the panels diverge and draw your own conclusion — the demo measures, it doesn't
+assert a winner.
+
+**Vanilla is the control, and that's the point of including it:** machine
 machinery has a cost; the demo lets you see how much each engine adds over
 bare-metal.
 

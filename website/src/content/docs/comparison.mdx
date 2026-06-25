@@ -10,33 +10,33 @@ things they aren't: **bindings that assume no platform** and **performance under
 
 ## Shared baseline
 
-| Capability                           | Zag       | XState            | Dunky             |
-| ------------------------------------ | --------- | ----------------- | ----------------- |
-| States / transitions / guards        | ✅        | ✅                | ✅                |
-| Guard combinators (`and`/`or`/`not`) | ✅        | ✅                | ✅                |
-| `entry` / `exit`                     | ✅        | ✅                | ✅                |
-| Conditional actions                  | `choose`  | `choose`          | `oneOf`           |
-| Effects with cleanup                 | `effects` | invoked callbacks | `effects`         |
-| Computed / derived state             | ✅        | ✅                | ✅                |
-| Timed transitions (`after`)          | ✅        | ✅                | ✅                |
-| Watch (react to a data change)       | `watch`   | via `always`      | `watch`           |
-| Per-platform late binding            | ✅        | via `.provide()`  | `ComponentEffect` |
+| Capability                           | Zag         | XState            | Dunky             |
+| ------------------------------------ | ----------- | ----------------- | ----------------- |
+| States / transitions / guards        | ✅          | ✅                | ✅                |
+| Guard combinators (`and`/`or`/`not`) | ✅          | ✅                | ✅                |
+| `entry` / `exit`                     | ✅          | ✅                | ✅                |
+| Conditional actions                  | `choose`    | `choose`          | `oneOf`           |
+| Effects with cleanup                 | `effects`   | invoked callbacks | `effects`         |
+| Computed / derived state             | ✅          | ✅                | ✅                |
+| Timed transitions (`after`)          | ✅          | ✅                | ✅                |
+| Watch (react to a data change)       | `watch`     | via `always`      | `watch`           |
+| Per-platform late binding            | ✅          | via `.provide()`  | `ComponentEffect` |
+| Coarse subscription                  | `subscribe` | `subscribe`       | `subscribe`       |
 
 ## What's different
 
 The single cause underneath all the differences is **how each engine holds a machine's data**.
 
-|                               | Zag                         | XState                         | Dunky                                    |
-| ----------------------------- | --------------------------- | ------------------------------ | ---------------------------------------- |
-| Data model                    | reactive cell per field     | immutable snapshot per event   | one plain object, mutated in place       |
-| Coarse subscription           | `subscribe`                 | `subscribe`                    | `subscribe`                              |
-| Fine-grained selection        | host's job                  | host's job                     | `select` (fine-grained)                  |
-| Bindings                      | DOM/ARIA prop-getters       | manual (`state` + `send` only) | abstract, normalized per target          |
-| External props in the machine | `prop()` inside the machine | host data via `input`          | props live at the edge only              |
-| Serializable snapshot         | no built-in                 | `getPersistedSnapshot()`       | no built-in                              |
-| Nested / hierarchical states  | yes                         | yes                            | flat                                     |
-| Parallel states               | none, by design             | yes                            | `compose` (peer machines, no shared bus) |
-| Spawned child actors          | none, by design             | yes                            | none, by design                          |
+|                               | Zag                         | XState                       | Dunky                                    |
+| ----------------------------- | --------------------------- | ---------------------------- | ---------------------------------------- |
+| Data model                    | reactive cell per field     | immutable snapshot per event | one plain object, mutated in place       |
+| Fine-grained selection        | host's job                  | host's job                   | `select`                                 |
+| Bindings                      | DOM/ARIA prop-getters       | manual (`state` + `send`)    | abstract, normalized per target          |
+| External props in the machine | `prop()` inside the machine | host data via `input`        | props live at the edge only              |
+| Serializable snapshot         | no built-in                 | `getPersistedSnapshot()`     | no built-in                              |
+| Nested / hierarchical states  | yes                         | yes                          | flat                                     |
+| Parallel states               | none, by design             | yes                          | `compose` (peer machines, no shared bus) |
+| Spawned child actors          | none, by design             | yes                          | none, by design                          |
 
 **XState** allocates a new immutable snapshot on every transition. That's the right trade for
 time-travel and serialization, but it taxes the hot path. Dunky mutates in place behind
@@ -63,15 +63,21 @@ import { setup, createActor, assign } from 'xstate'
 
 const toggle = setup({
   actions: {
-    flip: assign({ open: ({ context }) => !context.open }),
-    // the machine itself calls the host's callback; it lives in context
+    flip: assign({
+      open: ({ context }) => !context.open,
+    }),
     notify: ({ context }) => context.onOpenChange?.(context.open),
   },
 }).createMachine({
-  // host data enters the machine here: both defaultOpen and the callback
-  // become part of its state
-  context: ({ input }) => ({ open: input.defaultOpen, onOpenChange: input.onOpenChange }),
-  on: { toggle: { actions: ['flip', 'notify'] } },
+  context: ({ input }) => ({
+    open: input.defaultOpen,
+    onOpenChange: input.onOpenChange,
+  }),
+  on: {
+    toggle: {
+      actions: ['flip', 'notify'],
+    },
+  },
 })
 
 const actor = createActor(toggle, {
@@ -87,21 +93,21 @@ import { createMachine } from '@zag-js/core'
 
 const toggle = createMachine({
   props({ props }) {
-    // host props (defaultOpen, onOpenChange) are declared on the machine…
     return { defaultOpen: false, ...props }
   },
   context({ bindable, prop }) {
-    // …and pulled in here: one bindable cell per field, seeded from a prop
     return {
       open: bindable(() => ({
         defaultValue: prop('defaultOpen'),
-        onChange: open => prop('onOpenChange')?.({ open }), // callback fires from inside
+        onChange: open => prop('onOpenChange')?.({ open }),
       })),
     }
   },
   on: { toggle: { actions: ['flip'] } },
   implementations: {
-    actions: { flip: ({ context }) => context.set('open', o => !o) },
+    actions: {
+      flip: ({ context }) => context.set('open', o => !o),
+    },
   },
 })
 ```
@@ -112,7 +118,6 @@ prop and the callback live on the _connector_, at the edge:
 ```ts
 import { machine, connector } from '@dunky.dev/state-machine'
 
-// The machine. No props, no callbacks, no host. Just states and events.
 const toggle = machine({
   initial: 'closed',
   context: {},
@@ -122,20 +127,20 @@ const toggle = machine({
   },
 })
 
-// connect maps a snapshot → view API. `onPress` is an abstract binding, not `onClick`.
+// `onPress` is an abstract binding; normalize() maps it to onClick / onPress per target
 const connect = ({ state, send }) => ({
   isOpen: state === 'open',
-  triggerProps: { onPress: () => send({ type: 'toggle' }) },
+  triggerProps: {
+    onPress: () => send({ type: 'toggle' }),
+  },
 })
 
-// A reaction ([selector, callback]) calls the host from the OUTSIDE when a
-// derived value flips. It lives on `connect`, not on the machine.
-connect.reactions = [[m => m.matches('open'), (open, props) => props.onOpenChange?.({ open })]]
+// reaction: fires the prop-callback from outside the machine when the value changes
+connect.reactions = [
+  [toggle => toggle.matches('open'), (open, props) => props.onOpenChange?.({ open })],
+]
 
-// The connector owns the host. `defaultOpen` resolved the initial state *before*
-// the machine was built; the callback lives in props on the connector, and the
-// machine never learns onOpenChange exists.
-const toggleConnection = connector(toggle, connect, props) // props = { onOpenChange }
+const toggleConnection = connector(toggle, connect, props)
 ```
 
 In **XState** and **Zag** the machine **definition references the host**: its transitions, context, and

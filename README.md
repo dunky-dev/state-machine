@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/dunky-dev/logo/main/logo%402x.png" alt="Dunky" width="400px" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/dunky-dev/logo/main/logo-white%402x.png" />
+    <img src="https://raw.githubusercontent.com/dunky-dev/logo/main/logo%402x.png" alt="Dunky" width="400px" />
+  </picture>
 </p>
 
 # STATE-MACHINE
@@ -66,7 +69,7 @@ engine is built for it:
 → **~8× XState's throughput**, on par with XState for memory but at least **3× lighter than Zag** — and the gap widens as context grows, because memory stays ~flat in field count (no per-field cell). ᵃ Zag uses async ops, so a synchronous ops/s loop can't time it. Full methodology + per-scenario tables in the
 **[benchmark README](./benchmark/README.md)**.
 
-**▶ [Try the live benchmark demo](https://dunky-dev.github.io/state-machine/)** — watch all three engines run in your browser.
+**▶ [Try the live benchmark demo](https://dunky.dev/state-machine/benchmark/demo)** — watch all three engines run in your browser.
 
 ## How it's built
 

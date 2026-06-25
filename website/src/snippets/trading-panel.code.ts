@@ -21,7 +21,7 @@ const { createMachine } = setup.as<PairContext, PairEvent, PairComputed>().confi
           }),
         350,
       )
-      return () => clearInterval(id) // ← cleanup on state exit
+      return () => clearInterval(id)
     },
   },
 })
@@ -44,7 +44,7 @@ const pair = createMachine({
     TICK: {
       actions: ['updatePrice'],
     },
-  }, // ← fires in all states
+  },
   watch: {
     price: [
       $ => {

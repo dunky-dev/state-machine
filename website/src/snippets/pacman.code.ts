@@ -1,4 +1,4 @@
-// 🟡 pacman: eats until the ghost gets him
+// 🟡 pacman
 const pacman = machine({
   initial: 'eating',
   context: { x: 1, y: 1, dir: 'right', mouth: 'open' },
@@ -22,7 +22,7 @@ const pacman = machine({
   },
 })
 
-// 👻 ghost: chases on each tick, stops on a catch
+// 👻 ghost
 const ghost = machine({
   initial: 'roaming',
   context: { x: 11, y: 10, dir: 'up' },
@@ -43,7 +43,7 @@ const ghost = machine({
   },
 })
 
-// 🍒 board: dots, cherry, score
+// 🍒 board
 const board = machine({
   initial: 'playing',
   context: { dots, cherry, score: 0 },
@@ -64,7 +64,7 @@ const board = machine({
   },
 })
 
-// ⏱️ a clock machine self-drives via `after`: no external loop
+// ⏱️ clock: self-drives via `after`, no external loop
 const clock = machine({
   initial: 'running',
   states: {
@@ -76,7 +76,7 @@ const clock = machine({
   },
 })
 
-// 🎲 compose the four; sync() fans each beat to all regions in order
+// 🎲 compose: sync() fans each clock beat to all regions in order
 const game = compose({ clock, pacman, ghost, board })
 game.sync(() => {
   const { x, y } = step(pacman.context)

@@ -36,13 +36,17 @@ the layered model:
 
 ## Workflow
 
-Before merging, walk this checklist:
+Before finishing any change:
 
-1. **Do tests reflect the change?** Behavior added or changed in `core/`
-   or a target must be exercised by a test under the package's `tests/`.
-2. **Did `core/` change?** Verify the change is substrate-agnostic. If
-   it depends on a React lifecycle, a DOM API, or an RN-only module,
-   move it to `packages/<target>/`.
+- **Check affected packages.** A change in `core/` may need follow-up in targets
+  (`react`, `native`, …) and vice versa. Always check what else the change touches.
+- **Follow the architecture.** Read `ARCHITECTURE.md` before making structural
+  decisions. When something doesn't fit cleanly, flag it and suggest a better
+  approach rather than forcing it.
+- **Suggest improvements proactively.** If you notice a cleaner design, a missing
+  test, or a pattern inconsistency while working, say so — don't just do the minimum.
+- **Use available skills.** Before running benchmarks use the `/benchmark` skill.
+  Before reviewing code use the `/code-review` skill. Check what's available.
 
 ## Diagrams in docs
 
@@ -54,6 +58,47 @@ box-drawing glyphs render inconsistently across fonts, terminals, and
 GitHub, and are awkward to edit; the ASCII set is portable and diffs
 cleanly. This applies to every `.md` in the repo (README, ARCHITECTURE,
 package READMEs).
+
+## Code
+
+### Performance
+
+- **Performance is a constraint, not a feature.** Prefer mutation over allocation on hot paths.
+  Avoid spreading objects, chaining array methods, or allocating closures inside loops.
+- **Descriptive names everywhere.** Short names are fine for
+  local variables with a tight, obvious scope.
+- **Comments.** If the code says what it does, the comment is
+  noise. Write comments to explain _why_: a hidden constraint, a subtle invariant, a
+  workaround, a hard decision. Keep them short, avoid over explaining to avoid noise.
+
+### Testing
+
+- **No overlapping tests.** Each test covers one distinct behavior. Do not write a test that
+  is already an implicit consequence of another test passing.
+- **Shared setup goes at the top of the file.** If multiple tests need the same machine config
+  or helper, define it once at the top — not inside each `it()`.
+- **Reusable multi-file fixtures go in `tests/fixtures/`.** Anything shared across test files
+  lives there, not inlined or duplicated.
+
+## Versioning
+
+Changelog entries describe the **feature or decision**, not the code change.
+Add a code snippet when the API surface changed or the usage is non-obvious.
+Include context for non-obvious decisions — why the change was made, not just
+what it does.
+
+| Bump      | When                                          |
+| --------- | --------------------------------------------- |
+| **Major** | Breaking changes; stable milestone (1.0.0)    |
+| **Minor** | New backward-compatible feature               |
+| **Patch** | Bug fix, dependency update, cleanup, refactor |
+
+## Benchmark
+
+When the user asks to run the benchmark, check performance, or run perf
+tests, invoke the `/benchmark` skill. Do not run the benchmark manually
+or interpret results without it — the skill handles execution, output
+formatting, and prompts before updating any documented result tables.
 
 ## Per-package guidance
 

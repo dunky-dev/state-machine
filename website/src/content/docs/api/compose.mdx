@@ -18,9 +18,8 @@ const submenu = machine({
 const combobox = compose({ popup, submenu })
 
 combobox.start() // starts every member
-combobox.stop() // stops all + disposes sync and combine
+combobox.stop() // stops all members and disposes sync/combine
 
-// members stay independent: drive and read each directly
 popup.send({ type: 'focus' })
 submenu.send({ type: 'open' })
 ```

@@ -1,21 +1,5 @@
-// =============================================================================
-// @dunky.dev/state-machine-bindings
-//
-// The neutral binding vocabulary a `connect()` speaks — substrate-agnostic event
-// handlers (`onPress`, `onValueChange`) and attributes (`role`, `expanded`,
-// `describedBy`). Zero runtime, zero dependencies: pure types.
-//
-// This is the contract between behavior and platform. A `connect()` produces
-// these bindings without knowing whether it runs on web, React Native, canvas,
-// or a headless test; each renderer's `normalize()` is the ONLY code that turns
-// them into platform props (web `aria-expanded`/`onClick`, RN
-// `accessibilityState`/`onPress`). Splitting the vocabulary into its own package
-// lets a renderer depend on the contract WITHOUT pulling in the engine.
-// =============================================================================
-
-// -----------------------------------------------------------------------------
-// Event payloads
-// -----------------------------------------------------------------------------
+// Substrate-agnostic binding vocabulary: event handlers and attributes a connect() emits.
+// Each renderer's normalize() is the only code that turns these into platform props.
 
 export interface PointerPayload {
   /** True when an upstream handler called preventDefault / equivalent. */
@@ -92,10 +76,6 @@ export interface ScrollPayload {
   viewportHeight?: number
 }
 
-// -----------------------------------------------------------------------------
-// Event bindings — handlers bound to user input
-// -----------------------------------------------------------------------------
-
 export interface EventBindings {
   /** "user clicked / tapped / activated this thing." */
   onPress?: (event?: PointerPayload) => void
@@ -139,10 +119,6 @@ export interface EventBindings {
   /** Scroll deceleration complete — lazy-load / snap. */
   onScrollEnd?: (event?: ScrollPayload) => void
 }
-
-// -----------------------------------------------------------------------------
-// Attr bindings — attributes bound to values
-// -----------------------------------------------------------------------------
 
 export interface AttrBindings {
   id?: string

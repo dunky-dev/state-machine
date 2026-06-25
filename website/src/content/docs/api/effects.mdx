@@ -37,7 +37,6 @@ The deciding question: does it touch the platform (DOM, native APIs) or need pro
 **Machine effect:** props-free and platform-free. Identical on every target. Lives in the config `effects` array:
 
 ```ts
-// a store subscription: same on DOM, React Native, anywhere
 effects: [
   ({ context, send }) =>
     tooltipStore.subscribe(s => {
@@ -52,8 +51,7 @@ effects: [
 import { type ComponentEffect } from '@dunky.dev/state-machine-react'
 import type { DisclosureMachine, DisclosureProps } from './machine'
 
-// Close on Escape, but only if the `closeOnEscape` prop is true.
-// This can't live in the machine because it touches the DOM and reads a prop.
+// can't live in the machine: touches the DOM and reads a prop
 const onEscapeKey: ComponentEffect<DisclosureMachine, DisclosureProps> = [
   (machine, props) => {
     if (!props.closeOnEscape) return
@@ -66,8 +64,7 @@ const onEscapeKey: ComponentEffect<DisclosureMachine, DisclosureProps> = [
   ['closeOnEscape'], // re-run only when this prop changes
 ]
 
-// Collect all effects for this component into one stable constant.
-// useMachine runs one useEffect per entry, so the list must never change length.
+// list length must be stable across renders (one hook per entry)
 export const disclosureEffects = [onEscapeKey]
 ```
 

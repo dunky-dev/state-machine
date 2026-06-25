@@ -40,7 +40,10 @@ function rehypeBaseLinks() {
 
 // https://astro.build/config
 export default defineConfig({
-  site: 'https://dunky-dev.github.io',
+  // Canonical host: dunky.dev 308-redirects to www, so www is the real origin.
+  // This drives canonical links, og:url, and the sitemap — must be the user-
+  // facing domain, not the github.io Pages mirror.
+  site: 'https://www.dunky.dev',
   base,
   // Vercel serves the static output only at slash-less paths (`/api/context`);
   // the trailing-slash variant 404s. `'never'` makes Astro emit slash-less
@@ -53,7 +56,21 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'Dunky',
+      // Light/default favicon (Starlight base-prefixes this one). Chrome ignores
+      // prefers-color-scheme *inside* an SVG favicon, so the dark-tab white
+      // variant is supplied as a separate <link media> in `head` below.
       favicon: '/logo/logo-symbol.svg',
+      head: [
+        {
+          tag: 'link',
+          attrs: {
+            rel: 'icon',
+            type: 'image/svg+xml',
+            href: `${basePrefix}/logo/logo-symbol-white.svg`,
+            media: '(prefers-color-scheme: dark)',
+          },
+        },
+      ],
       logo: {
         light: './public/logo/logo.svg',
         dark: './public/logo/logo-white.png',

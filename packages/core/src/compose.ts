@@ -20,12 +20,8 @@ export interface Composition<Members extends Record<string, AnyMachine>> {
    */
   sync: (reaction: () => void) => () => void
   /**
-   * Derive one value-deduped Selection across the members. The selector reads
-   * from any members; it RE-EVALUATES whenever ANY member changes (it subscribes
-   * to each member's coarse bus) and fires its listener only when the selected
-   * VALUE changes. So the listener is O(changed value), but the re-eval pass is
-   * O(members) per change — not field-level dependency tracking. Read `.value`
-   * or `.subscribe(listener, equals?)`.
+   * Derive a value-deduped Selection across members. Re-evaluates on any member change;
+   * fires only when the selected value changes.
    */
   combine: <Value>(selector: () => Value) => Selection<Value>
 }
@@ -63,9 +59,6 @@ export function compose<Members extends Record<string, AnyMachine>>(
         get value() {
           return selector()
         },
-        // Re-evaluate the selector whenever ANY member changes (subscribe to each
-        // member's coarse bus, like `sync`), and fire only on a real change. The
-        // selector reads across members; their changes drive it. No fire on setup.
         subscribe(listener: (value: Value) => void, equals: EqualityFn<Value> = Object.is) {
           let prev = selector()
           const onChange = () => {

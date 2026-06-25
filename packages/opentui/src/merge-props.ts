@@ -2,11 +2,8 @@ import { mergeProps as baseMergeProps } from '@dunky.dev/state-machine-utils'
 
 type AnyProps = Record<string, unknown>
 
-// OpenTUI's `style` is a plain object (unlike RN, which also accepts an array),
-// so overlapping styles merge into ONE object rather than wrapping into an array.
-// Library wins on conflicting keys, matching the agnostic base's last-wins rule
-// for plain attrs (the library's computed style is the authoritative one). There
-// is no `className` in a terminal, so — like RN — we add no className branch.
+// OpenTUI style is a plain object (not array-mergeable like RN), so overlapping styles spread
+// into one object with library winning on conflicts. No className in a terminal.
 export function mergeProps(consumer: AnyProps | undefined, library: AnyProps): AnyProps {
   const merged = baseMergeProps(consumer, library)
   if (!consumer) return merged

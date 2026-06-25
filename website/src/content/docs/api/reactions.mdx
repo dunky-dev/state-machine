@@ -12,7 +12,7 @@ const m = machine({
   /* ... */
 })
 
-// fix the machine generics once; Value is inferred per reaction
+// pin generics once; selector return type flows into each callback
 const reaction = makeReaction<State, Context, Event, Props>()
 
 const onOpenChange = reaction(
@@ -20,7 +20,6 @@ const onOpenChange = reaction(
   (open, props) => props.onOpenChange?.({ open }), // callback: open is boolean
 )
 
-// reactions live on the `connect` function; the connector picks them up on build
 connect.reactions = [onOpenChange]
 
 const c = connector(m, connect, props)
