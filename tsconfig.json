@@ -18,6 +18,7 @@
       "@dunky.dev/state-machine-react": ["./packages/react/src"],
       "@dunky.dev/state-machine-native": ["./packages/native/src"],
       "@dunky.dev/state-machine-opentui": ["./packages/opentui/src"],
+      "@dunky.dev/state-machine-svelte": ["./packages/svelte/src"],
       "@dunky.dev/state-machine-utils": ["./packages/shared/utils/src"],
       "@dunky.dev/state-machine-bindings": ["./packages/shared/bindings/src"]
     },
