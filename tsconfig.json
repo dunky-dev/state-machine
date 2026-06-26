@@ -16,6 +16,7 @@
     "paths": {
       "@dunky.dev/state-machine": ["./packages/core/src"],
       "@dunky.dev/state-machine-react": ["./packages/react/src"],
+      "@dunky.dev/state-machine-vue": ["./packages/vue/src"],
       "@dunky.dev/state-machine-native": ["./packages/native/src"],
       "@dunky.dev/state-machine-opentui": ["./packages/opentui/src"],
       "@dunky.dev/state-machine-utils": ["./packages/shared/utils/src"],
