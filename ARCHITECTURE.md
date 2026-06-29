@@ -11,23 +11,28 @@ runtime: same machine, same behavior, same accessibility intent, different rende
 ```
 The host
 +----------------------------------------------------------------------+
-|  packages/core                                                      |
-|  No runtime render — pure JS, runs anywhere                        |
-|  states, events, context, guards, actions, effects, select        |
+|  packages/core                                                       |
+|  No runtime render — pure JS, runs anywhere                          |
+|  states, events, context, guards, actions, effects, select           |
 +----------------------------------------------------------------------+
                                |  consumed by every target
                                v
 +-----------------------------------------------------------------------+
-|  shared/utils                                                      |
-|  Cross-target helpers (mergeProps, composeHandlers, positioning)    |
+|  shared/bindings                                                      |
+|  Substrate-agnostic event + attr vocabulary (onPress, role, …)        |
++-----------------------------------------------------------------------+
+                               |
++-----------------------------------------------------------------------+
+|  shared/utils                                                         |
+|  Cross-target helpers (mergeProps, composeHandlers, positioning)      |
 +-----------------------------------------------------------------------+
                                |  bridged per target
                                v
 +------------------------------------------------------------------------+
-|  <target>   (react, native, …)                               |
-|  Runtime-specific bridge                                             |
-|  • lifecycle (build + start/stop)  • normalize bindings -> props     |
-|  • selector subscription                                             |
+|  <target>   (react, native, opentui, …)                                |
+|  Runtime-specific bridge                                               |
+|  • lifecycle (build + start/stop)  • normalize bindings -> props       |
+|  • selector subscription                                               |
 +------------------------------------------------------------------------+
                                |  imported as a normal package
                                v
@@ -43,15 +48,20 @@ The components that consume it (and their style/codegen pipeline) live elsewhere
 > suite is green and `tsc` is clean. It's an in-progress exploration — the API may
 > still move — not a 1.0.
 
-## Two halves
+## Three layers
 
-The repo splits in two halves. **`core/`** is the agnostic side — pure JS,
-no renderer. It says _what_ behavior is: states, transitions, the bindings
-vocabulary. Nothing in `core/` knows that React or the DOM exists.
+The repo splits in three layers. **`core/`** is the agnostic side — pure JS,
+no renderer. It says _what_ behavior is: states, transitions, context, guards,
+actions. Nothing in `core/` knows that React or the DOM exists.
 
-**`<target>/`** is the substrate side — `react`, `native`, etc, and any future
-renderer. Each target is the runtime bridge for one environment: the lifecycle
-bridge, the event normalization, and the selector subscription all live here.
+**`shared/`** is the cross-target side — `shared/bindings` owns the
+substrate-agnostic event and attr vocabulary (`onPress`, `role`, …); `shared/utils`
+owns cross-target helpers (mergeProps, composeHandlers, positioning).
+
+**`<target>/`** is the substrate side — `react`, `native`, `opentui`, and any
+future renderer. Each target is the runtime bridge for one environment: the
+lifecycle bridge, the event normalization, and the selector subscription all
+live here.
 
 ## The core rule: the machine never sees props
 
@@ -83,11 +93,12 @@ Zag, whose machines read props directly.)
 
 ## Project structure
 
-| File / location          | What it owns                                                       |
-| ------------------------ | ------------------------------------------------------------------ |
-| `packages/core/`         | State-machine engine (plain-mutation kernel) + bindings vocabulary |
-| `packages/shared/utils/` | mergeProps, composeHandlers, positioning, memo                     |
-| `packages/<target>/`     | Hook + normalize per substrate (react, native, ...)                |
+| File / location             | What it owns                                                  |
+| --------------------------- | ------------------------------------------------------------- |
+| `packages/core/`            | State-machine engine (plain-mutation kernel)                  |
+| `packages/shared/bindings/` | Substrate-agnostic event + attr vocabulary (onPress, role, …) |
+| `packages/shared/utils/`    | mergeProps, composeHandlers, positioning, memo                |
+| `packages/<target>/`        | Hook + normalize per substrate (react, native, opentui, …)    |
 
 ## The map
 
@@ -103,12 +114,14 @@ core                                  agnostic state-machine engine — no React
 +-- connector                         connect() -> live, subscribable snapshot
 +-- compose                           run several machines as one (orthogonal
 |                                     regions): start/stop + sync + combine
-+-- bindings                          event + attr vocabulary (onPress, role, …)
+
+shared/bindings                       substrate-agnostic event + attr vocabulary
++-- (onPress, role, aria-*, …)        consumed by every target's normalize
 
 shared/utils                          cross-target, cross-component helpers
 +-- (composeHandlers, positioning, memo, mergeProps)
 
-<target>                              one substrate (react, native, …) — the
+<target>                              one substrate (react, native, opentui, …)
 |                                     runtime, hooks, and props translator
 +-- use-machine                       lifecycle bridge (build + start/stop + useSyncExternalStore)
 +-- use-selector                      fine-grained leaf subscription (O(readers))
@@ -119,10 +132,11 @@ Three package groups, three jobs:
 
 - **`core/`** — _the agnostic side_. Behavior, types, and the engine that
   knows nothing about a renderer.
-- **`shared/`** — _the cross-target side_. Agnostic helpers: positioning math,
-  prop merging, memoization.
+- **`shared/`** — _the cross-target side_. `shared/bindings` owns the
+  event + attr vocabulary; `shared/utils` owns agnostic helpers (positioning,
+  prop merging, memoization).
 - **`<target>/`** — _the substrate side_. One folder per renderer
-  (react, native). Owns its runtime bridge and its props translator.
+  (`react`, `native`, `opentui`). Owns its runtime bridge and its props translator.
 
 ## The machine parts
 
@@ -160,11 +174,11 @@ whether it needs props/platform or not:
 
 ## Vocabulary
 
-| Term         | What it is                                                                                                     |
-| ------------ | -------------------------------------------------------------------------------------------------------------- |
-| **host**     | The agnostic core — `packages/core/*`. Declares what behavior is.                                              |
-| **target**   | A substrate-specific bridge package and its render environment — `packages/<target>/*` (`react`, `native`, …). |
-| **machine**  | A state-graph config consumed by `machine()`; returns a startable service.                                     |
-| **connect**  | A function returning the logical surface a view spreads onto elements.                                         |
-| **bindings** | The substrate-agnostic event + attr vocabulary core's connect speaks.                                          |
-| **compose**  | Run several machines as one unit (orthogonal regions): bundled `start`/`stop` + `sync` + `combine`.            |
+| Term         | What it is                                                                                                                |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| **host**     | The agnostic core — `packages/core/*`. Declares what behavior is.                                                         |
+| **target**   | A substrate-specific bridge package and its render environment — `packages/<target>/*` (`react`, `native`, `opentui`, …). |
+| **machine**  | A state-graph config consumed by `machine()`; returns a startable service.                                                |
+| **connect**  | A function returning the logical surface a view spreads onto elements.                                                    |
+| **bindings** | The substrate-agnostic event + attr vocabulary — lives in `shared/bindings`, consumed by every target's normalize.        |
+| **compose**  | Run several machines as one unit (orthogonal regions): bundled `start`/`stop` + `sync` + `combine`.                       |
