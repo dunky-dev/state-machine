@@ -1,0 +1,8 @@
+{
+  "extends": "./base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx"
+  },
+  "include": ["../*.ts", "../packages"],
+  "exclude": ["../**/node_modules", "../**/dist", "../packages/solid"]
+}

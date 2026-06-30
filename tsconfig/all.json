@@ -1,0 +1,8 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./react.json" },
+    { "path": "./solid.json" },
+    { "path": "../benchmark/tsconfig.json" }
+  ]
+}

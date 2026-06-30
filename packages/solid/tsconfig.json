@@ -1,0 +1,9 @@
+{
+  // Thin shim so editors and tsdown find a tsconfig inside the package. The real
+  // Solid project — JSX settings + the typecheck `include`/`exclude` — lives in
+  // tsconfig/solid.json (referenced by tsconfig/all.json). This re-declares
+  // `include` relative to the package dir for tools that resolve from here.
+  "extends": "../../tsconfig/solid.json",
+  "include": ["src", "tests"],
+  "exclude": ["**/node_modules", "**/dist"]
+}

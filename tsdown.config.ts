@@ -12,6 +12,7 @@ export default defineConfig({
   workspace: [
     'packages/core',
     'packages/react',
+    'packages/solid',
     'packages/native',
     'packages/opentui',
     'packages/shared/utils',
