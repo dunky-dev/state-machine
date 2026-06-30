@@ -9,6 +9,12 @@ export default defineConfig({
   // src/tests dirs, and `include: 'auto'` walks node_modules + grabs the non-published
   // benchmark/website packages — so for this layout an explicit list is the clean
   // choice. Keep in sync with the publish set in .changeset/config.json.
+  //
+  // `packages/svelte` is intentionally absent: it ships its `src` uncompiled so
+  // the consumer's Svelte compiler can process its runes (`.svelte.ts`) modules —
+  // tsdown doesn't run the Svelte compiler, and pre-compiling would strip the
+  // runes the downstream build needs to see. Its `exports` point straight at
+  // `src` (no `dist`), so it has no build step here.
   workspace: [
     'packages/core',
     'packages/react',
