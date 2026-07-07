@@ -4,3 +4,6 @@ packages:
   - benchmark
   - benchmark/demo
   - website
+allowBuilds:
+  esbuild: true
+  sharp: true
