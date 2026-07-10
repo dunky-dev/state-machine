@@ -99,3 +99,27 @@ const config = createMachine({
   },
 })
 ```
+
+## Which one?
+
+The two paths are identical at runtime — same builder underneath. The difference is entirely type-level, and comes down to one question: **do you want guard / action / effect / delay names compile-checked?**
+
+- **`setup.infer()` — lightweight path.** Config is a self-contained literal (inline functions, or you're fine with loose string names). You get `State` / `Context` / `Event` inference for free with zero annotations. Good for small machines and prototyping.
+- **`setup.as<Ctx, Ev>()` — checked path.** You maintain a named registry of guards / actions / effects / delays and want every reference in the config verified and autocompleted. The cost is pinning `Ctx` / `Ev` yourself and adding the `.config()` step; the payoff is that a typo or a deleted implementation becomes a compile error instead of a runtime surprise.
+
+### What `.infer()` won't catch
+
+Under `.infer()`, named references stay loose strings (typed as `string`, not a union of your registry keys). Every line below compiles clean and only misbehaves at runtime — a silent no-op:
+
+```ts
+// setup.infer() — none of these are type errors:
+actions: 'logOpn' // typo → compiles, silently does nothing
+guard: 'isUnlockd' // typo → compiles
+effects: 'trak' // typo → compiles
+after: {
+  opnDelay: {
+  }
+} // typo → compiles
+```
+
+The same misspellings under `setup.as<Ctx, Ev>().config(...)` are compile errors, because `.config()` narrows the name unions to the registry's actual keys. You also lose autocomplete for those names on the `.infer()` path — the editor has no union to suggest from.
