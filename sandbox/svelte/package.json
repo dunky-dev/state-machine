@@ -1,0 +1,22 @@
+{
+  "name": "@sandbox/cmdk-svelte",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@dunky.dev/state-machine": "workspace:^",
+    "@dunky.dev/state-machine-bindings": "workspace:^",
+    "@dunky.dev/state-machine-svelte": "workspace:^",
+    "@sandbox/cmdk-core": "workspace:^",
+    "svelte": "^5.43.2"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.1.2",
+    "vite": "^8.0.14"
+  }
+}
