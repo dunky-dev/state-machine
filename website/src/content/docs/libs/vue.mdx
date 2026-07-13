@@ -1,0 +1,191 @@
+---
+title: Vue
+description: Vue 3 bindings for @dunky.dev/state-machine.
+---
+
+import Install from '../../../components/install.astro'
+
+<Install pkg='@dunky.dev/state-machine-vue' />
+
+The Vue package is a thin edge layer. Behavior lives in the core machine and the component's `connect` function; this package only adapts them to Vue: lifecycle, reactivity, prop translation, and platform effects. The exports match the [React package](/libs/react) one-for-one — `useMachine`, `useSelector`, `normalize`, `mergeProps` — so the only thing that changes between frameworks is the import.
+
+## `useMachine`
+
+The one bridge composable. Every component calls it with the four agnostic pieces and gets back the view API. In an SFC, call it in `<script setup>` and spread the bindings with `v-bind`:
+
+```vue
+<script setup lang="ts">
+import { useMachine, normalize } from '@dunky.dev/state-machine-vue'
+import { createDialogConfig, connectDialog, dialogEffects } from './dialog'
+
+const props = defineProps<{
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  closeOnEscape?: boolean
+}>()
+
+const { api } = useMachine(
+  createDialogConfig, // (props) => MachineConfig; seeds context once
+  connectDialog, // pure connect(): snapshot → view api
+  dialogEffects, // ComponentEffect[]: DOM listeners, gated by props
+  props, // the reactive props object
+)
+</script>
+
+<template>
+  <button v-bind="normalize(api.triggerProps)">Open</button>
+  <div v-if="api.isOpen" v-bind="normalize(api.contentProps)">Dialog content</div>
+</template>
+```
+
+`useMachine` builds the machine and connector **once** in `setup()` (the props read there seed context; later changes flow through `setProps`, not a rebuild), starts on mount, stops on unmount, and exposes the connector's stable snapshot as a `computed`. In a `<template>` Vue auto-unwraps the ref, so you read `api.isOpen`; in `<script>` it's `api.value.isOpen`.
+
+> The examples here use SFC `<template>` syntax. The same code works in a JSX/TSX setup or a manual `h()` render function — `api` is just a `computed` ref and `normalize(...)` is a plain props object, so spread it however your renderer spreads props.
+
+### The three imports
+
+Those three values are where the dialog's behavior actually lives, and none of it is Vue. You write them once, in a `./dialog` module, and they run unchanged on any platform:
+
+```ts
+// dialog.ts: plain functions, no Vue
+import type { Connect } from '@dunky.dev/state-machine'
+
+type State = 'closed' | 'open'
+type Context = { closeOnEscape: boolean }
+type Event = { type: 'open' } | { type: 'close' }
+type Api = {
+  isOpen: boolean
+  triggerProps: object
+  contentProps: object
+}
+
+// createDialogConfig: (props) => machine config. Defines the states
+// ('closed' | 'open'), the events, and seeds context from the first props.
+export const createDialogConfig = (props: DialogProps) => ({
+  initial: props.open ? 'open' : 'closed',
+  context: { closeOnEscape: props.closeOnEscape ?? true },
+  states: {
+    closed: { on: { open: 'open' } },
+    open: { on: { close: 'closed' } },
+  },
+})
+
+// connectDialog: a pure connect() that turns a machine snapshot into the view API
+// your template spreads. `isOpen`, `triggerProps`, `contentProps` come from here.
+export const connectDialog: Connect<State, Context, Event, DialogProps, Api> = ({
+  state,
+  send,
+}) => ({
+  isOpen: state === 'open',
+  triggerProps: {
+    onPress: () => send({ type: 'open' }),
+    expanded: state === 'open',
+  },
+  contentProps: { role: 'dialog', modal: true },
+})
+
+// dialogEffects: DOM listeners that can't live in the machine. Here, one that
+// closes the dialog on Escape. `onEscapeKey` is a [setup/teardown, deps] tuple;
+// see the ComponentEffect section below for its full body.
+export const dialogEffects = [onEscapeKey]
+```
+
+So `useMachine` is the only Vue-specific piece: `createDialogConfig` is the machine definition, `connectDialog` is the snapshot-to-view-API mapping, and `dialogEffects` are the DOM listeners. This is the exact same `./dialog` module the [React](/libs/react) bindings consume — see [Setup](/api/setup) for configs and [Connector](/api/connector) for how `connect` works in depth.
+
+## `normalize`: bindings → DOM props
+
+`connect` returns substrate-agnostic bindings (`onPress`, `role`, `describedBy`). `normalize` translates them to real DOM/ARIA props in Vue's `onXxx` listener form, ready to spread with `v-bind`:
+
+```vue
+<template>
+  <button v-bind="normalize(api.triggerProps)">Open</button>
+  <!-- normalize(api.triggerProps) → { onClick, 'aria-expanded', role, tabindex, ... } -->
+</template>
+```
+
+| Binding                                         | Vue DOM prop                                                        |
+| ----------------------------------------------- | ------------------------------------------------------------------- |
+| `onPress`                                       | `onClick`                                                           |
+| `onValueChange`                                 | `onInput` (fires live, like React's `onChange`)                     |
+| `onPointerEnter/Leave/Move/Down`                | `onPointerenter` / `onPointerleave` / … (Vue listener casing)       |
+| `onFocus` / `onBlur` / `onKeyDown`              | `onFocus` / `onBlur` / `onKeydown`                                  |
+| `describedBy`                                   | `aria-describedby`                                                  |
+| `labelledBy`                                    | `aria-labelledby`                                                   |
+| `expanded` / `selected` / `disabled` / `hidden` | `aria-expanded` / `aria-selected` / `aria-disabled` / `aria-hidden` |
+| `focusable`                                     | `tabindex` (`true → 0`, `false → -1`)                               |
+| `role` / `id`                                   | `role` / `id`                                                       |
+
+`undefined` values are dropped. Unknown keys pass through unchanged.
+
+## `mergeProps`: consumer + component props
+
+When a consumer spreads their own props onto the same element the component controls:
+
+```vue
+<template>
+  <button v-bind="mergeProps(consumerProps, normalize(api.triggerProps))">Open</button>
+</template>
+```
+
+- **Event handlers are chained, consumer-first.** If the consumer calls `e.preventDefault()`, the component's handler is skipped, a clean veto.
+- **`style` is merged** into a Vue `[consumerStyle, libraryStyle]` array.
+- **`class` is concatenated** with a space (when both sides are strings).
+- **Everything else: component wins** (`id`, `role`, `aria-*`).
+
+## `useSelector`: fine-grained leaf subscription
+
+For a leaf component that should only update when one slice of the machine changes (useful when a single machine drives many rows and each row should only wake for its own value). It returns a **readonly ref** — read `.value` in `<script>`, auto-unwrapped in `<template>`:
+
+```vue
+<script setup lang="ts">
+import { useSelector } from '@dunky.dev/state-machine-vue'
+
+const props = defineProps<{ machine: RowMachine; value: string }>()
+
+const isHighlighted = useSelector(
+  props.machine,
+  () => props.machine.context.highlightedValue === props.value,
+)
+</script>
+
+<template>
+  <div :data-highlighted="isHighlighted">{{ value }}</div>
+</template>
+```
+
+For object selections, pass a custom equality function to avoid waking on reference changes:
+
+```ts
+const pos = useSelector(
+  machine,
+  () => ({ x: machine.context.x, y: machine.context.y }),
+  (a, b) => a.x === b.x && a.y === b.y,
+)
+```
+
+## `ComponentEffect`: platform effects
+
+Some behavior can't live in the machine because it touches the DOM or reads props the machine never sees. Declare each as a `[setup/teardown, depPropNames]` tuple; `useMachine` runs one `watch` per entry, sourced on its named prop deps:
+
+```ts
+import type { ComponentEffect } from '@dunky.dev/state-machine-vue'
+import type { DialogMachine, DialogProps } from './dialog'
+
+type Effect = ComponentEffect<DialogMachine, DialogProps>
+
+const onEscapeKey: Effect = [
+  (machine, props) => {
+    if (!props.closeOnEscape) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') machine.send({ type: 'close' })
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  },
+  ['closeOnEscape'], // re-run only when this prop changes
+]
+
+export const dialogEffects = [onEscapeKey]
+```
+
+The machine only receives `send({ type: 'close' })`; it has no idea a keyboard event exists. The same `./dialog` module's effect on React swaps the `watch` for a `useEffect` — the machine, config, and `connect` are unchanged. See [Effects](/api/effects) for the full mental model of where each type of effect lives.
