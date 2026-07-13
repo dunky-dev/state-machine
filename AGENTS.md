@@ -71,15 +71,15 @@ verifies the implementation against it, so state what the package is
 meant to do rather than enumerating fields. Capture what carries design
 and API meaning: the consumer-facing API, the behavior contract, and any
 UX or reference material that anchors it. Its home is the package's
-`SPECS.md`.
+`SPEC.md`.
 
-If the package has no `SPECS.md` yet, ask before creating one — don't
+If the package has no `SPEC.md` yet, ask before creating one — don't
 add it unprompted.
 
-A design decision lives in one `SPECS.md` — the package it's about.
+A design decision lives in one `SPEC.md` — the package it's about.
 Don't copy it into every package it touches. When a decision affects
 others, just check their specs don't now contradict it; only edit
-another package's `SPECS.md` if it genuinely conflicts (and prefer a
+another package's `SPEC.md` if it genuinely conflicts (and prefer a
 short cross-reference over restating the decision).
 
 ### TEST
