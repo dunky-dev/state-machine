@@ -17,8 +17,6 @@ runs:
 
     - name: setup pnpm
       uses: pnpm/action-setup@v4
-      with:
-        version: 10.20.0
 
     - name: setup node
       uses: actions/setup-node@v4
