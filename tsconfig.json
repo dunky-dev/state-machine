@@ -1,28 +1,3 @@
 {
-  "compilerOptions": {
-    "target": "esnext",
-    "allowJs": false,
-    "noEmit": true,
-    "esModuleInterop": true,
-    "isolatedModules": true,
-    "jsx": "react-jsx",
-    "lib": ["dom", "dom.iterable", "esnext"],
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "noImplicitReturns": true,
-    "resolveJsonModule": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "paths": {
-      "@dunky.dev/state-machine": ["./packages/core/src"],
-      "@dunky.dev/state-machine-react": ["./packages/react/src"],
-      "@dunky.dev/state-machine-native": ["./packages/native/src"],
-      "@dunky.dev/state-machine-opentui": ["./packages/opentui/src"],
-      "@dunky.dev/state-machine-utils": ["./packages/shared/utils/src"],
-      "@dunky.dev/state-machine-bindings": ["./packages/shared/bindings/src"]
-    },
-    "types": ["@types/node", "vitest/globals"]
-  },
-  "include": ["./*.ts", "./packages"],
-  "exclude": ["**/node_modules", "**/dist"]
+  "extends": "./tsconfig/base.json",
 }
