@@ -3,12 +3,7 @@
 // they're imported straight from machine-react rather than duplicated here. Only
 // the substrate-specific translation (normalize → RN props, RN-aware mergeProps)
 // lives in this package.
-export {
-  useMachine,
-  useSelector,
-  type ComponentEffect,
-  type ComponentEffects,
-} from '@dunky.dev/react-state-machine'
+export { useMachine, useSelector, type ComponentEffect } from '@dunky.dev/react-state-machine'
 
 export { normalize, type Bindings } from './normalize'
 // RN-aware mergeProps (handler compose + style array) layered on the
