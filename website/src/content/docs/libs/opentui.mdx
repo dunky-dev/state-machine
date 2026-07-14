@@ -5,7 +5,7 @@ description: OpenTUI (terminal) bindings for @dunky.dev/state-machine.
 
 import Install from '../../../components/install.astro'
 
-<Install pkg='@dunky.dev/state-machine-opentui' />
+<Install pkg='@dunky.dev/opentui-state-machine' />
 
 The OpenTUI package is **only the prop translator**. Unlike [React](/libs/react) and [React Native](/libs/react-native), it ships no `useMachine` hook and has no framework dependency — `normalize` and `mergeProps` are pure object-to-object functions, so they work the same under any of OpenTUI's reactive bindings (`@opentui/react`, `@opentui/solid`, …). **The machine itself is unchanged.** The same `createDialogConfig` and `connectDialog` that drive the DOM run the terminal.
 
@@ -14,8 +14,8 @@ The OpenTUI package is **only the prop translator**. Unlike [React](/libs/react)
 The lifecycle binding — turning the engine's connector into a live component — is the consuming app's concern. OpenTUI renders through a React reconciler, so the standard pairing is `useMachine` from the **React** package plus `normalize` from **this** package:
 
 ```tsx
-import { useMachine } from '@dunky.dev/state-machine-react'
-import { normalize } from '@dunky.dev/state-machine-opentui'
+import { useMachine } from '@dunky.dev/react-state-machine'
+import { normalize } from '@dunky.dev/opentui-state-machine'
 import { createDialogConfig, connectDialog } from './dialog'
 
 function Dialog(props: DialogProps) {
