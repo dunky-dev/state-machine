@@ -1,9 +1,11 @@
-## What & why
+# Why/What
 
-<!-- The change and the reason for it — not just what the diff does. -->
+<!-- Why this change, and what it does — a sentence or two. -->
 
-## Checklist
+# Changes
 
-- [ ] Tests pass (`pnpm test`), lint is clean (`pnpm lint`), types check (`pnpm typecheck`)
-- [ ] Verified across every [scope](../AGENTS.md#scopes) the change touches
-- [ ] Changeset added (`pnpm changeset`) if this is a user-visible change to a public package
+<!-- The change itself, in a few words. -->
+
+# Issues
+
+<!-- Link related issues, e.g. Closes #123 -->

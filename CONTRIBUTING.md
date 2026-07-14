@@ -69,6 +69,7 @@ the real cause yourself.
 
 ## Pull requests
 
-Fill in the [PR template](.github/PULL_REQUEST_TEMPLATE.md) — it mirrors
-`AGENTS.md`'s RECONCILE step: tests pass, lint and typecheck are clean, and a
-changeset is included if the change is user-visible.
+Fill in the [PR template](.github/PULL_REQUEST_TEMPLATE.md): why and what the
+change is, what changed, and any related issues. Before opening it, make sure
+tests, lint, and typecheck pass, and a changeset is included if the change is
+user-visible — that's `AGENTS.md`'s RECONCILE step.
