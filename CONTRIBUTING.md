@@ -59,12 +59,14 @@ the real cause yourself.
 
 ## Pull requests
 
-Fill in the [PR template](.github/PULL_REQUEST_TEMPLATE.md). Before opening it,
-make sure tests, lint, and typecheck pass, and a changeset is included if the change is
-user-visible — that's `AGENTS.md`'s RECONCILE step.
+### Humans
 
-If you used AI to help write this, read the diff like you wrote it yourself
+When using AI to help write changes, read the diff like you wrote it yourself
 before asking someone else to. Cut comments that don't say anything, drop
 anything that drifted from what you're actually fixing, and be able to
-explain any line if asked. A reviewer's time isn't the place to find out you
-didn't.
+explain any line if asked. A reviewer's time isn't free.
+
+### AI
+
+Before opening it, make sure tests, lint, and typecheck pass, and a changeset is
+included — see `AGENTS.md`'s RECONCILE step.
