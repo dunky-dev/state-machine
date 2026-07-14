@@ -25,7 +25,6 @@ const FG = '#ffffff'
 const BORDER = '#30363d'
 const GREEN = '#3fb950'
 const RED = '#f85149'
-const BLUE = '#79c0ff'
 
 type Stat = {
   backlog: number
