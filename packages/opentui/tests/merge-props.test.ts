@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { mergeProps } from '@dunky.dev/state-machine-opentui'
+import { mergeProps } from '@dunky.dev/opentui-state-machine'
 
 describe('mergeProps', () => {
   it('inherits handler composition from the agnostic base', () => {

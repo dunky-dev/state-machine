@@ -11,7 +11,7 @@
   "dependencies": {
     "@dunky.dev/state-machine": "workspace:^",
     "@dunky.dev/state-machine-bindings": "workspace:^",
-    "@dunky.dev/state-machine-react": "workspace:^",
+    "@dunky.dev/react-state-machine": "workspace:^",
     "@dunky.dev/state-machine-utils": "workspace:^",
     "@sandbox/cmdk-core": "workspace:^",
     "react": "^19.2.6",

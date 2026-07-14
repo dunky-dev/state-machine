@@ -3,8 +3,8 @@ import { useKeyboard } from '@opentui/react'
 // The lifecycle hook comes from the React binding (OpenTUI renders via a React
 // reconciler), exactly as the opentui package's docs prescribe: bring your own
 // framework hook, pair it with this `normalize`.
-import { useMachine } from '@dunky.dev/state-machine-react'
-import { normalize } from '@dunky.dev/state-machine-opentui'
+import { useMachine } from '@dunky.dev/react-state-machine'
+import { normalize } from '@dunky.dev/opentui-state-machine'
 import {
   commandPaletteMachineConfig,
   type CommandPaletteProps,

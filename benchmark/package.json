@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "@dunky.dev/state-machine": "workspace:^",
-    "@dunky.dev/state-machine-react": "workspace:^"
+    "@dunky.dev/react-state-machine": "workspace:^"
   },
   "devDependencies": {
     "@types/jsdom": "^21.1.7",

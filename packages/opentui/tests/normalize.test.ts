@@ -15,7 +15,7 @@
  *   - hidden → visible (inverted), focusable → focusable, disabled passes through.
  */
 import { describe, expect, it, vi } from 'vitest'
-import { normalize } from '@dunky.dev/state-machine-opentui'
+import { normalize } from '@dunky.dev/opentui-state-machine'
 
 describe('opentui normalize — handlers', () => {
   it('maps onPress to onMouseDown (no synthetic click in a terminal)', () => {

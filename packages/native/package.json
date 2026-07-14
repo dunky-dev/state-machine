@@ -1,5 +1,5 @@
 {
-  "name": "@dunky.dev/state-machine-native",
+  "name": "@dunky.dev/native-state-machine",
   "version": "0.2.0",
   "license": "MIT",
   "repository": {
@@ -34,7 +34,7 @@
   },
   "dependencies": {
     "@dunky.dev/state-machine": "workspace:^",
-    "@dunky.dev/state-machine-react": "workspace:^",
+    "@dunky.dev/react-state-machine": "workspace:^",
     "@dunky.dev/state-machine-utils": "workspace:^"
   },
   "peerDependencies": {

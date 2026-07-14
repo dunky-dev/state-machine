@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { type ComponentEffect, normalize, useMachine } from '@dunky.dev/state-machine-react'
+import { type ComponentEffect, normalize, useMachine } from '@dunky.dev/react-state-machine'
 import {
   commandPaletteMachineConfig,
   type CommandPaletteMachine,
