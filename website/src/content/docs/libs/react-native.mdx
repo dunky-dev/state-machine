@@ -26,20 +26,12 @@ import { normalize } from '@dunky.dev/native-state-machine'
 ;<Pressable {...normalize(api.triggerProps)} />
 ```
 
-| Binding                                         | React Native prop                                           |
-| ----------------------------------------------- | ----------------------------------------------------------- |
-| `onPress`                                       | `onPress`                                                   |
-| `onPointerDown`                                 | `onPressIn`                                                 |
-| `onFocus` / `onBlur`                            | `onFocus` / `onBlur`                                        |
-| `onPointerEnter/Leave/Move`                     | **dropped** (no RN analog; use focus or long-press instead) |
-| `onKeyDown`                                     | **dropped** (no RN analog)                                  |
-| `describedBy` / `labelledBy`                    | `accessibilityLabelledBy`                                   |
-| `role`                                          | `accessibilityRole`                                         |
-| `id`                                            | `nativeID`                                                  |
-| `expanded` / `selected` / `disabled` / `hidden` | `accessibilityState.expanded/selected/disabled/hidden`      |
-| `focusable`                                     | `focusable`                                                 |
+The machine binding maps handlers (`onPress` → `onPress`, `onPointerDown` → `onPressIn`),
+accessibility props (`labelledBy` → `accessibilityLabelledBy`, `role` → `accessibilityRole`,
+`id` → `nativeID`), and accessibility state (`expanded` → `accessibilityState.expanded`).
+[Check out the full mapping here](https://github.com/dunky-dev/state-machine/blob/main/packages/native/src/normalize.ts).
 
-Bindings with no RN equivalent are silently dropped rather than passed as invalid props.
+Bindings with no RN equivalent (hover, `onKeyDown`, `onWheel`) are silently dropped rather than passed as invalid props.
 
 ## `mergeProps`
 
