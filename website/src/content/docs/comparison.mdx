@@ -122,8 +122,8 @@ const toggle = machine({
   initial: 'closed',
   context: {},
   states: {
-    closed: { on: { toggle: 'open' } },
-    open: { on: { toggle: 'closed' } },
+    closed: { on: { toggle: { target: 'open' } } },
+    open: { on: { toggle: { target: 'closed' } } },
   },
 })
 

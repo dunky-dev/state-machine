@@ -11,7 +11,7 @@ The React package is a thin edge layer. Behavior lives in the core machine and t
 
 ## `useMachine`
 
-The one bridge hook. Every component calls it with the four agnostic pieces and gets back the view API:
+The one bridge hook. Every component calls it with the agnostic pieces and gets back `{ api, machine }` — the view API to render from, and the running service (for `send` and `useSelector`):
 
 ```tsx
 import { useMachine, normalize } from '@dunky.dev/react-state-machine'
@@ -48,10 +48,10 @@ Those three values are where the dialog's behavior actually lives, and none of i
 
 ```ts
 // dialog.ts: plain functions, no React
-import type { Connect } from '@dunky.dev/state-machine'
+import { setup, type Connect } from '@dunky.dev/state-machine'
 
 type State = 'closed' | 'open'
-type Context = { closeOnEscape: boolean }
+type Context = {}
 type Event = { type: 'open' } | { type: 'close' }
 type Api = {
   isOpen: boolean
@@ -59,14 +59,15 @@ type Api = {
   contentProps: object
 }
 
-export const createDialogConfig = (props: DialogProps) => ({
-  initial: props.open ? 'open' : 'closed',
-  context: { closeOnEscape: props.closeOnEscape ?? true },
-  states: {
-    closed: { on: { open: 'open' } },
-    open: { on: { close: 'closed' } },
-  },
-})
+export const createDialogConfig = (props: DialogProps) =>
+  setup.infer().createMachine({
+    initial: props.open ? 'open' : 'closed', // props seed the machine ONCE
+    context: {},
+    states: {
+      closed: { on: { open: { target: 'open' } } },
+      open: { on: { close: { target: 'closed' } } },
+    },
+  })
 
 export const connectDialog: Connect<State, Context, Event, DialogProps, Api> = ({
   state,
@@ -94,16 +95,9 @@ normalize(api.triggerProps)
 // { onClick, aria-expanded, role, tabIndex, ... }
 ```
 
-| Binding                                         | DOM prop                                                            |
-| ----------------------------------------------- | ------------------------------------------------------------------- |
-| `onPress`                                       | `onClick`                                                           |
-| `onPointerEnter/Leave/Move/Down`                | same name                                                           |
-| `onFocus` / `onBlur` / `onKeyDown`              | same name                                                           |
-| `describedBy`                                   | `aria-describedby`                                                  |
-| `labelledBy`                                    | `aria-labelledby`                                                   |
-| `expanded` / `selected` / `disabled` / `hidden` | `aria-expanded` / `aria-selected` / `aria-disabled` / `aria-hidden` |
-| `focusable`                                     | `tabIndex` (`true → 0`, `false → -1`)                               |
-| `role` / `id`                                   | `role` / `id`                                                       |
+The machine binding maps handlers (`onPress` → `onClick`), ARIA props
+(`describedBy` → `aria-describedby`), ARIA state (`checked` → `aria-checked`),
+and focus (`focusable` → `tabIndex`). [Check out the full mapping here](https://github.com/dunky-dev/state-machine/blob/main/packages/react/src/normalize.ts).
 
 `undefined` values are dropped. Unknown keys pass through unchanged.
 
@@ -120,7 +114,7 @@ When a consumer spreads their own props onto the same element the component cont
 - **`className` is concatenated** with a space.
 - **Everything else: component wins** (`id`, `role`, `aria-*`).
 
-## `useSelector`: fine-grained leaf subscription
+## `useSelector`: fine-grained subscription
 
 For a leaf component that should only re-render when one slice of the machine changes (useful when a single machine drives many rows and each row should only wake for its own value):
 
@@ -134,7 +128,7 @@ function Row({ machine, value }) {
 }
 ```
 
-For object selections, pass a custom equality function to avoid re-renders on reference changes:
+A selector returning a fresh object/array each call **must** pass a custom equality function — otherwise every read is a "new" value and the component re-renders in a loop. Prefer selecting primitives; reach for `isEqual` when you genuinely need a composite:
 
 ```tsx
 const pos = useSelector(
@@ -168,6 +162,8 @@ const onEscapeKey: Effect = [
 
 export const dialogEffects = [onEscapeKey]
 ```
+
+Two rules: declare the list once, at module level — each entry becomes a `useEffect`, and React forbids a changing number of hooks — and name the prop deps (typed `(keyof Props)[]`), so each effect re-runs only when its own props change.
 
 The machine only receives `send({ type: 'close' })`; it has no idea a keyboard event exists. The React Native version of this same dialog swaps the DOM `keydown` listener for a `BackHandler` — the machine is unchanged. See [React Native](/libs/react-native) for that side.
 
