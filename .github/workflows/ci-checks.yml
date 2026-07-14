@@ -60,6 +60,8 @@ jobs:
       - run: pnpm format:check
 
   versioning:
+    # The release PR consumes changesets rather than adding one — never flag it.
+    if: github.head_ref != 'changeset-release/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
