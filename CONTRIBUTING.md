@@ -1,10 +1,6 @@
 # Contributing
 
-Thanks for looking into Dunky. This is the fast path to a working setup, the
-commands you'll actually run, and how to file something useful.
-
-For the contribution _workflow_ (SPEC -> TEST -> IMPLEMENT -> RECONCILE), code
-conventions, and boundaries, see [`AGENTS.md`](./AGENTS.md) — it's the same
+For the contribution _workflow_, code conventions, and boundaries, see [`AGENTS.md`](./AGENTS.md) — it's the same
 contract agents follow here, and it applies to you too.
 
 ## Setup
@@ -12,8 +8,8 @@ contract agents follow here, and it applies to you too.
 ```bash
 git clone git@github.com:dunky-dev/state-machine.git
 cd state-machine
-nvm use          # Node 24, pinned in .nvmrc
-corepack enable  # pnpm 11.10.0, pinned in package.json#packageManager
+nvm use
+corepack enable
 pnpm install
 ```
 
@@ -31,13 +27,7 @@ pnpm install
 
 Target one package or one file instead of the whole workspace:
 
-```bash
-pnpm --filter @dunky.dev/state-machine test       # one package's tests
-pnpm vitest packages/core/tests/machine.test.ts    # one test file
-pnpm --filter @dunky.dev/react-state-machine build
-```
-
-## Run the sandboxes
+## Sandbox
 
 Each sandbox renders the same command-palette machine on a different
 substrate — the fastest way to see a change actually work end to end. See
@@ -45,9 +35,9 @@ substrate — the fastest way to see a change actually work end to end. See
 the short version:
 
 ```bash
-pnpm -C sandbox/react dev     # DOM   — http://localhost:5173
-pnpm -C sandbox/opentui dev   # terminal — needs Bun
-pnpm -C sandbox/native start  # Expo  — needs a simulator or device
+pnpm -C sandbox/react dev
+pnpm -C sandbox/opentui dev  # terminal — needs Bun
+pnpm -C sandbox/native dev   # Expo  — needs a simulator or device
 ```
 
 ## Filing an issue
@@ -69,7 +59,12 @@ the real cause yourself.
 
 ## Pull requests
 
-Fill in the [PR template](.github/PULL_REQUEST_TEMPLATE.md): why and what the
-change is, what changed, and any related issues. Before opening it, make sure
-tests, lint, and typecheck pass, and a changeset is included if the change is
+Fill in the [PR template](.github/PULL_REQUEST_TEMPLATE.md). Before opening it,
+make sure tests, lint, and typecheck pass, and a changeset is included if the change is
 user-visible — that's `AGENTS.md`'s RECONCILE step.
+
+If you used AI to help write this, read the diff like you wrote it yourself
+before asking someone else to. Cut comments that don't say anything, drop
+anything that drifted from what you're actually fixing, and be able to
+explain any line if asked. A reviewer's time isn't the place to find out you
+didn't.
