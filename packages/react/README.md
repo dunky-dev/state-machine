@@ -1,90 +1,167 @@
 # `@dunky.dev/react-state-machine`
 
 The **React bindings** for [`@dunky.dev/state-machine`](../core/README.md).
-The core engine is renderer-agnostic; this package is the thin React edge that
-drives it: it builds the machine + connector, runs the React lifecycle, bridges
-the connector's snapshot into React rendering, translates the agnostic
-[bindings](../core/README.md#connector--the-view-boundary) vocabulary into DOM
-props, and owns the per-component substrate effects.
 
-Everything here is deliberately small — the behavior lives in the core machine
-and the component's `connect`; this layer only adapts them to React. There are
-four exports: one bridge hook (`useMachine`, which also runs the component's
-substrate effects), one leaf-subscription hook (`useSelector`), and two prop
-helpers (`normalize`, `mergeProps`) — plus the `ComponentEffect` types.
+The behavior lives in the core machine — plain TypeScript, no renderer. This
+package is the thin React edge that runs it. It does four things:
 
----
+1. **`useMachine`** — build the machine once, run its lifecycle, re-render when
+   it changes, run the component's platform effects.
+2. **`useSelector`** — re-render a leaf component only when one slice changes.
+3. **`normalize`** — translate the machine's agnostic bindings (`onPress`,
+   `checked`) into real DOM props (`onClick`, `aria-checked`).
+4. **`mergeProps`** — merge the consumer's props with the component's.
 
-## `useMachine` — the one bridge hook
-
-Every component's generated `useXxxApi` calls this with the agnostic pieces:
-
-```ts
-const { api, machine } = useMachine(
-  tooltipMachineConfig, // (props) => config  — config factory, props seed it ONCE
-  connectTooltip, // pure connect(): snapshot → view api
-  tooltipEffects, // the component's substrate effects (ComponentEffect[])
-  resolved, // props with defaults applied
-)
+```
+  core (agnostic)
+  |
+  |   config + connect()      behavior + snapshot -> view api
+  |
+  v
+  this package (React)
+  |
+  |   useMachine              build + start the machine, subscribe
+  |   |
+  |   v
+  |   api                     the view surface instructions
+  |   |
+  |   v
+  |   normalize()             DOM / ARIA / events
+  |
+  v
+  <button {...props}>
 ```
 
-It:
+## Quick start
 
-- **builds once** (in `useMemo` with an empty dep array) —
-  `machine(createConfig(props))` + `connector(service, connect, props)`. The
-  first render's props seed context and the initial state; recreating would lose
-  state, so later prop changes flow through `setProps`, not a rebuild.
-- **keeps props fresh** via a passive effect (`connection.setProps(props)`) —
-  never during render (writing the props signal mid-render would notify
-  `useSyncExternalStore` and loop with _"cannot update a component while
-  rendering"_). The connector was seeded with the first render's props in
-  `useMemo`, so the initial snapshot is already correct; this only pushes
-  _subsequent_ changes. `setProps` value-dedups, so a consumer that rebuilds an
-  equal props object each render doesn't churn.
-- **runs the lifecycle**: `service.start()` on mount, `service.stop()` on unmount.
-  The connector wired its
-  [reactions](../core/README.md#reactions--firing-prop-callbacks-without-the-machine-knowing)
-  to the machine's own `start`/`stop`, so prop-callbacks follow automatically
-  (StrictMode mount→unmount→mount included), with no teardown threading here.
-- **runs the component's substrate effects** — one `useEffect` per
-  `ComponentEffect` entry, each keyed on its named prop deps (see below). The
-  generated `useApi` no longer touches React directly; passing the effects list
-  here is all it does.
-- **drives React** via
-  `useSyncExternalStore(connection.subscribe, () => connection.snapshot)` over the
-  connector's stable, memoized snapshot — its identity only changes on a real
-  change, so there's no infinite-loop / tearing.
+A tooltip, end to end — the behavior (core), the surface (`connect`), and the
+React component (this package):
 
-Returns `{ api, machine }`: `api` is the `connect()` output to spread onto
-elements; `machine` is the running service (also handed to `useSelector`).
+```tsx
+import { setup } from '@dunky.dev/state-machine'
+import { useMachine, normalize } from '@dunky.dev/react-state-machine'
+
+type TooltipProps = { defaultOpen?: boolean }
+
+// 1 — behavior: a plain state machine. No React in sight.
+const tooltipConfig = (props: TooltipProps) =>
+  setup.infer().createMachine({
+    initial: props.defaultOpen ? 'open' : 'closed', // props seed the machine ONCE
+    context: {},
+    states: {
+      closed: { on: { hover: { target: 'opening' } } },
+      opening: {
+        after: { 300: { target: 'open' } }, // open after a 300ms hover
+        on: { leave: { target: 'closed' } },
+      },
+      open: { on: { leave: { target: 'closed' } } },
+    },
+  })
+
+// 2 — connect: machine snapshot -> what the view spreads onto elements.
+//     Note the agnostic vocabulary: describedBy, not aria-describedby.
+const connectTooltip = ({ state, send }) => {
+  const open = state === 'open'
+  return {
+    open,
+    triggerProps: {
+      describedBy: open ? 'tip' : undefined,
+      onPointerEnter: () => send({ type: 'hover' }),
+      onPointerLeave: () => send({ type: 'leave' }),
+    },
+    contentProps: { id: 'tip', role: 'tooltip' },
+  }
+}
+
+// 3 — the React edge: build + run the machine, render from its api.
+const tooltipEffects = [] // no platform effects yet; must be a static constant
+
+export function Tooltip(props: TooltipProps) {
+  const { api } = useMachine(tooltipConfig, connectTooltip, tooltipEffects, props)
+  return (
+    <>
+      <button {...normalize(api.triggerProps)}>Hover me</button>
+      {api.open && <div {...normalize(api.contentProps)}>I'm a tooltip</div>}
+    </>
+  )
+}
+```
+
+What happened:
+
+- `useMachine` built the machine and connector **once** (the first render's
+  props seeded the initial state), started it on mount, stops it on unmount.
+- Hovering sends plain events; the machine handles the 300ms open delay
+  itself (`after`) — no `setTimeout` in the component.
+- The component re-renders only when the `connect()` output actually changes.
+- `normalize` turned `describedBy` into `aria-describedby` — the same
+  `connect` could drive React Native or a canvas through _their_ `normalize`.
+
+That's the whole model. Everything below is reference.
 
 ---
 
-## `ComponentEffect` — substrate transport, without the boilerplate
+## `useMachine` — the bridge hook
 
-Some behavior can't live in the agnostic machine because it needs the **platform
-itself** — a DOM `keydown` listener for Escape, a `ResizeObserver` — and the
-**props** the machine never sees (`closeOnEscape`, a prevent-able
-`onEscapeKeyDown` veto). That's the component's React-side _effect_.
-
-Each effect is a `[setup/teardown, depPropNames]` tuple (`ComponentEffect`). A
-component declares one named const per effect — aliasing the type once keeps the
-annotations short — and exports a flat list. **No React in the component file** —
-the generated `useApi` owns the `useEffect`s:
+One call per component instance. (In the full Dunky pipeline a component's
+generated `useXxxApi` makes this call; hand-written components call it
+directly, the same way.)
 
 ```ts
-// a target component's effects.ts (illustrative — components live outside this repo)
+const { api, machine } = useMachine(createConfig, connect, effects, props)
+```
+
+| Argument       | What it is                                                                 |
+| -------------- | -------------------------------------------------------------------------- |
+| `createConfig` | `(props) => config` — called **once**, with the first render's props       |
+| `connect`      | pure `connect()`: snapshot → the api the view spreads                      |
+| `effects`      | the component's `ComponentEffect[]` — static module constant; `[]` if none |
+| `props`        | current props, defaults already applied                                    |
+
+Returns `{ api, machine }` — `api` to render from; `machine` to `send` to and
+to hand to `useSelector`.
+
+What it guarantees:
+
+- **Builds once.** Machine + connector are created on the first render and
+  never rebuilt (rebuilding would lose state). Later prop changes flow through
+  `setProps` — value-deduped, and applied in a passive effect, never during
+  render (a mid-render store write would notify `useSyncExternalStore` and
+  loop). Consequence: **props seed the machine once** — initial state and
+  context come from the first render; after that, changed props reach the
+  component through the connector, not a rebuild.
+- **Lifecycle.** `start()` on mount, `stop()` on unmount — StrictMode's
+  mount → unmount → mount included. The connector's
+  [reactions](../core/README.md#reactions--firing-prop-callbacks-without-the-machine-knowing)
+  (prop callbacks) follow the machine's lifecycle automatically.
+- **Platform effects.** One `useEffect` per `ComponentEffect` entry, each
+  keyed on its own named prop deps (see next section).
+- **Rendering.** `useSyncExternalStore` over the connector's memoized
+  snapshot — its identity changes only on a real change, so no tearing and no
+  render loops.
+
+---
+
+## `ComponentEffect` — platform effects, next to the component
+
+Some behavior can't live in the agnostic machine because it needs the
+**platform** (a DOM `keydown`, a `ResizeObserver`) or the **props** the machine
+[never sees](../core/README.md#the-machine-never-sees-props). That behavior is
+a `ComponentEffect`: a `[setup/teardown, depPropNames]` tuple, declared as a
+named const — **no React in the component file**; `useMachine` owns the
+`useEffect`s.
+
+```ts
 import type { ComponentEffect } from '@dunky.dev/react-state-machine'
 
 type TooltipEffect = ComponentEffect<TooltipMachine, TooltipMachineProps>
 
-/** Escape-to-close (gated by closeOnEscape; honors the onEscapeKeyDown veto). */
+/** Escape-to-close — the DOM transport for a decision the core resolver makes. */
 const trackEscape: TooltipEffect = [
   (machine, props) => {
     if (!props.closeOnEscape) return
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
-      // defer the decision to the agnostic resolver; act on its verdict
       if (resolveEscape({ ...props, state: machine.state }).close) {
         e.stopPropagation()
         machine.send({ type: 'escape' })
@@ -93,73 +170,41 @@ const trackEscape: TooltipEffect = [
     document.addEventListener('keydown', onKeyDown, true)
     return () => document.removeEventListener('keydown', onKeyDown, true)
   },
-  ['closeOnEscape', 'onEscapeKeyDown'], // ← re-run only when these props change
+  ['closeOnEscape', 'onEscapeKeyDown'], // re-run only when THESE props change
 ]
 
-// a component with more effects adds more named consts, each with its OWN deps:
-// const tabTrap: TooltipEffect = [tabFn, ['focusTrap']]
 export const tooltipEffects = [trackEscape]
 ```
 
-Named consts over inline tuples: each effect gets a label (`trackEscape`), the
-export is a flat readable list (no `[[…],[…]]` nesting), and each effect's deps
-sit next to it. The export type is inferred (`ComponentEffect[]`).
+The rules, and why:
 
-`useMachine` runs the list — **one `useEffect` per entry**, each with a **precise
-dependency array** built from that entry's named props (so the component file
-never touches React):
-
-```ts
-// inside useMachine, after start():
-//   for each [fn, deps] of effects:
-//     useEffect(() => fn(machine, resolved), [machine, ...deps.map(k => resolved[k])])
-```
-
-**Why a list of per-effect deps** (not one combined set): each effect
-re-subscribes only when _its own_ deps change — toggling `focusTrap` doesn't
-churn the Escape listener.
-
-**Why named deps** (not the whole props object): `resolved` is a fresh object
-every render, so `[machine, resolved]` would re-run **every render**. Naming the
-props — typed `(keyof Props)[]`, so a typo is a compile error — re-runs an effect
-_only when one of its values actually changes_, never stale. `machine` is always
-an implicit dep.
-
-> The list **must be a static module constant** — `useMachine` calls one hook per
-> entry, so its length can't vary between renders (rules-of-hooks). Declaring it
-> as `export const xEffects = [...]` guarantees that; never build it conditionally
-> or per-render.
-
-> The agnostic _decision_ (gate + veto) lives in the core component's resolver
-> (`resolveEscape`); only the _transport_ (the DOM listener) is here. Same split
-> as everywhere: agnostic policy in core, platform wiring at the edge. The machine
-> just receives a plain `escape` event. This is the React counterpart of a core
-> `effect` — but one that may read props and touch the DOM, which a core effect
-> can't.
+- **Declare the list once, at module level.** Each entry becomes a `useEffect`
+  call, and React forbids a changing number of hooks — so never add/remove
+  entries conditionally or build the array inside the component.
+- **Deps are prop names.** They become the `useEffect` dep array, so the
+  effect re-runs only when one of those props changes.
+- **Each effect has its own dep list, not one shared set.** A prop change
+  re-runs only the effects that declared that prop.
 
 ---
 
-## `useSelector` — fine-grained leaf subscription
+## `useSelector` — fine-grained subscription
 
-For a leaf component that should re-render only when **one slice** of the machine
-changes (not on every machine change) — the `O(readers)` path that matters at
-scale (e.g. thousands of menu items, each re-rendering only when _its own_
-highlighted state flips):
+For a leaf that should re-render only when **one slice** of the machine
+changes — the `O(readers)` path that matters at scale (thousands of menu
+items, each re-rendering only when _its own_ highlight flips):
 
 ```ts
 const open = useSelector(machine, () => machine.matches('open'))
 const isHL = useSelector(machine, () => machine.context.highlightedValue === value)
 ```
 
-The selector reads from the machine directly, so it auto-subscribes to exactly
-the fields it touches (the same auto-tracking the core's
-[`select`](../core/README.md#subscriptions--observing-changes) gives you); the
-component re-renders only when the selected value changes — `Object.is` by
-default. **A selector that returns a fresh object/array each call MUST pass a
-custom `isEqual`** — otherwise every evaluation yields a new identity that
-`Object.is` deems "changed", and `useSyncExternalStore` re-renders in a loop.
-Prefer selecting primitives; reach for `isEqual` when you genuinely need a
-composite:
+Re-renders only when the selected value changes (`Object.is` by default).
+
+> **A selector returning a fresh object/array each call MUST pass a custom
+> `isEqual`** — otherwise every read is a "new" value and the component
+> re-renders in a loop. Prefer selecting primitives; reach for `isEqual` when
+> you genuinely need a composite:
 
 ```ts
 const pos = useSelector(
@@ -169,86 +214,45 @@ const pos = useSelector(
 )
 ```
 
-Internally it wraps the selector in one memoized `Selection` and feeds it through
-`useSyncExternalStore`, caching the value in a ref so `getSnapshot` stays
-referentially stable between real changes.
-
-**`useMachine` vs. `useSelector`.** `useMachine` is the per-instance bridge: it
-drives the whole component off the connector's coarse snapshot (the connector
-already memoizes, so a render only happens on a real change). `useSelector` is for
-_within_ that tree — a child that wants to re-render on just one field, decoupled
-from the parent's snapshot. Reach for it when a component subtree is large enough
-that whole-snapshot re-renders are wasteful.
+**vs `useMachine`:** `useMachine` re-renders the component on any machine
+change; `useSelector` re-renders a child on one field.
 
 ---
 
 ## `normalize` — agnostic bindings → DOM props
 
-`connect` returns substrate-agnostic [bindings](../core/README.md#connector--the-view-boundary)
-(`onPress`, `describedBy`, `role`). `normalize` translates them to real DOM/ARIA
-props so the same `connect` can target DOM, React Native, or canvas — each via its
-own `normalize`:
+`connect` returns substrate-agnostic
+[bindings](../core/README.md#connector--the-view-boundary); `normalize`
+translates them into real DOM/ARIA props:
 
 ```ts
 const domProps = normalize(api.triggerProps) // { onClick, aria-describedby, role, ... }
 ```
 
-The mapping:
-
-| Agnostic binding                                                                                | DOM/ARIA prop                                                                      |
-| ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `onPress`                                                                                       | `onClick`                                                                          |
-| `onValueChange`                                                                                 | `onChange` (wrapped → `ChangePayload`)                                             |
-| `onContextMenu` / `onDoublePress`                                                               | `onContextMenu` / `onDoubleClick`                                                  |
-| `onWheel` / `onScroll` / `onScrollEnd`                                                          | same name (wrapped → `WheelPayload` / `ScrollPayload`)                             |
-| `onPointerEnter/Leave/Move/Down/Up/Cancel`, `onFocus/Blur`, `onKeyDown/Up`                      | same name (already DOM-shaped)                                                     |
-| `describedBy` / `labelledBy` / `controls` / `label`                                             | `aria-describedby` / `aria-labelledby` / `aria-controls` / `aria-label`            |
-| `expanded` / `selected` / `disabled` / `hidden` / `modal`                                       | `aria-expanded` / `aria-selected` / `aria-disabled` / `aria-hidden` / `aria-modal` |
-| `checked` / `pressed` / `current` / `busy` / `invalid` / `required` / `readOnly`                | matching `aria-*` (value untransformed)                                            |
-| `valueMin/Max/Now/Text`                                                                         | `aria-valuemin` / `-valuemax` / `-valuenow` / `-valuetext`                         |
-| `orientation` / `sort` / `autoComplete` / `level` / `posInSet` / `setSize` / grid `col*`/`row*` | the matching `aria-*` attr                                                         |
-| `activeDescendant` / `errorMessage` / `owns` / `hasPopup`                                       | `aria-activedescendant` / `-errormessage` / `-owns` / `-haspopup`                  |
-| `live` / `atomic`                                                                               | `aria-live` / `aria-atomic`                                                        |
-| `focusable`                                                                                     | `tabIndex` (`true → 0`, `false → -1`)                                              |
-| `role` / `id`                                                                                   | `role` / `id`                                                                      |
-
-The logical names are renderer-neutral by design — `onPress` not `onClick`,
-`onValueChange` not `onChange`, `checked` not `aria-checked` — so the same
-`connect` output drives DOM, React Native, or canvas, each through its own
-`normalize`. A few handlers whose agnostic payload differs from the raw event
-(`onValueChange`/`onWheel`/`onScroll`/`onScrollEnd`) are wrapped so the consumer
-receives the agnostic payload, not the DOM event. `undefined` values are
-dropped, and any key not in the map passes through unchanged — so a binding the
-renderer already understands needs no entry.
+The machine binding maps handlers (`onPress` → `onClick`), ARIA props
+(`describedBy` → `aria-describedby`), ARIA state (`checked` → `aria-checked`),
+and focus (`focusable` → `tabIndex`). [Check out the full mapping here](./src/normalize.ts).
 
 ---
 
-## `mergeProps` — combine consumer props with the component's props
+## `mergeProps` — consumer props + component props
 
-When a consumer spreads their own props onto the same element the component
-controls (`<Trigger onClick={mine} className="mine">`), the two prop sets have to
-merge sensibly. `mergeProps(consumer, library)` does it the Radix/Ark way:
+When a consumer spreads their own props onto an element the component controls
+(`<Component onClick={mine}>`), merge them:
 
 ```ts
-const finalProps = mergeProps(consumerProps, normalize(api.triggerProps))
+const finalProps = mergeProps(ownProps, normalize(api.triggerProps))
 ```
 
-- **Event handlers are chained, consumer-first.** Both run, the consumer's
-  before the library's — **but if the consumer's handler marks the event
-  `defaultPrevented`, the library handler is skipped.** So a consumer can veto the
-  component's behavior (e.g. prevent a click from toggling) by calling
-  `e.preventDefault()`. (A key counts as a handler when it's `on` + an uppercase
-  letter, e.g. `onClick`, `onKeyDown`.)
-- **`style` is merged, not overwritten.** If both sides set `style`, the result is
-  an array `[consumerStyle, libraryStyle]` (the React array-style form; the later
-  entry wins on conflicting keys). If only one side sets it, that one is kept.
-- **`className` is concatenated** with a single space and trimmed at the edges
-  (`'a b'` + `'c'` → `'a b c'`). Inner spacing is preserved verbatim; the concat
-  only applies when _both_ sides are strings.
-- **Everything else: library wins.** A plain attr the component sets (`id`,
-  `role`, `aria-*`) overrides the consumer's — the component owns its semantics.
-
-If the consumer passes no props, the library props are returned as-is.
+- **Handlers chain, consumer-first** — both run, unless the consumer's handler
+  marks the event `defaultPrevented`, which **skips the library handler**. A key
+  counts as a handler when it's `on` + an uppercase letter (`onClick`, `onKeyDown`).
+- **`style` merges** — when both sides set it, the result is the React
+  array-style form `[consumerStyle, libraryStyle]` (later entry wins per key).
+- **`className` concatenates** — `'a b'` + `'c'` → `'a b c'` (only when both
+  sides are strings).
+- **Everything else: library wins** — the component owns its semantics (`id`,
+  `role`, `aria-*`).
 
 ---
 
@@ -256,10 +260,9 @@ If the consumer passes no props, the library props are returned as-is.
 
 | Export                                        | What it is                                                                                                                    |
 | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `useMachine(config, connect, effects, props)` | the bridge hook — build once + lifecycle + run the component effects + `useSyncExternalStore`; returns `{ api, machine }`     |
+| `useMachine(config, connect, effects, props)` | the bridge hook — build once + lifecycle + component effects + subscribe; returns `{ api, machine }`                          |
 | `useSelector(machine, selector, isEqual?)`    | fine-grained subscription to a derived slice (`O(readers)`)                                                                   |
 | `normalize(bindings)`                         | agnostic bindings → DOM/ARIA props                                                                                            |
 | `mergeProps(consumer, library)`               | merge consumer + component props (handlers chained w/ `defaultPrevented` veto; `style`/`className` merged; else library wins) |
-| `ComponentEffect<M, P>`                       | `[ (machine, props) => cleanup, (keyof P)[] ]` — one substrate effect + its prop deps                                         |
-| `ComponentEffects<M, P>`                      | `ComponentEffect<M, P>[]` — a component's effect list (static module constant)                                                |
+| `ComponentEffect<M, P>`                       | `[ (machine, props) => cleanup, (keyof P)[] ]` — one platform effect + its prop deps; pass a static list of them              |
 | `Bindings`                                    | `Record<string, unknown>` — the loose shape `normalize` accepts                                                               |
