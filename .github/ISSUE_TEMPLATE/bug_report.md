@@ -17,7 +17,7 @@ run it, and see the bug with zero edits.
 
 ## Expected
 
-What you expected the machine to do.
+What you expected it to do.
 
 ## Actual
 
@@ -26,4 +26,3 @@ What it actually did.
 ## Version
 
 - `@dunky.dev/*` version:
-- Runtime (Node / Bun / browser) + version:
