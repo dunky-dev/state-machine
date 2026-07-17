@@ -116,7 +116,8 @@ with a tight, obvious scope.
 If the code says what it does, the comment is noise. Write comments to
 explain _why_: a hidden constraint, a subtle invariant, a workaround, a
 hard decision. Keep them short — over-explaining is its own kind of
-noise.
+noise. Don't restate a rule already in `ARCHITECTURE.md`; that
+duplication only drifts out of date — link it or leave it to the doc.
 
 ### Performance
 
