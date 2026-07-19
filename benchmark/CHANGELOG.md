@@ -1,5 +1,13 @@
 # benchmark
 
+## 0.1.3
+
+### Patch Changes
+
+- Updated dependencies [[`521440e`](https://github.com/dunky-dev/state-machine/commit/521440e452c9686ad871e00a15a5af3f771a6228), [`a37c088`](https://github.com/dunky-dev/state-machine/commit/a37c088a542e32857efcb1aef226d0ebf34e689d), [`58f9d7e`](https://github.com/dunky-dev/state-machine/commit/58f9d7e2c2dc8e432650fcfdb9ebf91bda50bb5f)]:
+  - @dunky.dev/react-state-machine@0.3.0
+  - @dunky.dev/state-machine@0.3.0
+
 ## 0.1.2
 
 ### Patch Changes
@@ -25,6 +33,7 @@
   The suite measures `@dunky.dev/state-machine`'s hot paths in isolation and compares the runnable parts against XState and Zag. It runs in one Node process with `--expose-gc` (Node 24, Apple Silicon for the published figures); each section is also exported as a `run*()` function for isolation.
 
   Fairness rules that define what the numbers mean:
+
   - **Synchronous-only comparison in ops/sec loops.** Dunky and XState `send` synchronously and are measured everywhere; Zag's `send` is microtask-batched (async), so it appears only where it runs synchronously — construction, memory (headless `VanillaMachine`), and React rendering (`@zag-js/react`). A tight `tinybench` loop can't fairly time an async engine, so those cells are marked `n/a ᵃ`. Missing first-class primitives (e.g. XState has no lazy/memoized `computed`) are marked `n/a ᶠ`.
   - **Shared module-level config across instances.** All engines reuse one `const` config — matching how a real app declares a machine once and instantiates it many times — so construction/memory loops time machine construction, not config-literal allocation.
   - **Two XState variants** in fine-grain tables: `xstate` (subscribe + hand-written value diff, matching Dunky's built-in dedup) and `xstate-raw` (stock subscribe, fires on every snapshot).

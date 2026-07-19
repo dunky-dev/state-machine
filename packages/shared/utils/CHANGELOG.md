@@ -1,5 +1,25 @@
 # @dunky.dev/state-machine-utils
 
+## 0.3.0
+
+### Minor Changes
+
+- [#51](https://github.com/dunky-dev/state-machine/pull/51) [`a37c088`](https://github.com/dunky-dev/state-machine/commit/a37c088a542e32857efcb1aef226d0ebf34e689d) Thanks [@ivanbanov](https://github.com/ivanbanov)! - `mergeProps` is generic over the consumer's props: a framework prop type (an
+  interface without an index signature — `PressableProps`, `ComponentProps<'div'>`)
+  now passes in and comes back out cast-free. Behavior is unchanged; the merged
+  bag still carries the library's bindings, typed as the consumer's props (the
+  `Object.assign` convention), so the JSX spread stays clean.
+
+  ```tsx
+  // before
+  const merged = mergeProps(
+    props as Record<string, unknown>,
+    bindings
+  ) as PressableProps;
+  // after
+  const merged = mergeProps(props, bindings);
+  ```
+
 ## 0.2.0
 
 ## 0.1.0
@@ -19,15 +39,15 @@
   **⚡️ Blazing fast.** Design systems and complex UIs can run hundreds of live machines at once. Dunky is tuned for exactly that load. [See the benchmark →](https://github.com/dunky-dev/state-machine/tree/main/benchmark#readme)
 
   ```ts
-  import { setup } from '@dunky.dev/state-machine'
+  import { setup } from "@dunky.dev/state-machine";
 
   const toggle = setup({
-    initial: 'off',
+    initial: "off",
     states: {
-      off: { on: { TOGGLE: 'on' } },
-      on: { on: { TOGGLE: 'off' } },
+      off: { on: { TOGGLE: "on" } },
+      on: { on: { TOGGLE: "off" } },
     },
-  })
+  });
   ```
 
   This is our first public release (`0.1.0`). The engine is stable and tested; the target bridges are early and evolving. Come kick the tires, watch the live benchmark, and tell us where it breaks.
