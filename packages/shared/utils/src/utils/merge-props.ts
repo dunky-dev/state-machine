@@ -18,12 +18,19 @@ function compose(consumer: AnyHandler, library: AnyHandler): AnyHandler {
   }
 }
 
-export function mergeProps(consumer: AnyProps | undefined, library: AnyProps): AnyProps {
-  if (!consumer) return library
-  const out: AnyProps = { ...consumer }
+// Generic over the consumer's props so framework prop types (interfaces
+// without an index signature) pass in and come back out cast-free. The return
+// is the Object.assign-style intersection: assignable to the consumer's props
+// (the JSX spread needs no cast) while the library's bindings stay reachable.
+export function mergeProps<Props extends object = AnyProps>(
+  consumer: Props | undefined,
+  library: AnyProps,
+): Props & AnyProps {
+  if (!consumer) return library as Props & AnyProps
+  const out: AnyProps = { ...(consumer as AnyProps) }
 
   for (const [key, libValue] of Object.entries(library)) {
-    const consumerValue = consumer[key]
+    const consumerValue = (consumer as AnyProps)[key]
 
     if (isEventHandlerKey(key) && isFn(consumerValue) && isFn(libValue)) {
       out[key] = compose(consumerValue, libValue)
@@ -34,5 +41,5 @@ export function mergeProps(consumer: AnyProps | undefined, library: AnyProps): A
     out[key] = libValue
   }
 
-  return out
+  return out as Props & AnyProps
 }
