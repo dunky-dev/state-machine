@@ -4,17 +4,20 @@ type AnyProps = Record<string, unknown>
 
 // OpenTUI style is a plain object (not array-mergeable like RN), so overlapping styles spread
 // into one object with library winning on conflicts. No className in a terminal.
-export function mergeProps(consumer: AnyProps | undefined, library: AnyProps): AnyProps {
-  const merged = baseMergeProps(consumer, library)
-  if (!consumer) return merged
+export function mergeProps<Props extends object = AnyProps>(
+  consumer: Props | undefined,
+  library: AnyProps,
+): Props & AnyProps {
+  const merged: AnyProps = baseMergeProps(consumer as AnyProps | undefined, library)
+  if (!consumer) return merged as Props & AnyProps
 
-  const consumerStyle = consumer.style
+  const consumerStyle = (consumer as AnyProps).style
   const libraryStyle = library.style
   if (isStyleObject(consumerStyle) && isStyleObject(libraryStyle)) {
     merged.style = { ...consumerStyle, ...libraryStyle }
   }
 
-  return merged
+  return merged as Props & AnyProps
 }
 
 function isStyleObject(value: unknown): value is Record<string, unknown> {
