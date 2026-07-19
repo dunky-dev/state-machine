@@ -1,10 +1,76 @@
 # @dunky.dev/opentui-state-machine
 
+## 0.3.0
+
+### Minor Changes
+
+- [#51](https://github.com/dunky-dev/state-machine/pull/51) [`a37c088`](https://github.com/dunky-dev/state-machine/commit/a37c088a542e32857efcb1aef226d0ebf34e689d) Thanks [@ivanbanov](https://github.com/ivanbanov)! - `mergeProps` is generic over the consumer's props: a framework prop type (an
+  interface without an index signature — `PressableProps`, `ComponentProps<'div'>`)
+  now passes in and comes back out cast-free. Behavior is unchanged; the merged
+  bag still carries the library's bindings, typed as the consumer's props (the
+  `Object.assign` convention), so the JSX spread stays clean.
+
+  ```tsx
+  // before
+  const merged = mergeProps(
+    props as Record<string, unknown>,
+    bindings
+  ) as PressableProps;
+  // after
+  const merged = mergeProps(props, bindings);
+  ```
+
+- [#43](https://github.com/dunky-dev/state-machine/pull/43) [`58f9d7e`](https://github.com/dunky-dev/state-machine/commit/58f9d7e2c2dc8e432650fcfdb9ebf91bda50bb5f) Thanks [@ivanbanov](https://github.com/ivanbanov)! - Rename the framework adapters back to a `*-state-machine` substrate-prefix convention.
+
+  We tried the `state-machine-*` suffix convention (see the previous rename) to
+  keep the whole `@dunky.dev/*` scope alphabetically consistent. In practice it
+  proved ergonomically wrong once you picture it scaled to more than one
+  package family:
+
+  ```
+  suffix (tried):        prefix (this change):
+  button-react            react-button
+  dropdown-react          react-dropdown
+  state-machine-react     react-state-machine
+  ```
+
+  Picture browsing npm under `@dunky.dev/react-*` — every React package for
+  this scope, together, in one look. That's the whole point of an org scope:
+  someone building a React app should be able to find everything React-related
+  under `@dunky.dev/react-*`. The suffix form breaks that; `button-react`,
+  `dropdown-react`, and `state-machine-react` don't show up together anywhere,
+  because "react" isn't what they're named _by_.
+
+  It reads backwards at the import site too —
+  `import { useMachine } from '@dunky.dev/state-machine-react'` names the
+  library before the framework, when every other adapter a React codebase
+  imports (`react-redux`, `react-query`, `react-hook-form`) names the framework
+  first.
+
+  - `@dunky.dev/state-machine-react` → `@dunky.dev/react-state-machine`
+  - `@dunky.dev/state-machine-native` → `@dunky.dev/native-state-machine`
+  - `@dunky.dev/state-machine-opentui` → `@dunky.dev/opentui-state-machine`
+
+  The previous suffix-named packages are deprecated on npm in favor of these.
+
+  ```diff
+  - import { useMachine } from '@dunky.dev/state-machine-react'
+  + import { useMachine } from '@dunky.dev/react-state-machine'
+  ```
+
+  `@dunky.dev/state-machine` (core), `@dunky.dev/state-machine-utils`, and `@dunky.dev/state-machine-bindings` are unchanged — they aren't tied to one substrate, so the prefix convention doesn't apply to them.
+
+### Patch Changes
+
+- Updated dependencies [[`a37c088`](https://github.com/dunky-dev/state-machine/commit/a37c088a542e32857efcb1aef226d0ebf34e689d)]:
+  - @dunky.dev/state-machine-utils@0.3.0
+
 ## 0.2.0
 
 ### Minor Changes
 
 - [`d0e20a5`](https://github.com/dunky-dev/state-machine/commit/d0e20a5ac3ca953c923e05819034e420394af83b) Thanks [@ivanbanov](https://github.com/ivanbanov)! - Rename the framework adapters to the `state-machine-*` suffix convention so the whole scope is consistent (`state-machine`, `state-machine-react`, `state-machine-native`, `state-machine-opentui`, `state-machine-utils`, `state-machine-bindings`).
+
   - `@dunky.dev/react-state-machine` → `@dunky.dev/state-machine-react`
   - `@dunky.dev/native-state-machine` → `@dunky.dev/state-machine-native`
   - `@dunky.dev/opentui-state-machine` → `@dunky.dev/state-machine-opentui`
@@ -33,15 +99,15 @@
   **⚡️ Blazing fast.** Design systems and complex UIs can run hundreds of live machines at once. Dunky is tuned for exactly that load. [See the benchmark →](https://github.com/dunky-dev/state-machine/tree/main/benchmark#readme)
 
   ```ts
-  import { setup } from '@dunky.dev/state-machine'
+  import { setup } from "@dunky.dev/state-machine";
 
   const toggle = setup({
-    initial: 'off',
+    initial: "off",
     states: {
-      off: { on: { TOGGLE: 'on' } },
-      on: { on: { TOGGLE: 'off' } },
+      off: { on: { TOGGLE: "on" } },
+      on: { on: { TOGGLE: "off" } },
     },
-  })
+  });
   ```
 
   This is our first public release (`0.1.0`). The engine is stable and tested; the target bridges are early and evolving. Come kick the tires, watch the live benchmark, and tell us where it breaks.
