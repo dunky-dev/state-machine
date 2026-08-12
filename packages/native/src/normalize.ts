@@ -26,10 +26,12 @@
  * - `onPress` keeps its name; `onPointerDown`/`onPointerUp` → `onPressIn`/`onPressOut`.
  * - No hover — pointer move/enter/leave/cancel are dropped.
  * - `onContextMenu` → `onLongPress`; `onDoublePress`/`onWheel` dropped (no RN analog).
- * - `expanded`/`selected`/`disabled`/`hidden`/`checked`/`busy` fold into `accessibilityState`.
+ * - `expanded`/`selected`/`disabled`/`checked`/`busy` fold into `accessibilityState`.
+ * - `hidden` → `aria-hidden`: the web-aligned alias RN fans out per platform.
  * - `valueMin`/`valueMax`/`valueNow`/`valueText` fold into `accessibilityValue`.
  * - `live` → `accessibilityLiveRegion`; `'off'` → `'none'`.
- * - `controls`/`hasPopup`/`modal` and most ARIA-only attrs are dropped.
+ * - `controls`/`hasPopup`/`modal`/`describedBy` and most ARIA-only attrs are
+ *   dropped (`describedBy`: RN has no describe-by-reference slot).
  * - `role` passes through unchanged: RN's web-aligned `role` prop takes the
  *   full ARIA vocabulary and degrades gracefully, while the legacy
  *   `accessibilityRole` enum throws natively on Android for values outside
@@ -62,18 +64,23 @@ const HANDLER_DROP = new Set([
 
 const ATTR_MAP: Record<string, string> = {
   // Android-only (iOS has no id-reference labelling); the setter takes a
-  // nativeID string or an array (first element wins). Both logical keys target
-  // the one RN slot, so a part emitting both collides — last key iterated wins.
-  describedBy: 'accessibilityLabelledBy',
+  // nativeID string or an array (first element wins).
   labelledBy: 'accessibilityLabelledBy',
   id: 'nativeID',
   label: 'accessibilityLabel',
+  // The web-aligned alias, not the legacy pair: RN's own components fan it out
+  // per platform (accessibilityElementsHidden on iOS, no-hide-descendants on
+  // Android) — accessibilityState has no hidden slot.
+  hidden: 'aria-hidden',
   // `role` is deliberately absent — it passes through as RN's `role` prop.
   // `live` needs a value transform ('off' → 'none'), handled inline in normalize().
 }
 
-// No clean RN analog — stripped.
+// No clean RN analog — stripped. `describedBy` included: RN has no
+// describe-by-reference slot (no aria-describedby); routing it into the
+// label slot would misname the element and clobber labelledBy.
 const ATTR_DROP = new Set([
+  'describedBy',
   'controls',
   'hasPopup',
   'modal',
@@ -102,8 +109,8 @@ const ATTR_DROP = new Set([
   'atomic',
 ])
 
-// RN's accessibilityState slots.
-const A11Y_STATE_KEYS = new Set(['disabled', 'expanded', 'selected', 'hidden', 'checked', 'busy'])
+// RN's accessibilityState slots — exactly these; anything else is stored and ignored.
+const A11Y_STATE_KEYS = new Set(['disabled', 'expanded', 'selected', 'checked', 'busy'])
 
 // Logical key → RN's accessibilityValue sub-key (`{ min, max, now, text }`).
 const A11Y_VALUE_KEYS: Record<string, string> = {
