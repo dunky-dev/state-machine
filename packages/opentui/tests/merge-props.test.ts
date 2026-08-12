@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { mergeProps } from '@dunky.dev/opentui-state-machine'
 
 describe('mergeProps', () => {
@@ -35,5 +35,18 @@ describe('mergeProps', () => {
   it('does not invent a className branch (terminal has no className)', () => {
     const out = mergeProps({ className: 'a' }, { className: 'b' })
     expect(out.className).toBe('b')
+  })
+})
+
+describe('mergeProps typing', () => {
+  it('preserves a typed consumer through the style merge', () => {
+    interface BoxLikeProps {
+      style?: unknown
+      focusable?: boolean
+    }
+    const consumer: BoxLikeProps = { style: { fg: 'red', padding: 2 } }
+    const out = mergeProps(consumer, { style: { fg: 'blue' } })
+    expectTypeOf(out).toExtend<BoxLikeProps>()
+    expect(out.style).toEqual({ fg: 'blue', padding: 2 })
   })
 })

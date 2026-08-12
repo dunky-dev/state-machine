@@ -106,6 +106,8 @@ and focus (`focusable` → `tabIndex`). [Check out the full mapping here](https:
 When a consumer spreads their own props onto the same element the component controls:
 
 ```tsx
+import { mergeProps, normalize } from '@dunky.dev/react-state-machine'
+
 <button {...mergeProps(props, normalize(api.triggerProps))}>
 ```
 

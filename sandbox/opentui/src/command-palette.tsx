@@ -1,4 +1,5 @@
 import { useKeyboard } from '@opentui/react'
+import type { KeyEvent } from '@opentui/core'
 // The opentui package is framework-agnostic — it ships only the prop translator.
 // The lifecycle hook comes from the React binding (OpenTUI renders via a React
 // reconciler), exactly as the opentui package's docs prescribe: bring your own
@@ -7,9 +8,47 @@ import { useMachine } from '@dunky.dev/react-state-machine'
 import { normalize } from '@dunky.dev/opentui-state-machine'
 import {
   commandPaletteMachineConfig,
+  type CommandPaletteMachine,
   type CommandPaletteProps,
   connectCommandPalette,
 } from '@sandbox/cmdk-core'
+
+// Terminal key handling is global (no per-element focus model like the DOM), and
+// it can't be a ComponentEffect: OpenTUI's keyboard hangs off the renderer, which
+// lives in React context, out of reach of an effect tuple. Keep the effect
+// discipline anyway — a module-level factory fed to useKeyboard. It sends the same
+// logical `move`/`execute`/`close` events the DOM input's onKeyDown sends. The
+// machine can't tell the difference.
+const paletteKeys = (machine: CommandPaletteMachine) => (key: KeyEvent) => {
+  const open = machine.matches('open')
+  // Ctrl+K toggles. `super` covers the rare terminal that forwards Cmd via the
+  // Kitty protocol (it lands on `super`, not `meta` — meta is Alt/Option).
+  if (key.name === 'k' && (key.ctrl || key.super)) {
+    machine.send({ type: open ? 'close' : 'open' })
+    return
+  }
+  if (!open) return
+  switch (key.name) {
+    case 'down':
+      machine.send({ type: 'move', to: 'down' })
+      break
+    case 'up':
+      machine.send({ type: 'move', to: 'up' })
+      break
+    case 'home':
+      machine.send({ type: 'move', to: 'first' })
+      break
+    case 'end':
+      machine.send({ type: 'move', to: 'last' })
+      break
+    case 'return':
+      machine.send({ type: 'execute' })
+      break
+    case 'escape':
+      machine.send({ type: 'close' })
+      break
+  }
+}
 
 // The TERMINAL renderer. Identical wiring to the DOM version — `useMachine` runs
 // the SAME shared machine, `connect` produces the SAME logical bindings — only
@@ -21,39 +60,7 @@ export function CommandPalette(props: CommandPaletteProps) {
   // Starts closed — press Ctrl+K to open. (⌘K can't be used in a terminal:
   // macOS/Ghostty don't forward Cmd to the program — Cmd is an app/OS modifier —
   // so terminal palettes use Ctrl+K, exactly like fzf / lazygit.)
-
-  // Terminal key handling is global (no per-element focus model like the DOM), so
-  // navigation goes through useKeyboard → the same logical `move`/`execute`/`close`
-  // events the DOM input's onKeyDown sends. The machine can't tell the difference.
-  useKeyboard(key => {
-    // Ctrl+K toggles. `super` covers the rare terminal that forwards Cmd via the
-    // Kitty protocol (it lands on `super`, not `meta` — meta is Alt/Option).
-    if (key.name === 'k' && (key.ctrl || key.super)) {
-      machine.send({ type: api.open ? 'close' : 'open' })
-      return
-    }
-    if (!api.open) return
-    switch (key.name) {
-      case 'down':
-        machine.send({ type: 'move', to: 'down' })
-        break
-      case 'up':
-        machine.send({ type: 'move', to: 'up' })
-        break
-      case 'home':
-        machine.send({ type: 'move', to: 'first' })
-        break
-      case 'end':
-        machine.send({ type: 'move', to: 'last' })
-        break
-      case 'return':
-        machine.send({ type: 'execute' })
-        break
-      case 'escape':
-        machine.send({ type: 'close' })
-        break
-    }
-  })
+  useKeyboard(paletteKeys(machine))
 
   if (!api.open) {
     // A bare <text> (no wrapping box) so the parent column centers it exactly like

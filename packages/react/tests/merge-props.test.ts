@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { mergeProps } from '@dunky.dev/react-state-machine'
 
 describe('mergeProps', () => {
@@ -51,5 +51,19 @@ describe('mergeProps', () => {
     // consumer.className is unset; library's wins as a plain key.
     const out = mergeProps({ id: 'a' }, { className: 'x' })
     expect(out.className).toBe('x')
+  })
+})
+
+describe('mergeProps typing', () => {
+  it('preserves a typed consumer through the style merge', () => {
+    interface ButtonLikeProps {
+      style?: unknown
+      className?: string
+      onClick?: () => void
+    }
+    const consumer: ButtonLikeProps = { style: { color: 'red' } }
+    const out = mergeProps(consumer, { style: { color: 'blue' } })
+    expectTypeOf(out).toExtend<ButtonLikeProps>()
+    expect(out.style).toEqual([{ color: 'red' }, { color: 'blue' }])
   })
 })
