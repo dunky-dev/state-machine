@@ -1,5 +1,13 @@
 # @dunky.dev/react-state-machine
 
+## 0.3.1
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @dunky.dev/state-machine@0.3.1
+  - @dunky.dev/state-machine-utils@0.3.1
+
 ## 0.3.0
 
 ### Minor Changes
