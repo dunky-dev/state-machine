@@ -1,5 +1,39 @@
 # @dunky.dev/native-state-machine
 
+## 0.3.1
+
+### Patch Changes
+
+- [#54](https://github.com/dunky-dev/state-machine/pull/54) [`2b5bac0`](https://github.com/dunky-dev/state-machine/commit/2b5bac01db11c6887fbff4154ba47617e6d76e1a) Thanks [@ivanbanov](https://github.com/ivanbanov)! - `normalize` fixes two accessibility translations that silently misfired:
+
+  - `hidden` now maps to RN's web-aligned `aria-hidden` instead of folding into `accessibilityState` — which has no `hidden` slot, so the value was stored and ignored. `aria-hidden` is fanned out per platform by RN itself (`accessibilityElementsHidden` on iOS, `importantForAccessibility: 'no-hide-descendants'` on Android).
+  - `describedBy` is now dropped. RN has no describe-by-reference slot (there is no `aria-describedby`); the old mapping routed it into `accessibilityLabelledBy`, which misnamed the element and clobbered `labelledBy` whenever a part emitted both — a dialog's content was announced by its description instead of its title.
+
+  ```ts
+  normalize({ hidden: true });
+  // before: { accessibilityState: { hidden: true } }  -> ignored by RN
+  // after:  { 'aria-hidden': true }
+
+  normalize({ labelledBy: "title", describedBy: "desc" });
+  // before: { accessibilityLabelledBy: 'desc' }  -> named by its description
+  // after:  { accessibilityLabelledBy: 'title' }
+  ```
+
+- [#54](https://github.com/dunky-dev/state-machine/pull/54) [`2b5bac0`](https://github.com/dunky-dev/state-machine/commit/2b5bac01db11c6887fbff4154ba47617e6d76e1a) Thanks [@ivanbanov](https://github.com/ivanbanov)! - `normalize` now passes `role` through to React Native's web-aligned `role` prop instead of mapping it to the legacy `accessibilityRole`.
+
+  `accessibilityRole` takes a narrow enum that Android validates in native code — any ARIA role outside it (e.g. `dialog`, emitted by the dialog machine) crashed on device with `Invalid accessibility role value`. The `role` prop (RN 0.71+) accepts the full ARIA vocabulary, takes precedence over `accessibilityRole`, and degrades gracefully for roles a platform can't map.
+
+  ```ts
+  normalize({ role: "dialog" });
+  // before: { accessibilityRole: 'dialog' }  -> native crash on Android
+  // after:  { role: 'dialog' }
+  ```
+
+- Updated dependencies []:
+  - @dunky.dev/state-machine@0.3.1
+  - @dunky.dev/react-state-machine@0.3.1
+  - @dunky.dev/state-machine-utils@0.3.1
+
 ## 0.3.0
 
 ### Minor Changes
