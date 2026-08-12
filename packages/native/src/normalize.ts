@@ -1,6 +1,27 @@
 /**
  * Translate the machine layer's logical surface to React Native props.
  *
+ * How the maps are set up — and where each side comes from:
+ * - Input keys are the substrate-agnostic vocabulary a connect() emits:
+ *   `EventBindings` / `AttrBindings` in `@dunky.dev/state-machine-bindings`.
+ *   Every vocabulary key must be accounted for here — mapped, folded, or
+ *   deliberately dropped; an unlisted key would leak to the host untranslated.
+ * - Output keys are verified against RN's own vendored source, not its docs:
+ *   - `ReactAndroid/.../uimanager/BaseViewManager.java` — the `@ReactProp`
+ *     setters: which view props exist on Android and how each validates.
+ *   - `ReactAndroid/.../uimanager/ReactAccessibilityDelegate.kt` — `Role`
+ *     (web-aligned; unknown values resolve to null and degrade) vs
+ *     `AccessibilityRole` (legacy enum whose `fromValue` throws natively on
+ *     unknown values — never target it).
+ *   - `Libraries/Components/View/ViewAccessibility.d.ts` — the accessibility
+ *     prop surface; `AccessibilityState` has exactly the disabled / selected /
+ *     checked / busy / expanded slots.
+ *   - `React/Views/RCTViewManager.m` — the iOS side; values go through
+ *     RCTConvert, which defaults instead of throwing.
+ * - Rule for new mappings: only target props whose native setters degrade
+ *   gracefully on values they don't recognize — Android setters that throw
+ *   crash the whole surface at mount, before JS can catch anything.
+ *
  * Notable differences from the DOM normalizer:
  * - `onPress` keeps its name; `onPointerDown`/`onPointerUp` → `onPressIn`/`onPressOut`.
  * - No hover — pointer move/enter/leave/cancel are dropped.
@@ -40,6 +61,9 @@ const HANDLER_DROP = new Set([
 ])
 
 const ATTR_MAP: Record<string, string> = {
+  // Android-only (iOS has no id-reference labelling); the setter takes a
+  // nativeID string or an array (first element wins). Both logical keys target
+  // the one RN slot, so a part emitting both collides — last key iterated wins.
   describedBy: 'accessibilityLabelledBy',
   labelledBy: 'accessibilityLabelledBy',
   id: 'nativeID',
