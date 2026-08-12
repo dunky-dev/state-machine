@@ -1,5 +1,25 @@
 # @dunky.dev/opentui-state-machine
 
+## 0.3.2
+
+### Patch Changes
+
+- [#52](https://github.com/dunky-dev/state-machine/pull/52) [`d484b22`](https://github.com/dunky-dev/state-machine/commit/d484b22cef8bd12cd14549d63729a5f66c402298) Thanks [@ivanbanov](https://github.com/ivanbanov)! - Ship a README and a LICENSE file with the package. The npm page was blank and
+  the package declared `"license": "MIT"` with no license text alongside — both
+  now match the react and native packages: the README mirrors their structure
+  (quick start, `normalize` and `mergeProps` reference, API table) and documents
+  the bring-your-own-lifecycle model, including the module-level, prop-gated
+  keyboard-handler pattern that stands in for `ComponentEffect` on a terminal.
+
+- [#53](https://github.com/dunky-dev/state-machine/pull/53) [`ff68b45`](https://github.com/dunky-dev/state-machine/commit/ff68b45343293a5f11bba6b032a6f89edf64c83e) Thanks [@ivanbanov](https://github.com/ivanbanov)! - Ship the `src` folder in the published packages, alongside `dist`. The
+  READMEs point at source files for the full binding mappings (e.g.
+  `./src/normalize.ts`), and those links were dead on the npm page because
+  only `dist` was published. The sources are small, plain TypeScript, so the
+  readable reference now travels with the package; the build outputs and the
+  `exports` map are unchanged.
+- Updated dependencies [[`ff68b45`](https://github.com/dunky-dev/state-machine/commit/ff68b45343293a5f11bba6b032a6f89edf64c83e)]:
+  - @dunky.dev/state-machine-utils@0.3.2
+
 ## 0.3.1
 
 ### Patch Changes

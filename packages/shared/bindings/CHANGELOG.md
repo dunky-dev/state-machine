@@ -1,5 +1,16 @@
 # @dunky.dev/state-machine-bindings
 
+## 0.3.2
+
+### Patch Changes
+
+- [#53](https://github.com/dunky-dev/state-machine/pull/53) [`ff68b45`](https://github.com/dunky-dev/state-machine/commit/ff68b45343293a5f11bba6b032a6f89edf64c83e) Thanks [@ivanbanov](https://github.com/ivanbanov)! - Ship the `src` folder in the published packages, alongside `dist`. The
+  READMEs point at source files for the full binding mappings (e.g.
+  `./src/normalize.ts`), and those links were dead on the npm page because
+  only `dist` was published. The sources are small, plain TypeScript, so the
+  readable reference now travels with the package; the build outputs and the
+  `exports` map are unchanged.
+
 ## 0.3.1
 
 ## 0.3.0
