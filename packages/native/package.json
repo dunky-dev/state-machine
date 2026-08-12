@@ -8,7 +8,8 @@
     "directory": "packages/native"
   },
   "files": [
-    "dist"
+    "dist",
+    "src"
   ],
   "type": "module",
   "sideEffects": false,
