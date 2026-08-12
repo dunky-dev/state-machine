@@ -91,7 +91,7 @@ What happened:
 - `useMachine` built the machine and connector **once** (the first render's
   props seeded the initial state), started it on mount, stops it on unmount.
 - The component re-renders only when the `connect()` output actually changes.
-- `normalize` turned `role` / `expanded` into `accessibilityRole` /
+- `normalize` turned `role` / `expanded` into `role` /
   `accessibilityState.expanded` — the **same** config and `connect` drive the
   web through the react package's `normalize`. Only this edge differs.
 
@@ -142,12 +142,12 @@ into React Native's prop vocabulary:
 
 ```ts
 const rnProps = normalize(api.triggerProps)
-// { onPress, accessibilityRole, accessibilityState: { expanded }, ... }
+// { onPress, role, accessibilityState: { expanded }, ... }
 ```
 
 The machine binding maps handlers (`onPress` → `onPress`, `onPointerDown` →
 `onPressIn`, `onContextMenu` → `onLongPress`), accessibility props
-(`labelledBy` → `accessibilityLabelledBy`, `role` → `accessibilityRole`,
+(`labelledBy` → `accessibilityLabelledBy`, `role` → `role`,
 `id` → `nativeID`), and accessibility state (`expanded` / `checked` / … fold
 into `accessibilityState`, `valueMin/Max/Now/Text` into `accessibilityValue`).
 [Check out the full mapping here](./src/normalize.ts).

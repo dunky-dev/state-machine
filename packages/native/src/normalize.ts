@@ -9,6 +9,10 @@
  * - `valueMin`/`valueMax`/`valueNow`/`valueText` fold into `accessibilityValue`.
  * - `live` → `accessibilityLiveRegion`; `'off'` → `'none'`.
  * - `controls`/`hasPopup`/`modal` and most ARIA-only attrs are dropped.
+ * - `role` passes through unchanged: RN's web-aligned `role` prop takes the
+ *   full ARIA vocabulary and degrades gracefully, while the legacy
+ *   `accessibilityRole` enum throws natively on Android for values outside
+ *   it (e.g. 'dialog').
  */
 
 const HANDLER_MAP: Record<string, string> = {
@@ -38,9 +42,9 @@ const HANDLER_DROP = new Set([
 const ATTR_MAP: Record<string, string> = {
   describedBy: 'accessibilityLabelledBy',
   labelledBy: 'accessibilityLabelledBy',
-  role: 'accessibilityRole',
   id: 'nativeID',
   label: 'accessibilityLabel',
+  // `role` is deliberately absent — it passes through as RN's `role` prop.
   // `live` needs a value transform ('off' → 'none'), handled inline in normalize().
 }
 

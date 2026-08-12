@@ -7,8 +7,8 @@
  *   - Keyboard handlers (onKeyDown/onKeyUp) are dropped (RN has no DOM keys).
  *   - a11y state (disabled/expanded/selected/hidden) folds into
  *     accessibilityState.
- *   - role → accessibilityRole, describedBy/labelledBy →
- *     accessibilityLabelledBy, id → nativeID.
+ *   - role passes through to RN's web-aligned `role` prop,
+ *     describedBy/labelledBy → accessibilityLabelledBy, id → nativeID.
  */
 import { describe, expect, it, vi } from 'vitest'
 import { normalize } from '@dunky.dev/native-state-machine'
@@ -51,8 +51,11 @@ describe('native normalize — handlers', () => {
 })
 
 describe('native normalize — attributes', () => {
-  it('maps role to accessibilityRole', () => {
-    expect(normalize({ role: 'menu' })).toEqual({ accessibilityRole: 'menu' })
+  it('passes role through to the web-aligned role prop, not accessibilityRole', () => {
+    // accessibilityRole is RN's legacy enum — Android throws natively on ARIA
+    // values outside it (e.g. 'dialog'); the role prop takes the full ARIA
+    // vocabulary and degrades gracefully.
+    expect(normalize({ role: 'dialog' })).toEqual({ role: 'dialog' })
   })
 
   it('maps describedBy and labelledBy to accessibilityLabelledBy', () => {
@@ -120,7 +123,7 @@ describe('native normalize — combined surface (tooltip content shape)', () => 
     })
     expect(out).toEqual({
       nativeID: 'tooltip:1:content',
-      accessibilityRole: 'tooltip',
+      role: 'tooltip',
       'data-state': 'delayed-open',
       'data-side': 'bottom',
     })
@@ -283,7 +286,7 @@ describe('native normalize — realistic slider shape', () => {
       onValueChange,
     })
     expect(out).toMatchObject({
-      accessibilityRole: 'slider',
+      role: 'slider',
       accessibilityLabel: 'Volume',
       accessibilityValue: { min: 0, max: 100, now: 40, text: '40%' },
       accessibilityState: { disabled: false },
