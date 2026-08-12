@@ -5,10 +5,11 @@
  * Native props. It encodes the RN-specific divergences the SPECs call out:
  *   - No hover model → pointer-move/enter/leave handlers are dropped.
  *   - Keyboard handlers (onKeyDown/onKeyUp) are dropped (RN has no DOM keys).
- *   - a11y state (disabled/expanded/selected/hidden) folds into
- *     accessibilityState.
- *   - role → accessibilityRole, describedBy/labelledBy →
- *     accessibilityLabelledBy, id → nativeID.
+ *   - a11y state (disabled/expanded/selected) folds into accessibilityState;
+ *     hidden → aria-hidden (RN fans it out per platform).
+ *   - role passes through to RN's web-aligned `role` prop,
+ *     labelledBy → accessibilityLabelledBy (describedBy dropped — no RN
+ *     describe-by-reference slot), id → nativeID.
  */
 import { describe, expect, it, vi } from 'vitest'
 import { normalize } from '@dunky.dev/native-state-machine'
@@ -51,15 +52,21 @@ describe('native normalize — handlers', () => {
 })
 
 describe('native normalize — attributes', () => {
-  it('maps role to accessibilityRole', () => {
-    expect(normalize({ role: 'menu' })).toEqual({ accessibilityRole: 'menu' })
+  it('passes role through to the web-aligned role prop, not accessibilityRole', () => {
+    // accessibilityRole is RN's legacy enum — Android throws natively on ARIA
+    // values outside it (e.g. 'dialog'); the role prop takes the full ARIA
+    // vocabulary and degrades gracefully.
+    expect(normalize({ role: 'dialog' })).toEqual({ role: 'dialog' })
   })
 
-  it('maps describedBy and labelledBy to accessibilityLabelledBy', () => {
-    expect(normalize({ describedBy: 'x' })).toEqual({
-      accessibilityLabelledBy: 'x',
-    })
+  it('maps labelledBy to accessibilityLabelledBy and drops describedBy', () => {
+    // RN has no describe-by-reference slot (no aria-describedby); routing
+    // describedBy into the label slot would misname the element and clobber
+    // labelledBy when a part emits both (dialog content does).
     expect(normalize({ labelledBy: 'y' })).toEqual({
+      accessibilityLabelledBy: 'y',
+    })
+    expect(normalize({ labelledBy: 'y', describedBy: 'x' })).toEqual({
       accessibilityLabelledBy: 'y',
     })
   })
@@ -70,21 +77,26 @@ describe('native normalize — attributes', () => {
     })
   })
 
-  it('folds disabled/expanded/selected/hidden into accessibilityState', () => {
+  it('folds disabled/expanded/selected into accessibilityState', () => {
     const out = normalize({
       disabled: true,
       expanded: false,
       selected: true,
-      hidden: false,
     })
     expect(out).toEqual({
       accessibilityState: {
         disabled: true,
         expanded: false,
         selected: true,
-        hidden: false,
       },
     })
+  })
+
+  it('maps hidden to aria-hidden, not accessibilityState', () => {
+    // accessibilityState has no hidden slot — the key would be stored and
+    // ignored. aria-hidden fans out per platform inside RN's View
+    // (accessibilityElementsHidden on iOS, no-hide-descendants on Android).
+    expect(normalize({ hidden: true })).toEqual({ 'aria-hidden': true })
   })
 
   it('omits accessibilityState entirely when no a11y-state keys are present', () => {
@@ -120,7 +132,7 @@ describe('native normalize — combined surface (tooltip content shape)', () => 
     })
     expect(out).toEqual({
       nativeID: 'tooltip:1:content',
-      accessibilityRole: 'tooltip',
+      role: 'tooltip',
       'data-state': 'delayed-open',
       'data-side': 'bottom',
     })
@@ -283,7 +295,7 @@ describe('native normalize — realistic slider shape', () => {
       onValueChange,
     })
     expect(out).toMatchObject({
-      accessibilityRole: 'slider',
+      role: 'slider',
       accessibilityLabel: 'Volume',
       accessibilityValue: { min: 0, max: 100, now: 40, text: '40%' },
       accessibilityState: { disabled: false },

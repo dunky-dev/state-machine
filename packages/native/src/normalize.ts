@@ -1,14 +1,41 @@
 /**
  * Translate the machine layer's logical surface to React Native props.
  *
+ * How the maps are set up — and where each side comes from:
+ * - Input keys are the substrate-agnostic vocabulary a connect() emits:
+ *   `EventBindings` / `AttrBindings` in `@dunky.dev/state-machine-bindings`.
+ *   Every vocabulary key must be accounted for here — mapped, folded, or
+ *   deliberately dropped; an unlisted key would leak to the host untranslated.
+ * - Output keys are verified against RN's own vendored source, not its docs:
+ *   - `ReactAndroid/.../uimanager/BaseViewManager.java` — the `@ReactProp`
+ *     setters: which view props exist on Android and how each validates.
+ *   - `ReactAndroid/.../uimanager/ReactAccessibilityDelegate.kt` — `Role`
+ *     (web-aligned; unknown values resolve to null and degrade) vs
+ *     `AccessibilityRole` (legacy enum whose `fromValue` throws natively on
+ *     unknown values — never target it).
+ *   - `Libraries/Components/View/ViewAccessibility.d.ts` — the accessibility
+ *     prop surface; `AccessibilityState` has exactly the disabled / selected /
+ *     checked / busy / expanded slots.
+ *   - `React/Views/RCTViewManager.m` — the iOS side; values go through
+ *     RCTConvert, which defaults instead of throwing.
+ * - Rule for new mappings: only target props whose native setters degrade
+ *   gracefully on values they don't recognize — Android setters that throw
+ *   crash the whole surface at mount, before JS can catch anything.
+ *
  * Notable differences from the DOM normalizer:
  * - `onPress` keeps its name; `onPointerDown`/`onPointerUp` → `onPressIn`/`onPressOut`.
  * - No hover — pointer move/enter/leave/cancel are dropped.
  * - `onContextMenu` → `onLongPress`; `onDoublePress`/`onWheel` dropped (no RN analog).
- * - `expanded`/`selected`/`disabled`/`hidden`/`checked`/`busy` fold into `accessibilityState`.
+ * - `expanded`/`selected`/`disabled`/`checked`/`busy` fold into `accessibilityState`.
+ * - `hidden` → `aria-hidden`: the web-aligned alias RN fans out per platform.
  * - `valueMin`/`valueMax`/`valueNow`/`valueText` fold into `accessibilityValue`.
  * - `live` → `accessibilityLiveRegion`; `'off'` → `'none'`.
- * - `controls`/`hasPopup`/`modal` and most ARIA-only attrs are dropped.
+ * - `controls`/`hasPopup`/`modal`/`describedBy` and most ARIA-only attrs are
+ *   dropped (`describedBy`: RN has no describe-by-reference slot).
+ * - `role` passes through unchanged: RN's web-aligned `role` prop takes the
+ *   full ARIA vocabulary and degrades gracefully, while the legacy
+ *   `accessibilityRole` enum throws natively on Android for values outside
+ *   it (e.g. 'dialog').
  */
 
 const HANDLER_MAP: Record<string, string> = {
@@ -36,16 +63,24 @@ const HANDLER_DROP = new Set([
 ])
 
 const ATTR_MAP: Record<string, string> = {
-  describedBy: 'accessibilityLabelledBy',
+  // Android-only (iOS has no id-reference labelling); the setter takes a
+  // nativeID string or an array (first element wins).
   labelledBy: 'accessibilityLabelledBy',
-  role: 'accessibilityRole',
   id: 'nativeID',
   label: 'accessibilityLabel',
+  // The web-aligned alias, not the legacy pair: RN's own components fan it out
+  // per platform (accessibilityElementsHidden on iOS, no-hide-descendants on
+  // Android) — accessibilityState has no hidden slot.
+  hidden: 'aria-hidden',
+  // `role` is deliberately absent — it passes through as RN's `role` prop.
   // `live` needs a value transform ('off' → 'none'), handled inline in normalize().
 }
 
-// No clean RN analog — stripped.
+// No clean RN analog — stripped. `describedBy` included: RN has no
+// describe-by-reference slot (no aria-describedby); routing it into the
+// label slot would misname the element and clobber labelledBy.
 const ATTR_DROP = new Set([
+  'describedBy',
   'controls',
   'hasPopup',
   'modal',
@@ -74,8 +109,8 @@ const ATTR_DROP = new Set([
   'atomic',
 ])
 
-// RN's accessibilityState slots.
-const A11Y_STATE_KEYS = new Set(['disabled', 'expanded', 'selected', 'hidden', 'checked', 'busy'])
+// RN's accessibilityState slots — exactly these; anything else is stored and ignored.
+const A11Y_STATE_KEYS = new Set(['disabled', 'expanded', 'selected', 'checked', 'busy'])
 
 // Logical key → RN's accessibilityValue sub-key (`{ min, max, now, text }`).
 const A11Y_VALUE_KEYS: Record<string, string> = {
