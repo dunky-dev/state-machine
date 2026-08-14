@@ -10,6 +10,7 @@
  * - `focusable` passes through as-is.
  */
 
+import { DROPPED_ATTRS, DROPPED_HANDLERS } from '@dunky.dev/state-machine-bindings'
 import type {
   AnyAttrTargets,
   AnyHandlerTargets,
@@ -17,9 +18,16 @@ import type {
   HandlerTargets,
 } from '@dunky.dev/state-machine-bindings'
 
-// The translation contract: every vocabulary key must appear — mapped or a
-// declared `null` drop — so a new binding fails here until this target decides.
+// The translation contract: the DROPPED_* spread declares everything a `null`
+// drop; the entries after it are what this target can express. `satisfies`
+// keeps the overrides typo-checked against the vocabulary.
+//
+// Dropped (via the spread) with intent, not just absence: `onFocus`/`onBlur` —
+// OpenTUI signals focus via the `focused` prop; `onScroll`/`onScrollEnd` —
+// scrollbox has no scroll-position callback; `onKeyUp` — terminals deliver
+// presses, not up/down.
 export const HANDLER_MAP: AnyHandlerTargets = {
+  ...DROPPED_HANDLERS,
   onPress: 'onMouseDown', // no synthetic click — a press is a button-down
   onPointerDown: 'onMouseDown',
   onPointerUp: 'onMouseUp',
@@ -29,66 +37,15 @@ export const HANDLER_MAP: AnyHandlerTargets = {
   onKeyDown: 'onKeyDown',
   onValueChange: 'onChange',
   onWheel: 'onMouseScroll',
-  // No OpenTUI analog — declared drops. `onFocus`/`onBlur`: OpenTUI signals
-  // focus via the `focused` prop. `onScroll`/`onScrollEnd`: scrollbox has no
-  // scroll-position callback. `onKeyUp`: terminals deliver presses, not up/down.
-  onPointerCancel: null,
-  onContextMenu: null,
-  onDoublePress: null,
-  onKeyUp: null,
-  onScroll: null,
-  onScrollEnd: null,
-  onFocus: null,
-  onBlur: null,
 } satisfies HandlerTargets
 
 export const ATTR_MAP: AnyAttrTargets = {
+  ...DROPPED_ATTRS, // no ARIA tree in a terminal — the whole vocabulary drops
   // Visual analogs, routed in normalize(): `hidden` inverts into `visible`,
   // `focusable` is coerced to boolean.
   hidden: 'visible',
   focusable: 'focusable',
   disabled: 'disabled',
-  // No ARIA tree in a terminal — the entire ARIA vocabulary is a declared drop.
-  id: null,
-  describedBy: null,
-  labelledBy: null,
-  controls: null,
-  expanded: null,
-  selected: null,
-  modal: null,
-  hasPopup: null,
-  role: null,
-  label: null,
-  checked: null,
-  pressed: null,
-  current: null,
-  busy: null,
-  invalid: null,
-  required: null,
-  readOnly: null,
-  activeDescendant: null,
-  errorMessage: null,
-  owns: null,
-  valueMin: null,
-  valueMax: null,
-  valueNow: null,
-  valueText: null,
-  orientation: null,
-  sort: null,
-  autoComplete: null,
-  multiline: null,
-  multiSelectable: null,
-  level: null,
-  posInSet: null,
-  setSize: null,
-  colCount: null,
-  colIndex: null,
-  colSpan: null,
-  rowCount: null,
-  rowIndex: null,
-  rowSpan: null,
-  live: null,
-  atomic: null,
 } satisfies AttrTargets
 
 // Adapters are variadic — <select>'s onChange fires `(index, option)`, not a single arg.

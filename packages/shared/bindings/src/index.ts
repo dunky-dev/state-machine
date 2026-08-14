@@ -258,3 +258,77 @@ export type AttrTargets = Record<AttrKey, string | null>
  */
 export type AnyHandlerTargets = Record<string, HandlerTargets[HandlerKey]>
 export type AnyAttrTargets = Record<string, AttrTargets[AttrKey]>
+
+/**
+ * The all-dropped ledgers: every vocabulary key declared `null`. A target that
+ * can't express most of the vocabulary spreads one and overrides what it does
+ * carry, instead of writing a wall of `null`s. The trade-off is deliberate:
+ * a spreading target inherits `null` for FUTURE vocabulary keys automatically —
+ * the compile error for a new key fires here (and in fully-explicit targets),
+ * so the drop-by-default decision is made once, next to the vocabulary.
+ */
+export const DROPPED_HANDLERS: HandlerTargets = {
+  onPress: null,
+  onPointerEnter: null,
+  onPointerLeave: null,
+  onPointerMove: null,
+  onPointerDown: null,
+  onPointerUp: null,
+  onPointerCancel: null,
+  onFocus: null,
+  onBlur: null,
+  onKeyDown: null,
+  onKeyUp: null,
+  onValueChange: null,
+  onContextMenu: null,
+  onDoublePress: null,
+  onWheel: null,
+  onScroll: null,
+  onScrollEnd: null,
+}
+
+export const DROPPED_ATTRS: AttrTargets = {
+  id: null,
+  describedBy: null,
+  labelledBy: null,
+  controls: null,
+  hasPopup: null,
+  expanded: null,
+  selected: null,
+  disabled: null,
+  hidden: null,
+  modal: null,
+  focusable: null,
+  role: null,
+  label: null,
+  checked: null,
+  pressed: null,
+  current: null,
+  busy: null,
+  invalid: null,
+  required: null,
+  readOnly: null,
+  activeDescendant: null,
+  errorMessage: null,
+  owns: null,
+  valueMin: null,
+  valueMax: null,
+  valueNow: null,
+  valueText: null,
+  orientation: null,
+  sort: null,
+  autoComplete: null,
+  multiline: null,
+  multiSelectable: null,
+  level: null,
+  posInSet: null,
+  setSize: null,
+  colCount: null,
+  colIndex: null,
+  colSpan: null,
+  rowCount: null,
+  rowIndex: null,
+  rowSpan: null,
+  live: null,
+  atomic: null,
+}

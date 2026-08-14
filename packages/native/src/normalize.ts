@@ -39,6 +39,7 @@
  *   it (e.g. 'dialog').
  */
 
+import { DROPPED_ATTRS, DROPPED_HANDLERS } from '@dunky.dev/state-machine-bindings'
 import type {
   AnyAttrTargets,
   AnyHandlerTargets,
@@ -46,9 +47,11 @@ import type {
   HandlerTargets,
 } from '@dunky.dev/state-machine-bindings'
 
-// The translation contract: every vocabulary key must appear — mapped or a
-// declared `null` drop — so a new binding fails here until this target decides.
+// The translation contract: the DROPPED_* spread declares everything a `null`
+// drop; the entries after it are what this target can express. `satisfies`
+// keeps the overrides typo-checked against the vocabulary.
 export const HANDLER_MAP: AnyHandlerTargets = {
+  ...DROPPED_HANDLERS, // hover, keyboard, double-press, wheel: no RN analog
   onPress: 'onPress',
   onPointerDown: 'onPressIn',
   onPointerUp: 'onPressOut',
@@ -58,18 +61,13 @@ export const HANDLER_MAP: AnyHandlerTargets = {
   onContextMenu: 'onLongPress',
   onScroll: 'onScroll',
   onScrollEnd: 'onMomentumScrollEnd',
-  // No RN analog — declared drops.
-  onPointerEnter: null,
-  onPointerLeave: null,
-  onPointerMove: null,
-  onPointerCancel: null,
-  onKeyDown: null,
-  onKeyUp: null,
-  onDoublePress: null,
-  onWheel: null,
 } satisfies HandlerTargets
 
+// Dropped (via the spread) with intent, not just absence: `describedBy` has no
+// describe-by-reference slot in RN (no aria-describedby); routing it into the
+// label slot would misname the element and clobber labelledBy.
 export const ATTR_MAP: AnyAttrTargets = {
+  ...DROPPED_ATTRS,
   // Android-only (iOS has no id-reference labelling); the setter takes a
   // nativeID string or an array (first element wins).
   labelledBy: 'accessibilityLabelledBy',
@@ -96,37 +94,6 @@ export const ATTR_MAP: AnyAttrTargets = {
   valueText: 'accessibilityValue',
   focusable: 'focusable', // value coerced; also sets `accessible`
   live: 'accessibilityLiveRegion', // value transform: ARIA 'off' → RN 'none'
-
-  // No clean RN analog — declared drops. `describedBy` included: RN has no
-  // describe-by-reference slot (no aria-describedby); routing it into the
-  // label slot would misname the element and clobber labelledBy.
-  describedBy: null,
-  controls: null,
-  hasPopup: null,
-  modal: null,
-  pressed: null,
-  current: null,
-  invalid: null,
-  required: null,
-  readOnly: null,
-  activeDescendant: null,
-  errorMessage: null,
-  owns: null,
-  orientation: null,
-  sort: null,
-  autoComplete: null,
-  multiline: null,
-  multiSelectable: null,
-  level: null,
-  posInSet: null,
-  setSize: null,
-  colCount: null,
-  colIndex: null,
-  colSpan: null,
-  rowCount: null,
-  rowIndex: null,
-  rowSpan: null,
-  atomic: null,
 } satisfies AttrTargets
 
 // RN's accessibilityState slots — exactly these; anything else is stored and

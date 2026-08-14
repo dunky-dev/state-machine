@@ -26,10 +26,17 @@ export const HANDLER_MAP = {
 Adding a key to the vocabulary now breaks every target's typecheck until that
 target decides — mapped or dropped, never silently leaked to the host through
 the unknown-key passthrough (which still exists, but only for keys outside the
-vocabulary, e.g. `data-state`). The react/native/opentui normalizers adopt the
-contract with no behavior change: the ad-hoc `HANDLER_DROP`/`ATTR_DROP` sets
-fold into `null` entries, native's `accessibilityState` fold derives its key
-set from the ledger, and the two implicit passthroughs (native `role`, opentui
-`disabled`) become explicit renames. A conformance test per target walks its
-ledger and asserts every binding lands on its declared target — or, for a
-`null`, nowhere at all.
+vocabulary, e.g. `data-state`). For targets that can't express most of the
+vocabulary, bindings also ships the all-dropped ledgers `DROPPED_HANDLERS`/
+`DROPPED_ATTRS` — spread one and override what the target does carry, instead
+of writing a wall of `null`s (the trade-off: a spreading target inherits `null`
+for future keys automatically; the compile error fires at the base, next to
+the vocabulary).
+
+The react/native/opentui normalizers adopt the contract with no behavior
+change: the ad-hoc `HANDLER_DROP`/`ATTR_DROP` sets fold into the `DROPPED_*`
+spreads, native's `accessibilityState` fold derives its key set from the
+ledger, and the two implicit passthroughs (native `role`, opentui `disabled`)
+become explicit renames. A conformance test per target walks its ledger and
+asserts every binding lands on its declared target — or, for a `null`,
+nowhere at all.

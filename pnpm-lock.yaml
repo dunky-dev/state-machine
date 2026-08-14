@@ -132,6 +132,9 @@ importers:
       '@dunky.dev/state-machine':
         specifier: workspace:^
         version: link:../core
+      '@dunky.dev/state-machine-bindings':
+        specifier: workspace:^
+        version: link:../shared/bindings
       '@dunky.dev/state-machine-utils':
         specifier: workspace:^
         version: link:../shared/utils
@@ -141,20 +144,15 @@ importers:
       react-native:
         specifier: '*'
         version: 0.85.0(@babel/core@7.29.7)(@types/react@19.2.15)(react@19.2.6)
-    devDependencies:
-      '@dunky.dev/state-machine-bindings':
-        specifier: workspace:^
-        version: link:../shared/bindings
 
   packages/opentui:
     dependencies:
-      '@dunky.dev/state-machine-utils':
-        specifier: workspace:^
-        version: link:../shared/utils
-    devDependencies:
       '@dunky.dev/state-machine-bindings':
         specifier: workspace:^
         version: link:../shared/bindings
+      '@dunky.dev/state-machine-utils':
+        specifier: workspace:^
+        version: link:../shared/utils
 
   packages/react:
     dependencies:
