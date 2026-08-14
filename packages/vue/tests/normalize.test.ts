@@ -8,7 +8,7 @@
  * nothing relies on accidental pass-through.
  */
 import { describe, expect, it, vi } from 'vitest'
-import { normalize } from '@dunky.dev/state-machine-vue'
+import { normalize } from '@dunky.dev/vue-state-machine'
 
 describe('vue normalize — handlers', () => {
   it('maps onPress to onClick (the DOM activation event)', () => {

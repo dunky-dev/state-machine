@@ -32,19 +32,6 @@ export type ComponentEffect<Machine, Props> = [
 ]
 
 /**
- * A component's full set of substrate effects — a list, since one component can
- * have several independent effects with DIFFERENT deps (e.g. an Escape listener
- * gated by `closeOnEscape` and a Tab trap gated by `focusTrap`). Each gets its
- * own `watch` so only the one whose dep changed re-subscribes.
- *
- * Unlike React there is no rules-of-hooks constraint — `useMachine` sets up the
- * watchers once during `setup()`, not per render — but keeping it a stable
- * module constant (`export const xEffects = [...]`) stays the convention so the
- * list reads the same across every framework binding.
- */
-export type ComponentEffects<Machine, Props> = ComponentEffect<Machine, Props>[]
-
-/**
  * The one generic Vue bridge. Every component's generated api.ts calls this
  * with the agnostic pieces — a config factory and the connect — plus the
  * component's substrate effects and the resolved props:
@@ -72,7 +59,7 @@ export function useMachine<
 >(
   createConfig: (props: Props) => TransitionConfig<State, Context, Event, Computed>,
   connect: Connect<State, Context, Event, Props, Api, Computed>,
-  effects: ComponentEffects<ReturnType<typeof machine<State, Context, Event, Computed>>, Props>,
+  effects: ComponentEffect<ReturnType<typeof machine<State, Context, Event, Computed>>, Props>[],
   props: MaybeRefOrGetter<Props>,
 ): { api: ComputedRef<Api>; machine: ReturnType<typeof machine<State, Context, Event, Computed>> } {
   // Resolve the reactive props input to a plain, UNWRAPPED copy on demand.

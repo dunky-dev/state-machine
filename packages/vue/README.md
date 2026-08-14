@@ -1,4 +1,4 @@
-# `@dunky.dev/state-machine-vue`
+# `@dunky.dev/vue-state-machine`
 
 The **Vue 3 bindings** for [`@dunky.dev/state-machine`](../core/README.md). The
 core engine is renderer-agnostic; this package is the thin Vue edge that drives
@@ -61,7 +61,7 @@ In an SFC, call it in `<script setup>` and spread the bindings with `v-bind`:
 
 ```vue
 <script setup lang="ts">
-import { useMachine, normalize } from '@dunky.dev/state-machine-vue'
+import { useMachine, normalize } from '@dunky.dev/vue-state-machine'
 import { tooltipMachineConfig, connectTooltip, tooltipEffects } from './tooltip'
 
 const props = defineProps<TooltipProps>()
@@ -93,7 +93,7 @@ in the component file** — the generated `useApi` owns the `watch`es:
 
 ```ts
 // a target component's effects.ts (illustrative — components live outside this repo)
-import type { ComponentEffect } from '@dunky.dev/state-machine-vue'
+import type { ComponentEffect } from '@dunky.dev/vue-state-machine'
 
 type TooltipEffect = ComponentEffect<TooltipMachine, TooltipMachineProps>
 
@@ -262,5 +262,4 @@ If the consumer passes no props, the library props are returned as-is.
 | `normalize(bindings)`                         | agnostic bindings → Vue DOM/ARIA props                                                                                     |
 | `mergeProps(consumer, library)`               | merge consumer + component props (handlers chained w/ `defaultPrevented` veto; `class`/`style` merged; else library wins)  |
 | `ComponentEffect<M, P>`                       | `[ (machine, props) => cleanup, (keyof P)[] ]` — one substrate effect + its prop deps                                      |
-| `ComponentEffects<M, P>`                      | `ComponentEffect<M, P>[]` — a component's effect list                                                                      |
 | `Bindings`                                    | `Record<string, unknown>` — the loose shape `normalize` accepts                                                            |

@@ -5,7 +5,7 @@ description: Vue 3 bindings for @dunky.dev/state-machine.
 
 import Install from '../../../components/install.astro'
 
-<Install pkg='@dunky.dev/state-machine-vue' />
+<Install pkg='@dunky.dev/vue-state-machine' />
 
 The Vue package is a thin edge layer. Behavior lives in the core machine and the component's `connect` function; this package only adapts them to Vue: lifecycle, reactivity, prop translation, and platform effects. The exports match the [React package](/libs/react) one-for-one — `useMachine`, `useSelector`, `normalize`, `mergeProps` — so the only thing that changes between frameworks is the import.
 
@@ -15,7 +15,7 @@ The one bridge composable. Every component calls it with the four agnostic piece
 
 ```vue
 <script setup lang="ts">
-import { useMachine, normalize } from '@dunky.dev/state-machine-vue'
+import { useMachine, normalize } from '@dunky.dev/vue-state-machine'
 import { createDialogConfig, connectDialog, dialogEffects } from './dialog'
 
 const props = defineProps<{
@@ -138,7 +138,7 @@ For a leaf component that should only update when one slice of the machine chang
 
 ```vue
 <script setup lang="ts">
-import { useSelector } from '@dunky.dev/state-machine-vue'
+import { useSelector } from '@dunky.dev/vue-state-machine'
 
 const props = defineProps<{ machine: RowMachine; value: string }>()
 
@@ -168,7 +168,7 @@ const pos = useSelector(
 Some behavior can't live in the machine because it touches the DOM or reads props the machine never sees. Declare each as a `[setup/teardown, depPropNames]` tuple; `useMachine` runs one `watch` per entry, sourced on its named prop deps:
 
 ```ts
-import type { ComponentEffect } from '@dunky.dev/state-machine-vue'
+import type { ComponentEffect } from '@dunky.dev/vue-state-machine'
 import type { DialogMachine, DialogProps } from './dialog'
 
 type Effect = ComponentEffect<DialogMachine, DialogProps>

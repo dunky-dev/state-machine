@@ -12,7 +12,7 @@
     "@dunky.dev/state-machine": "workspace:^",
     "@dunky.dev/state-machine-bindings": "workspace:^",
     "@dunky.dev/state-machine-utils": "workspace:^",
-    "@dunky.dev/state-machine-vue": "workspace:^",
+    "@dunky.dev/vue-state-machine": "workspace:^",
     "@sandbox/cmdk-core": "workspace:^",
     "vue": "^3.5.13"
   },

@@ -11,7 +11,7 @@ import { defineComponent, h, nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act as write, machine, type TransitionConfig } from '@dunky.dev/state-machine'
-import { useSelector } from '@dunky.dev/state-machine-vue'
+import { useSelector } from '@dunky.dev/vue-state-machine'
 
 type S = 'idle'
 interface Ctx {

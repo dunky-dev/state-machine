@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { type Command, DEMO_COMMANDS } from '@sandbox/cmdk-core'
-import CommandPalette from './CommandPalette.vue'
+import CommandPalette from './command-palette.vue'
 
 const last = ref('—')
 

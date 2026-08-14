@@ -17,7 +17,7 @@ import {
   type Connect,
   type TransitionConfig,
 } from '@dunky.dev/state-machine'
-import { type ComponentEffects, useMachine } from '@dunky.dev/state-machine-vue'
+import { type ComponentEffect, useMachine } from '@dunky.dev/vue-state-machine'
 
 type ToggleState = 'closed' | 'open'
 interface ToggleCtx {
@@ -70,13 +70,13 @@ connect.reactions = [
 ]
 
 type ToggleMachine = ReturnType<typeof machine<ToggleState, ToggleCtx, ToggleEvent>>
-const noEffects: ComponentEffects<ToggleMachine, ToggleProps> = []
+const noEffects: ComponentEffect<ToggleMachine, ToggleProps>[] = []
 
 afterEach(() => vi.clearAllMocks())
 
 function harness(
   props: ToggleProps,
-  effects: ComponentEffects<ToggleMachine, ToggleProps> = noEffects,
+  effects: ComponentEffect<ToggleMachine, ToggleProps>[] = noEffects,
 ) {
   const sink: { api?: ToggleApi; machine?: ToggleMachine } = {}
   const Comp = defineComponent({
@@ -176,7 +176,7 @@ describe('useMachine — component effects', () => {
   it('runs each ComponentEffect as its own effect (setup on mount, cleanup on unmount)', () => {
     const setup = vi.fn()
     const cleanup = vi.fn()
-    const effects: ComponentEffects<ToggleMachine, ToggleProps> = [[() => (setup(), cleanup), []]]
+    const effects: ComponentEffect<ToggleMachine, ToggleProps>[] = [[() => (setup(), cleanup), []]]
     const { Comp } = harness({}, effects)
     const wrapper = mount(Comp, { props: {} })
     expect(setup).toHaveBeenCalledOnce()
@@ -187,7 +187,7 @@ describe('useMachine — component effects', () => {
 
   it('re-runs an effect ONLY when one of its named prop deps changes', async () => {
     const fn = vi.fn(() => () => {})
-    const effects: ComponentEffects<ToggleMachine, ToggleProps> = [[fn, ['label']]]
+    const effects: ComponentEffect<ToggleMachine, ToggleProps>[] = [[fn, ['label']]]
     const { Comp } = harness({ label: 'a' }, effects)
     const wrapper = mount(Comp, { props: { label: 'a' } })
     expect(fn).toHaveBeenCalledTimes(1)
@@ -201,7 +201,7 @@ describe('useMachine — component effects', () => {
 
   it('does NOT re-run an effect when a NON-dep prop changes', async () => {
     const fn = vi.fn(() => () => {})
-    const effects: ComponentEffects<ToggleMachine, ToggleProps> = [[fn, ['label']]]
+    const effects: ComponentEffect<ToggleMachine, ToggleProps>[] = [[fn, ['label']]]
     const { Comp } = harness({ label: 'a' }, effects)
     const wrapper = mount(Comp, { props: { label: 'a', onOpenChange: () => {} } })
     expect(fn).toHaveBeenCalledTimes(1)
@@ -211,7 +211,7 @@ describe('useMachine — component effects', () => {
 
   it('receives (machine, props) and can read live machine state', () => {
     let seenOpen: boolean | undefined
-    const effects: ComponentEffects<ToggleMachine, ToggleProps> = [
+    const effects: ComponentEffect<ToggleMachine, ToggleProps>[] = [
       [
         m => {
           seenOpen = m.matches('open')

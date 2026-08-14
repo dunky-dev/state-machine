@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue'
-import { type ComponentEffect, normalize, useMachine } from '@dunky.dev/state-machine-vue'
+import { type ComponentEffect, normalize, useMachine } from '@dunky.dev/vue-state-machine'
 import {
   type Command,
   type CommandPaletteMachine,
@@ -31,7 +31,12 @@ const cmdkShortcut: ComponentEffect<CommandPaletteMachine, CommandPaletteProps> 
 // useMachine runs the shared machine, `connect` produces logical bindings, and
 // `normalize` turns them into DOM props (onPress→onClick, role/aria-*, etc). The
 // component is just markup — it owns ZERO interaction logic.
-const { api } = useMachine(commandPaletteMachineConfig, connectCommandPalette, [cmdkShortcut], props)
+const { api } = useMachine(
+  commandPaletteMachineConfig,
+  connectCommandPalette,
+  [cmdkShortcut],
+  props,
+)
 
 const inputRef = ref<HTMLInputElement | null>(null)
 
