@@ -115,6 +115,8 @@ So `useMachine` is the only Vue-specific piece: `createDialogConfig` is the mach
 | `focusable`                                     | `tabindex` (`true → 0`, `false → -1`)                               |
 | `role` / `id`                                   | `role` / `id`                                                       |
 
+The table shows the common subset — widget state, value/range, grid, and live-region attrs map too. [Check out the full mapping here](https://github.com/dunky-dev/state-machine/blob/main/packages/vue/src/normalize.ts).
+
 `undefined` values are dropped. Unknown keys pass through unchanged.
 
 ## `mergeProps`: consumer + component props

@@ -221,6 +221,7 @@ A few handlers whose agnostic payload differs from the raw event
 receives the agnostic payload, not the DOM event. `undefined` values are dropped,
 and any key not in the map passes through unchanged — so a binding the renderer
 already understands needs no entry.
+[Check out the full mapping here](./src/normalize.ts).
 
 ---
 
