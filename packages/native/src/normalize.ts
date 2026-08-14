@@ -40,17 +40,11 @@
  */
 
 import { DROPPED_ATTRS, DROPPED_HANDLERS } from '@dunky.dev/state-machine-bindings'
-import type {
-  AnyAttrTargets,
-  AnyHandlerTargets,
-  AttrTargets,
-  HandlerTargets,
-} from '@dunky.dev/state-machine-bindings'
+import type { AttrTargets, HandlerTargets } from '@dunky.dev/state-machine-bindings'
 
 // The translation contract: the DROPPED_* spread declares everything a `null`
-// drop; the entries after it are what this target can express. `satisfies`
-// keeps the overrides typo-checked against the vocabulary.
-export const HANDLER_MAP: AnyHandlerTargets = {
+// drop; the entries after it are what this target can express.
+export const HANDLER_MAP: HandlerTargets = {
   ...DROPPED_HANDLERS, // hover, keyboard, double-press, wheel: no RN analog
   onPress: 'onPress',
   onPointerDown: 'onPressIn',
@@ -61,12 +55,12 @@ export const HANDLER_MAP: AnyHandlerTargets = {
   onContextMenu: 'onLongPress',
   onScroll: 'onScroll',
   onScrollEnd: 'onMomentumScrollEnd',
-} satisfies HandlerTargets
+}
 
 // Dropped (via the spread) with intent, not just absence: `describedBy` has no
 // describe-by-reference slot in RN (no aria-describedby); routing it into the
 // label slot would misname the element and clobber labelledBy.
-export const ATTR_MAP: AnyAttrTargets = {
+export const ATTR_MAP: AttrTargets = {
   ...DROPPED_ATTRS,
   // Android-only (iOS has no id-reference labelling); the setter takes a
   // nativeID string or an array (first element wins).
@@ -94,7 +88,7 @@ export const ATTR_MAP: AnyAttrTargets = {
   valueText: 'accessibilityValue',
   focusable: 'focusable', // value coerced; also sets `accessible`
   live: 'accessibilityLiveRegion', // value transform: ARIA 'off' → RN 'none'
-} satisfies AttrTargets
+}
 
 // RN's accessibilityState slots — exactly these; anything else is stored and
 // ignored. Derived from the ledger so the fold can't drift from it.

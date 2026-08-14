@@ -1,14 +1,9 @@
 // Translate the machine layer's logical surface to React DOM props.
-import type {
-  AnyAttrTargets,
-  AnyHandlerTargets,
-  AttrTargets,
-  HandlerTargets,
-} from '@dunky.dev/state-machine-bindings'
+import type { AttrTargets, HandlerTargets } from '@dunky.dev/state-machine-bindings'
 
 // The translation contract: every vocabulary key must appear — mapped or a
 // declared `null` drop — so a new binding fails here until this target decides.
-export const HANDLER_MAP: AnyHandlerTargets = {
+export const HANDLER_MAP: HandlerTargets = {
   onPress: 'onClick',
   onPointerEnter: 'onPointerEnter',
   onPointerLeave: 'onPointerLeave',
@@ -27,7 +22,7 @@ export const HANDLER_MAP: AnyHandlerTargets = {
   onWheel: 'onWheel',
   onScroll: 'onScroll',
   onScrollEnd: 'onScrollEnd',
-} satisfies HandlerTargets
+}
 
 // DOM WheelEvent.deltaMode (0/1/2) → the neutral WheelPayload unit.
 const WHEEL_UNIT = ['pixel', 'line', 'page'] as const
@@ -73,7 +68,7 @@ function scrollPayload(e: AnyEvent): unknown {
   }
 }
 
-export const ATTR_MAP: AnyAttrTargets = {
+export const ATTR_MAP: AttrTargets = {
   describedBy: 'aria-describedby',
   labelledBy: 'aria-labelledby',
   controls: 'aria-controls',
@@ -126,7 +121,7 @@ export const ATTR_MAP: AnyAttrTargets = {
   // live region
   live: 'aria-live',
   atomic: 'aria-atomic',
-} satisfies AttrTargets
+}
 
 export type Bindings = Record<string, unknown>
 

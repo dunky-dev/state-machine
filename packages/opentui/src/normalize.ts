@@ -11,22 +11,16 @@
  */
 
 import { DROPPED_ATTRS, DROPPED_HANDLERS } from '@dunky.dev/state-machine-bindings'
-import type {
-  AnyAttrTargets,
-  AnyHandlerTargets,
-  AttrTargets,
-  HandlerTargets,
-} from '@dunky.dev/state-machine-bindings'
+import type { AttrTargets, HandlerTargets } from '@dunky.dev/state-machine-bindings'
 
 // The translation contract: the DROPPED_* spread declares everything a `null`
-// drop; the entries after it are what this target can express. `satisfies`
-// keeps the overrides typo-checked against the vocabulary.
+// drop; the entries after it are what this target can express.
 //
 // Dropped (via the spread) with intent, not just absence: `onFocus`/`onBlur` —
 // OpenTUI signals focus via the `focused` prop; `onScroll`/`onScrollEnd` —
 // scrollbox has no scroll-position callback; `onKeyUp` — terminals deliver
 // presses, not up/down.
-export const HANDLER_MAP: AnyHandlerTargets = {
+export const HANDLER_MAP: HandlerTargets = {
   ...DROPPED_HANDLERS,
   onPress: 'onMouseDown', // no synthetic click — a press is a button-down
   onPointerDown: 'onMouseDown',
@@ -37,16 +31,16 @@ export const HANDLER_MAP: AnyHandlerTargets = {
   onKeyDown: 'onKeyDown',
   onValueChange: 'onChange',
   onWheel: 'onMouseScroll',
-} satisfies HandlerTargets
+}
 
-export const ATTR_MAP: AnyAttrTargets = {
+export const ATTR_MAP: AttrTargets = {
   ...DROPPED_ATTRS, // no ARIA tree in a terminal — the whole vocabulary drops
   // Visual analogs, routed in normalize(): `hidden` inverts into `visible`,
   // `focusable` is coerced to boolean.
   hidden: 'visible',
   focusable: 'focusable',
   disabled: 'disabled',
-} satisfies AttrTargets
+}
 
 // Adapters are variadic — <select>'s onChange fires `(index, option)`, not a single arg.
 
