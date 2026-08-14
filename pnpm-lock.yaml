@@ -141,12 +141,20 @@ importers:
       react-native:
         specifier: '*'
         version: 0.85.0(@babel/core@7.29.7)(@types/react@19.2.15)(react@19.2.6)
+    devDependencies:
+      '@dunky.dev/state-machine-bindings':
+        specifier: workspace:^
+        version: link:../shared/bindings
 
   packages/opentui:
     dependencies:
       '@dunky.dev/state-machine-utils':
         specifier: workspace:^
         version: link:../shared/utils
+    devDependencies:
+      '@dunky.dev/state-machine-bindings':
+        specifier: workspace:^
+        version: link:../shared/bindings
 
   packages/react:
     dependencies:
@@ -157,6 +165,9 @@ importers:
         specifier: workspace:^
         version: link:../shared/utils
     devDependencies:
+      '@dunky.dev/state-machine-bindings':
+        specifier: workspace:^
+        version: link:../shared/bindings
       '@testing-library/react':
         specifier: ^16.1.0
         version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.15))(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -3193,10 +3204,12 @@ packages:
   '@xmldom/xmldom@0.8.13':
     resolution: {integrity: sha512-KRYzxepc14G/CEpEGc3Yn+JKaAeT63smlDr+vjB8jRfgTBBI9wRj/nkQEO+ucV8p8I9bfKLWp37uHgFrbntPvw==}
     engines: {node: '>=10.0.0'}
+    deprecated: this version has critical issues, please update to the latest version
 
   '@xmldom/xmldom@0.9.10':
     resolution: {integrity: sha512-A9gOqLdi6cV4ibazAjcQufGj0B1y/vDqYrcuP6d/6x8P27gRS8643Dj9o1dEKtB6O7fwxb2FgBmJS2mX7gpvdw==}
     engines: {node: '>=14.6'}
+    deprecated: this version has critical issues, please update to the latest version
 
   '@xstate/react@6.1.0':
     resolution: {integrity: sha512-ep9F0jGTI63B/jE8GHdMpUqtuz7yRebNaKv8EMUaiSi29NOglywc2X2YSOV/ygbIK+LtmgZ0q9anoEA2iBSEOw==}

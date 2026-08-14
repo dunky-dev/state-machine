@@ -1,6 +1,9 @@
 // Translate the machine layer's logical surface to React DOM props.
+import type { AttrTargets, HandlerTargets } from '@dunky.dev/state-machine-bindings'
 
-const HANDLER_MAP: Record<string, string> = {
+// The translation contract: every vocabulary key must appear — mapped or a
+// declared `null` drop — so a new binding fails here until this target decides.
+export const HANDLER_MAP: HandlerTargets = {
   onPress: 'onClick',
   onPointerEnter: 'onPointerEnter',
   onPointerLeave: 'onPointerLeave',
@@ -65,7 +68,7 @@ function scrollPayload(e: AnyEvent): unknown {
   }
 }
 
-const ATTR_MAP: Record<string, string> = {
+export const ATTR_MAP: AttrTargets = {
   describedBy: 'aria-describedby',
   labelledBy: 'aria-labelledby',
   controls: 'aria-controls',
@@ -120,6 +123,11 @@ const ATTR_MAP: Record<string, string> = {
   atomic: 'aria-atomic',
 }
 
+// String-indexable views for the normalize loop (the ledgers are keyed by the
+// closed vocabulary; the loop sees arbitrary keys).
+const HANDLERS: Record<string, string | null | undefined> = HANDLER_MAP
+const ATTRS: Record<string, string | null | undefined> = ATTR_MAP
+
 export type Bindings = Record<string, unknown>
 
 export function normalize(logical: Bindings): Record<string, unknown> {
@@ -127,14 +135,14 @@ export function normalize(logical: Bindings): Record<string, unknown> {
   for (const [key, value] of Object.entries(logical)) {
     if (value === undefined) continue
 
-    const handler = HANDLER_MAP[key]
+    const handler = HANDLERS[key]
     if (handler) {
       const adapt = PAYLOAD_ADAPTERS[key]
       out[handler] = adapt ? (e: AnyEvent) => (value as (p: unknown) => void)(adapt(e)) : value
       continue
     }
 
-    const attr = ATTR_MAP[key]
+    const attr = ATTRS[key]
     if (attr) {
       out[attr] = key === 'focusable' ? (value ? 0 : -1) : value
       continue

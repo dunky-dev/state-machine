@@ -9,6 +9,7 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 import { normalize } from '@dunky.dev/react-state-machine'
+import { ATTR_MAP, HANDLER_MAP } from '../src/normalize'
 
 describe('react normalize — handlers', () => {
   it('maps onPress to onClick (the DOM activation event)', () => {
@@ -291,5 +292,27 @@ describe('react normalize — expanded attribute surface', () => {
     })
     ;(out.onChange as (e: unknown) => void)({ target: { value: '50', type: 'range' } })
     expect(onValueChange).toHaveBeenCalledWith(expect.objectContaining({ value: '50' }))
+  })
+})
+
+describe('react normalize — vocabulary accounting (the translation contract)', () => {
+  it('routes every handler to its declared target; a null drop leaks nothing', () => {
+    for (const [key, target] of Object.entries(HANDLER_MAP)) {
+      const out = normalize({ [key]: vi.fn() })
+      // landed: the declared target carries it (null = nothing at all);
+      // leaked: the logical key survived a rename or a drop.
+      const landed = target === null ? Object.keys(out).length === 0 : target in out
+      const leaked = target !== key && key in out
+      expect({ key, landed, leaked }).toEqual({ key, landed: true, leaked: false })
+    }
+  })
+
+  it('routes every attr to its declared target; a null drop leaks nothing', () => {
+    for (const [key, target] of Object.entries(ATTR_MAP)) {
+      const out = normalize({ [key]: key === 'live' ? 'polite' : true })
+      const landed = target === null ? Object.keys(out).length === 0 : target in out
+      const leaked = target !== key && key in out
+      expect({ key, landed, leaked }).toEqual({ key, landed: true, leaked: false })
+    }
   })
 })

@@ -35,5 +35,8 @@
   },
   "dependencies": {
     "@dunky.dev/state-machine-utils": "workspace:^"
+  },
+  "devDependencies": {
+    "@dunky.dev/state-machine-bindings": "workspace:^"
   }
 }

@@ -232,3 +232,18 @@ export interface AttrBindings {
   /** Announce the whole region (true) or just the changed node (false). */
   atomic?: boolean
 }
+
+// --- translation contract ------------------------------------------------------
+
+export type HandlerKey = keyof EventBindings
+export type AttrKey = keyof AttrBindings
+
+/**
+ * A target's accounting of the vocabulary: every key names the host prop that
+ * carries it (folded channels name the channel), or is `null` — a declared
+ * drop for a binding the substrate cannot express. `Record`, not `Partial`,
+ * on purpose: a new vocabulary key breaks every target's typecheck until that
+ * target decides — mapped or dropped, never leaked.
+ */
+export type HandlerTargets = Record<HandlerKey, string | null>
+export type AttrTargets = Record<AttrKey, string | null>
