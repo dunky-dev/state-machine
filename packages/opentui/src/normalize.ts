@@ -10,7 +10,12 @@
  * - `focusable` passes through as-is.
  */
 
-import type { AttrTargets, HandlerTargets } from '@dunky.dev/state-machine-bindings'
+import type {
+  AnyAttrTargets,
+  AnyHandlerTargets,
+  AttrTargets,
+  HandlerTargets,
+} from '@dunky.dev/state-machine-bindings'
 
 // The translation contract: every vocabulary key must appear — mapped or a
 // declared `null` drop — so a new binding fails here until this target decides.
@@ -86,10 +91,8 @@ export const ATTR_MAP: AttrTargets = {
   atomic: null,
 }
 
-// String-indexable views for the normalize loop (the ledgers are keyed by the
-// closed vocabulary; the loop sees arbitrary keys).
-const HANDLERS: Record<string, string | null | undefined> = HANDLER_MAP
-const ATTRS: Record<string, string | null | undefined> = ATTR_MAP
+const ANY_HANDLERS: AnyHandlerTargets = HANDLER_MAP
+const ANY_ATTRS: AnyAttrTargets = ATTR_MAP
 
 // Adapters are variadic — <select>'s onChange fires `(index, option)`, not a single arg.
 
@@ -122,7 +125,7 @@ export function normalize(logical: Bindings): Record<string, unknown> {
   for (const [key, value] of Object.entries(logical)) {
     if (value === undefined) continue
 
-    const handler = HANDLERS[key]
+    const handler = ANY_HANDLERS[key]
     if (handler === null) continue
     if (handler) {
       const adapt = PAYLOAD_ADAPTERS[key]
@@ -142,7 +145,7 @@ export function normalize(logical: Bindings): Record<string, unknown> {
       continue
     }
 
-    const attr = ATTRS[key]
+    const attr = ANY_ATTRS[key]
     if (attr === null) continue
     if (attr) {
       out[attr] = value

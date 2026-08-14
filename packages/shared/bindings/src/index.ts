@@ -247,3 +247,11 @@ export type AttrKey = keyof AttrBindings
  */
 export type HandlerTargets = Record<HandlerKey, string | null>
 export type AttrTargets = Record<AttrKey, string | null>
+
+/**
+ * String-indexable views of the ledgers, for a normalize loop: the ledgers
+ * are keyed by the closed vocabulary, but the loop sees arbitrary keys
+ * (`undefined` = outside the vocabulary, passes through).
+ */
+export type AnyHandlerTargets = Record<string, HandlerTargets[HandlerKey] | undefined>
+export type AnyAttrTargets = Record<string, AttrTargets[AttrKey] | undefined>
