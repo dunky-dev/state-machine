@@ -1,10 +1,7 @@
-/**
- * Translate the machine layer's LOGICAL surface to Vue DOM props.
- *
- * Logical handler  → DOM event prop (Vue `onXxx` listener form, as accepted by
- *                     `h()` / a `v-bind`-spread object)
- * Logical attr     → DOM/ARIA attr
- */
+// Translate the machine layer's logical surface to Vue DOM props (the
+// `h()` / v-bind-spread shape). Multi-word DOM events keep only the leading
+// capital (`onPointerenter`): Vue hyphenates the camel tail when deriving the
+// event name, so `onPointerEnter` would listen to `pointer-enter`.
 
 const HANDLER_MAP: Record<string, string> = {
   onPress: 'onClick',
@@ -18,11 +15,8 @@ const HANDLER_MAP: Record<string, string> = {
   onBlur: 'onBlur',
   onKeyDown: 'onKeydown',
   onKeyUp: 'onKeyup',
-  // value-change + secondary/double activation + scroll/wheel. onValueChange maps
-  // to Vue's `onInput` (fires live on every change, like React's onChange) rather
-  // than `onChange` (which fires only on commit/blur). onValueChange/onWheel/
-  // onScroll/onScrollEnd additionally have their argument translated from the raw
-  // DOM event into the agnostic payload (see PAYLOAD_ADAPTERS).
+  // onValueChange/onWheel/onScroll/onScrollEnd also have their argument translated (see PAYLOAD_ADAPTERS).
+  // `input`, not `change`: live per-keystroke, matching React's onChange semantics.
   onValueChange: 'onInput',
   onContextMenu: 'onContextmenu',
   onDoublePress: 'onDblclick',
@@ -55,7 +49,6 @@ type AnyEvent = {
 const PAYLOAD_ADAPTERS: Record<string, (e: AnyEvent) => unknown> = {
   onValueChange: e => {
     const t = e?.target
-    // checkbox/radio carry the boolean on `.checked`; everything else on `.value`.
     const value = t && (t.type === 'checkbox' || t.type === 'radio') ? t.checked : t?.value
     return { value, defaultPrevented: e?.defaultPrevented, preventDefault: e?.preventDefault }
   },
@@ -148,8 +141,6 @@ export function normalize(logical: Bindings): Record<string, unknown> {
     const handler = HANDLER_MAP[key]
     if (handler) {
       const adapt = PAYLOAD_ADAPTERS[key]
-      // Wrap when the agnostic payload differs from the raw DOM event; else the
-      // handler shape already matches (PointerPayload/KeyboardPayload), pass it.
       out[handler] = adapt ? (e: AnyEvent) => (value as (p: unknown) => void)(adapt(e)) : value
       continue
     }

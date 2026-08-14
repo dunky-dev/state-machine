@@ -1,12 +1,6 @@
 // @vitest-environment jsdom
-/**
- * `useMachine` — the Vue bridge composable. These tests pin the behavioral
- * contract the README documents: build ONCE, run the machine lifecycle (start on
- * mount / stop on unmount), keep consumer props fresh via setProps (value-deduped),
- * run the connector's reactions across the machine lifecycle, run each
- * ComponentEffect as its own dep-keyed watch, and expose the connector's stable
- * snapshot as a reactive api — returning `{ api, machine }`.
- */
+// `useMachine` — the Vue bridge composable: build once, start/stop with the
+// mount lifecycle, keep props fresh, run dep-keyed effects, reactive snapshot.
 import { defineComponent, h, nextTick, type PropType } from 'vue'
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'

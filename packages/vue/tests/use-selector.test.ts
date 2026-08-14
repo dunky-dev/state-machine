@@ -1,12 +1,6 @@
 // @vitest-environment jsdom
-/**
- * `useSelector` — fine-grained leaf subscription. These tests pin the README
- * contract: the selector reads the machine directly, the returned ref updates
- * ONLY when the selected value changes (value-deduped, `Object.is` by default,
- * custom `isEqual` for object selections), the component re-renders only when its
- * ref changes, and a change to one leaf's slice wakes only that leaf (the
- * O(readers) property).
- */
+// `useSelector` — fine-grained leaf subscription: the ref updates only when the
+// selected value changes, so a machine change wakes only the leaves it touched.
 import { defineComponent, h, nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
