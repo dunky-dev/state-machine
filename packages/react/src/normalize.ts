@@ -8,7 +8,7 @@ import type {
 
 // The translation contract: every vocabulary key must appear — mapped or a
 // declared `null` drop — so a new binding fails here until this target decides.
-export const HANDLER_MAP: HandlerTargets = {
+export const HANDLER_MAP: AnyHandlerTargets = {
   onPress: 'onClick',
   onPointerEnter: 'onPointerEnter',
   onPointerLeave: 'onPointerLeave',
@@ -27,7 +27,7 @@ export const HANDLER_MAP: HandlerTargets = {
   onWheel: 'onWheel',
   onScroll: 'onScroll',
   onScrollEnd: 'onScrollEnd',
-}
+} satisfies HandlerTargets
 
 // DOM WheelEvent.deltaMode (0/1/2) → the neutral WheelPayload unit.
 const WHEEL_UNIT = ['pixel', 'line', 'page'] as const
@@ -73,7 +73,7 @@ function scrollPayload(e: AnyEvent): unknown {
   }
 }
 
-export const ATTR_MAP: AttrTargets = {
+export const ATTR_MAP: AnyAttrTargets = {
   describedBy: 'aria-describedby',
   labelledBy: 'aria-labelledby',
   controls: 'aria-controls',
@@ -126,10 +126,7 @@ export const ATTR_MAP: AttrTargets = {
   // live region
   live: 'aria-live',
   atomic: 'aria-atomic',
-}
-
-const ANY_HANDLERS: AnyHandlerTargets = HANDLER_MAP
-const ANY_ATTRS: AnyAttrTargets = ATTR_MAP
+} satisfies AttrTargets
 
 export type Bindings = Record<string, unknown>
 
@@ -138,14 +135,14 @@ export function normalize(logical: Bindings): Record<string, unknown> {
   for (const [key, value] of Object.entries(logical)) {
     if (value === undefined) continue
 
-    const handler = ANY_HANDLERS[key]
+    const handler = HANDLER_MAP[key]
     if (handler) {
       const adapt = PAYLOAD_ADAPTERS[key]
       out[handler] = adapt ? (e: AnyEvent) => (value as (p: unknown) => void)(adapt(e)) : value
       continue
     }
 
-    const attr = ANY_ATTRS[key]
+    const attr = ATTR_MAP[key]
     if (attr) {
       out[attr] = key === 'focusable' ? (value ? 0 : -1) : value
       continue

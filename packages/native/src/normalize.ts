@@ -48,7 +48,7 @@ import type {
 
 // The translation contract: every vocabulary key must appear — mapped or a
 // declared `null` drop — so a new binding fails here until this target decides.
-export const HANDLER_MAP: HandlerTargets = {
+export const HANDLER_MAP: AnyHandlerTargets = {
   onPress: 'onPress',
   onPointerDown: 'onPressIn',
   onPointerUp: 'onPressOut',
@@ -67,9 +67,9 @@ export const HANDLER_MAP: HandlerTargets = {
   onKeyUp: null,
   onDoublePress: null,
   onWheel: null,
-}
+} satisfies HandlerTargets
 
-export const ATTR_MAP: AttrTargets = {
+export const ATTR_MAP: AnyAttrTargets = {
   // Android-only (iOS has no id-reference labelling); the setter takes a
   // nativeID string or an array (first element wins).
   labelledBy: 'accessibilityLabelledBy',
@@ -127,10 +127,7 @@ export const ATTR_MAP: AttrTargets = {
   rowIndex: null,
   rowSpan: null,
   atomic: null,
-}
-
-const ANY_HANDLERS: AnyHandlerTargets = HANDLER_MAP
-const ANY_ATTRS: AnyAttrTargets = ATTR_MAP
+} satisfies AttrTargets
 
 // RN's accessibilityState slots — exactly these; anything else is stored and
 // ignored. Derived from the ledger so the fold can't drift from it.
@@ -187,7 +184,7 @@ export function normalize(logical: Bindings): Record<string, unknown> {
   for (const [key, value] of Object.entries(logical)) {
     if (value === undefined) continue
 
-    const handler = ANY_HANDLERS[key]
+    const handler = HANDLER_MAP[key]
     if (handler === null) continue
     if (handler) {
       const adapt = PAYLOAD_ADAPTERS[key]
@@ -219,7 +216,7 @@ export function normalize(logical: Bindings): Record<string, unknown> {
       continue
     }
 
-    const attr = ANY_ATTRS[key]
+    const attr = ATTR_MAP[key]
     if (attr === null) continue
     if (attr) {
       out[attr] = value

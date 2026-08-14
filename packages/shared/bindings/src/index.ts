@@ -249,9 +249,12 @@ export type HandlerTargets = Record<HandlerKey, string | null>
 export type AttrTargets = Record<AttrKey, string | null>
 
 /**
- * String-indexable views of the ledgers, for a normalize loop: the ledgers
- * are keyed by the closed vocabulary, but the loop sees arbitrary keys
- * (`undefined` = outside the vocabulary, passes through).
+ * The exported shape of a ledger: string-indexable, so a normalize loop can
+ * look up arbitrary keys (a miss is `undefined` at runtime — outside the
+ * vocabulary, passes through). Declare the ledger with the annotation AND
+ * `satisfies` so the widening never skips the contract:
+ *
+ *   export const HANDLER_MAP: AnyHandlerTargets = { … } satisfies HandlerTargets
  */
-export type AnyHandlerTargets = Record<string, HandlerTargets[HandlerKey] | undefined>
-export type AnyAttrTargets = Record<string, AttrTargets[AttrKey] | undefined>
+export type AnyHandlerTargets = Record<string, HandlerTargets[HandlerKey]>
+export type AnyAttrTargets = Record<string, AttrTargets[AttrKey]>

@@ -19,7 +19,7 @@ import type {
 
 // The translation contract: every vocabulary key must appear — mapped or a
 // declared `null` drop — so a new binding fails here until this target decides.
-export const HANDLER_MAP: HandlerTargets = {
+export const HANDLER_MAP: AnyHandlerTargets = {
   onPress: 'onMouseDown', // no synthetic click — a press is a button-down
   onPointerDown: 'onMouseDown',
   onPointerUp: 'onMouseUp',
@@ -40,9 +40,9 @@ export const HANDLER_MAP: HandlerTargets = {
   onScrollEnd: null,
   onFocus: null,
   onBlur: null,
-}
+} satisfies HandlerTargets
 
-export const ATTR_MAP: AttrTargets = {
+export const ATTR_MAP: AnyAttrTargets = {
   // Visual analogs, routed in normalize(): `hidden` inverts into `visible`,
   // `focusable` is coerced to boolean.
   hidden: 'visible',
@@ -89,10 +89,7 @@ export const ATTR_MAP: AttrTargets = {
   rowSpan: null,
   live: null,
   atomic: null,
-}
-
-const ANY_HANDLERS: AnyHandlerTargets = HANDLER_MAP
-const ANY_ATTRS: AnyAttrTargets = ATTR_MAP
+} satisfies AttrTargets
 
 // Adapters are variadic — <select>'s onChange fires `(index, option)`, not a single arg.
 
@@ -125,7 +122,7 @@ export function normalize(logical: Bindings): Record<string, unknown> {
   for (const [key, value] of Object.entries(logical)) {
     if (value === undefined) continue
 
-    const handler = ANY_HANDLERS[key]
+    const handler = HANDLER_MAP[key]
     if (handler === null) continue
     if (handler) {
       const adapt = PAYLOAD_ADAPTERS[key]
@@ -145,7 +142,7 @@ export function normalize(logical: Bindings): Record<string, unknown> {
       continue
     }
 
-    const attr = ANY_ATTRS[key]
+    const attr = ATTR_MAP[key]
     if (attr === null) continue
     if (attr) {
       out[attr] = value
