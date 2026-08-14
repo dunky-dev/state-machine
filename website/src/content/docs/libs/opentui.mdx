@@ -5,7 +5,7 @@ description: OpenTUI (terminal) bindings for @dunky.dev/state-machine.
 
 import Install from '../../../components/install.astro'
 
-<Install pkg='@dunky.dev/state-machine-opentui' />
+<Install pkg='@dunky.dev/opentui-state-machine' />
 
 The OpenTUI package is **only the prop translator**. Unlike [React](/libs/react) and [React Native](/libs/react-native), it ships no `useMachine` hook and has no framework dependency — `normalize` and `mergeProps` are pure object-to-object functions, so they work the same under any of OpenTUI's reactive bindings (`@opentui/react`, `@opentui/solid`, …). **The machine itself is unchanged.** The same `createDialogConfig` and `connectDialog` that drive the DOM run the terminal.
 
@@ -14,12 +14,12 @@ The OpenTUI package is **only the prop translator**. Unlike [React](/libs/react)
 The lifecycle binding — turning the engine's connector into a live component — is the consuming app's concern. OpenTUI renders through a React reconciler, so the standard pairing is `useMachine` from the **React** package plus `normalize` from **this** package:
 
 ```tsx
-import { useMachine } from '@dunky.dev/state-machine-react'
-import { normalize } from '@dunky.dev/state-machine-opentui'
+import { useMachine } from '@dunky.dev/react-state-machine'
+import { normalize } from '@dunky.dev/opentui-state-machine'
 import { createDialogConfig, connectDialog } from './dialog'
 
 function Dialog(props: DialogProps) {
-  const { api } = useMachine(createDialogConfig, connectDialog, [], props)
+  const { api, machine } = useMachine(createDialogConfig, connectDialog, [], props)
 
   const triggerProps = normalize(api.triggerProps)
   const contentProps = normalize(api.contentProps)
@@ -43,19 +43,32 @@ function Dialog(props: DialogProps) {
 
 ## Keyboard handling is global
 
-A terminal has no per-element focus model like the DOM, so the dialog's Escape-to-close can't be a `keydown` listener scoped to one element — key navigation goes through OpenTUI's `useKeyboard`. It sends the **same logical events** the DOM version's `ComponentEffect` would — the machine can't tell the difference:
+A terminal has no per-element focus model like the DOM, so the dialog's Escape-to-close can't be a `keydown` listener scoped to one element — and it can't be a `ComponentEffect` either: OpenTUI's keyboard input hangs off the renderer, which lives in React context, out of reach of an effect tuple's `(machine, props)` arguments. Key navigation goes through OpenTUI's `useKeyboard` instead.
+
+Keep the `ComponentEffect` discipline anyway — author the handler at module level as a prop-gated factory, and feed it to `useKeyboard` in the component:
 
 ```tsx
 import { useKeyboard } from '@opentui/react'
+import type { KeyEvent } from '@opentui/core'
 
-useKeyboard(key => {
-  if (api.isOpen && key.name === 'escape') {
+// Module level, like a ComponentEffect: authored once, gated by props.
+const dialogKeys = (machine: DialogMachine, props: DialogProps) => (key: KeyEvent) => {
+  if (!props.closeOnEscape) return
+  if (machine.matches('open') && key.name === 'escape') {
     machine.send({ type: 'close' })
   }
-})
+}
+
+function Dialog(props: DialogProps) {
+  const { api, machine } = useMachine(createDialogConfig, connectDialog, [], props)
+  useKeyboard(dialogKeys(machine, props))
+  // ...
+}
 ```
 
-This is the terminal counterpart to the DOM `onEscapeKey` effect on the [React page](/libs/react) and the `BackHandler` effect on [React Native](/libs/react-native): three different transports, the same `send({ type: 'close' })`.
+It sends the **same logical events** the DOM version's `ComponentEffect` would — the machine can't tell the difference.
+
+This is the terminal counterpart to the DOM `onEscapeKey` effect on the [React page](/libs/react) and the `BackHandler` effect on [React Native](/libs/react-native): three different transports, the same `send({ type: 'close' })`. `ComponentEffect`s still work here for anything that doesn't need the renderer (timers, process signals, terminal resize) — pass them to `useMachine` as usual.
 
 ## `normalize`: bindings → OpenTUI props
 

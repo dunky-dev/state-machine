@@ -1,6 +1,6 @@
 {
-  "name": "@dunky.dev/state-machine-native",
-  "version": "0.2.0",
+  "name": "@dunky.dev/native-state-machine",
+  "version": "0.3.2",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -8,7 +8,8 @@
     "directory": "packages/native"
   },
   "files": [
-    "dist"
+    "dist",
+    "src"
   ],
   "type": "module",
   "sideEffects": false,
@@ -33,8 +34,8 @@
     "build": "tsdown"
   },
   "dependencies": {
+    "@dunky.dev/react-state-machine": "workspace:^",
     "@dunky.dev/state-machine": "workspace:^",
-    "@dunky.dev/state-machine-react": "workspace:^",
     "@dunky.dev/state-machine-utils": "workspace:^"
   },
   "peerDependencies": {

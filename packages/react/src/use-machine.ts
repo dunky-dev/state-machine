@@ -9,17 +9,14 @@ import { connector, machine, type Connect, type TransitionConfig } from '@dunky.
  *     (machine, props) => { addEventListener(…); return () => removeEventListener(…) },
  *     ['closeOnEscape'],
  *   ]
+ *
+ * A component passes `useMachine` a plain `ComponentEffect[]` list, which MUST be a stable
+ * module constant — one `useEffect` runs per entry, so the length must not change between renders.
  */
 export type ComponentEffect<Machine, Props> = [
   effect: (machine: Machine, props: Props) => (() => void) | void,
   deps: (keyof Props)[],
 ]
-
-/**
- * A component's substrate effects. MUST be a stable module constant — `useMachine` calls
- * one `useEffect` per entry, so the list length must not change between renders.
- */
-export type ComponentEffects<Machine, Props> = ComponentEffect<Machine, Props>[]
 
 /**
  * The generic React bridge. Builds the machine once from the first render's props,
@@ -36,7 +33,7 @@ export function useMachine<
 >(
   createConfig: (props: Props) => TransitionConfig<State, Context, Event, Computed>,
   connect: Connect<State, Context, Event, Props, Api, Computed>,
-  effects: ComponentEffects<ReturnType<typeof machine<State, Context, Event, Computed>>, Props>,
+  effects: ComponentEffect<ReturnType<typeof machine<State, Context, Event, Computed>>, Props>[],
   props: Props,
 ): { api: Api; machine: ReturnType<typeof machine<State, Context, Event, Computed>> } {
   const { service, connection } = useMemo(

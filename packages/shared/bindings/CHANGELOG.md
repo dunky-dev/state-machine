@@ -1,5 +1,20 @@
 # @dunky.dev/state-machine-bindings
 
+## 0.3.2
+
+### Patch Changes
+
+- [#53](https://github.com/dunky-dev/state-machine/pull/53) [`ff68b45`](https://github.com/dunky-dev/state-machine/commit/ff68b45343293a5f11bba6b032a6f89edf64c83e) Thanks [@ivanbanov](https://github.com/ivanbanov)! - Ship the `src` folder in the published packages, alongside `dist`. The
+  READMEs point at source files for the full binding mappings (e.g.
+  `./src/normalize.ts`), and those links were dead on the npm page because
+  only `dist` was published. The sources are small, plain TypeScript, so the
+  readable reference now travels with the package; the build outputs and the
+  `exports` map are unchanged.
+
+## 0.3.1
+
+## 0.3.0
+
 ## 0.2.0
 
 ## 0.1.0
@@ -19,15 +34,15 @@
   **⚡️ Blazing fast.** Design systems and complex UIs can run hundreds of live machines at once. Dunky is tuned for exactly that load. [See the benchmark →](https://github.com/dunky-dev/state-machine/tree/main/benchmark#readme)
 
   ```ts
-  import { setup } from '@dunky.dev/state-machine'
+  import { setup } from "@dunky.dev/state-machine";
 
   const toggle = setup({
-    initial: 'off',
+    initial: "off",
     states: {
-      off: { on: { TOGGLE: 'on' } },
-      on: { on: { TOGGLE: 'off' } },
+      off: { on: { TOGGLE: "on" } },
+      on: { on: { TOGGLE: "off" } },
     },
-  })
+  });
   ```
 
   This is our first public release (`0.1.0`). The engine is stable and tested; the target bridges are early and evolving. Come kick the tires, watch the live benchmark, and tell us where it breaks.

@@ -16,10 +16,10 @@ sandbox/
 ```
 
 The split that makes this work: the lifecycle hook (`useMachine`) comes from
-`@dunky.dev/state-machine-react` — all three targets render through a React
+`@dunky.dev/react-state-machine` — all three targets render through a React
 reconciler — while the **prop translator** (`normalize`) comes from each target's
 own package. The OpenTUI app is the clearest proof: it imports `useMachine` from
-the React binding and `normalize` from `@dunky.dev/state-machine-opentui`, exactly
+the React binding and `normalize` from `@dunky.dev/opentui-state-machine`, exactly
 the "bring your own framework hook, pair it with the agnostic translator" model.
 
 ## Run

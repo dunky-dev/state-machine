@@ -1,6 +1,6 @@
 {
-  "name": "@dunky.dev/state-machine-opentui",
-  "version": "0.2.0",
+  "name": "@dunky.dev/opentui-state-machine",
+  "version": "0.3.2",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -8,7 +8,8 @@
     "directory": "packages/opentui"
   },
   "files": [
-    "dist"
+    "dist",
+    "src"
   ],
   "type": "module",
   "sideEffects": false,
