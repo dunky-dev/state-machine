@@ -1,5 +1,32 @@
 # @dunky.dev/state-machine-bindings
 
+## 0.4.0
+
+### Minor Changes
+
+- [#57](https://github.com/dunky-dev/state-machine/pull/57) [`2532b06`](https://github.com/dunky-dev/state-machine/commit/2532b066455c7b1cd3c03eda270d8ce53498df19) Thanks [@ivanbanov](https://github.com/ivanbanov)! - The translation contract: every target must account for every vocabulary key —
+  mapped, or `null` as a declared drop. Previously the normalize maps were
+  untyped, so a new binding compiled everywhere and silently leaked to the host;
+  now it's a compile error in every target until that target decides.
+
+  Bindings exports the contract (`HandlerKey`/`AttrKey`, `HandlerTargets`/
+  `AttrTargets`) and the all-dropped bases `DROPPED_HANDLERS`/`DROPPED_ATTRS`
+  for targets that express little of the vocabulary (they inherit `null` for
+  future keys; the compile error fires at the base):
+
+  ```ts
+  export const HANDLER_MAP: HandlerTargets = {
+    ...DROPPED_HANDLERS, // hover, keyboard, double-press, wheel: no RN analog
+    onPress: "onPress",
+    onPointerDown: "onPressIn",
+    // ...everything this target can express
+  };
+  ```
+
+  No behavior change in the targets; a conformance test per target walks its
+  ledger and asserts every binding lands on its declared target — or, for a
+  `null`, nowhere at all.
+
 ## 0.3.2
 
 ### Patch Changes

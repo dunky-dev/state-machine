@@ -1,5 +1,45 @@
 # @dunky.dev/react-state-machine
 
+## 0.3.3
+
+### Patch Changes
+
+- [#57](https://github.com/dunky-dev/state-machine/pull/57) [`2532b06`](https://github.com/dunky-dev/state-machine/commit/2532b066455c7b1cd3c03eda270d8ce53498df19) Thanks [@ivanbanov](https://github.com/ivanbanov)! - The translation contract: every target must account for every vocabulary key —
+  mapped, or `null` as a declared drop. Previously the normalize maps were
+  untyped, so a new binding compiled everywhere and silently leaked to the host;
+  now it's a compile error in every target until that target decides.
+
+  Bindings exports the contract (`HandlerKey`/`AttrKey`, `HandlerTargets`/
+  `AttrTargets`) and the all-dropped bases `DROPPED_HANDLERS`/`DROPPED_ATTRS`
+  for targets that express little of the vocabulary (they inherit `null` for
+  future keys; the compile error fires at the base):
+
+  ```ts
+  export const HANDLER_MAP: HandlerTargets = {
+    ...DROPPED_HANDLERS, // hover, keyboard, double-press, wheel: no RN analog
+    onPress: "onPress",
+    onPointerDown: "onPressIn",
+    // ...everything this target can express
+  };
+  ```
+
+  No behavior change in the targets; a conformance test per target walks its
+  ledger and asserts every binding lands on its declared target — or, for a
+  `null`, nowhere at all.
+
+- [#59](https://github.com/dunky-dev/state-machine/pull/59) [`59f279e`](https://github.com/dunky-dev/state-machine/commit/59f279e8748d25f5c95999987bc1d944a9ff92d9) Thanks [@ivanbanov](https://github.com/ivanbanov)! - Internal dependencies on sibling workspace packages are now pinned to an
+  exact version instead of a caret range, and every package versions
+  independently — the `@dunky.dev/*` lockstep group is gone, so a release
+  never bumps a package whose code didn't change.
+
+  A caret range between two packages that both sit above a shared dependency
+  lets a consumer's install resolve to two different physical copies of it
+  once those packages' required ranges drift apart, silently breaking anything
+  identity-sensitive in that shared dependency (a singleton, a `WeakMap`,
+  module-level state). Pinning exact collapses that to one resolvable version:
+  a mismatch now fails at publish time instead of surfacing as a runtime bug
+  in a consumer's app.
+
 ## 0.3.2
 
 ### Patch Changes
