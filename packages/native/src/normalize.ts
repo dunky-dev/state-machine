@@ -4,9 +4,8 @@
  * How the maps are set up — and where each side comes from:
  * - Input keys are the substrate-agnostic vocabulary a connect() emits:
  *   `EventBindings` / `AttrBindings` in `@dunky.dev/state-machine-bindings`.
- *   Every vocabulary key must be accounted for here — mapped, folded, or a
- *   declared `null` drop; the `HandlerTargets`/`AttrTargets` contract makes an
- *   unlisted key a compile error instead of a silent leak to the host.
+ *   Every key must be accounted for — mapped, folded, or a `null` drop;
+ *   the contract types make an unlisted key a compile error, not a leak.
  * - Output keys are verified against RN's own vendored source, not its docs:
  *   - `ReactAndroid/.../uimanager/BaseViewManager.java` — the `@ReactProp`
  *     setters: which view props exist on Android and how each validates.
@@ -66,12 +65,9 @@ export const ATTR_MAP: AttrTargets = {
   // per platform (accessibilityElementsHidden on iOS, no-hide-descendants on
   // Android) — accessibilityState has no hidden slot.
   hidden: 'aria-hidden',
-  // RN's web-aligned `role` prop takes the full ARIA vocabulary and degrades
-  // gracefully (never the legacy accessibilityRole enum, which throws).
-  role: 'role',
+  role: 'role', // the web-aligned prop — never the legacy accessibilityRole enum (throws)
 
-  // Folded and special channels — named here for the ledger; normalize()
-  // routes them before the plain-rename lookup.
+  // folded / special channels — normalize() routes these before the rename lookup
   disabled: 'accessibilityState',
   expanded: 'accessibilityState',
   selected: 'accessibilityState',
@@ -85,22 +81,21 @@ export const ATTR_MAP: AttrTargets = {
   live: 'accessibilityLiveRegion', // value transform: ARIA 'off' → RN 'none'
 }
 
-// RN's accessibilityState slots — exactly these; anything else is stored and
-// ignored. Derived from the ledger so the fold can't drift from it.
+// RN's accessibilityState slots, derived from the ledger so the fold can't drift.
 const A11Y_STATE_KEYS = new Set(
   Object.entries(ATTR_MAP)
     .filter(([, target]) => target === 'accessibilityState')
     .map(([key]) => key),
 )
 
-// Logical key → RN's accessibilityValue sub-key (`{ min, max, now, text }`).
-// Keys derived from the ledger like A11Y_STATE_KEYS — the `value*` prefix
-// names the sub-key — so the fold can't drift from it.
-const A11Y_VALUE_KEYS: Record<string, string> = Object.fromEntries(
-  Object.entries(ATTR_MAP)
-    .filter(([, target]) => target === 'accessibilityValue')
-    .map(([key]) => [key, key.slice('value'.length).toLowerCase()]),
-)
+// Logical key → accessibilityValue sub-key. Must cover every ledger entry
+// that targets 'accessibilityValue', or the fold drifts.
+const A11Y_VALUE_KEYS: Record<string, string> = {
+  valueMin: 'min',
+  valueMax: 'max',
+  valueNow: 'now',
+  valueText: 'text',
+}
 
 type RNScrollEvent = {
   nativeEvent?: {

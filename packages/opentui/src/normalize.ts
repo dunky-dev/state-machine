@@ -29,8 +29,7 @@ export const HANDLER_MAP: HandlerTargets = {
 
 export const ATTR_MAP: AttrTargets = {
   ...DROPPED_ATTRS, // no ARIA tree in a terminal — the whole vocabulary drops
-  // Visual analogs, routed in normalize(): `hidden` inverts into `visible`,
-  // `focusable` is coerced to boolean.
+  // visual analogs — routed in normalize()
   hidden: 'visible',
   focusable: 'focusable',
   disabled: 'disabled',

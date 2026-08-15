@@ -239,25 +239,18 @@ export type HandlerKey = keyof EventBindings
 export type AttrKey = keyof AttrBindings
 
 /**
- * A target's accounting of the vocabulary: every key names the host prop that
- * carries it (folded channels name the channel), or is `null` — a declared
- * drop for a binding the substrate cannot express. `Record`, not `Partial`,
- * on purpose: a new vocabulary key breaks every target's typecheck until that
- * target decides — mapped or dropped, never leaked. No string index, so ledger
- * literals stay typo-checked; a normalize loop widens at the read site
- * (`as Record<string, string | null | undefined>`) — a miss is `undefined` at
- * runtime, outside the vocabulary, passes through.
+ * A target's ledger: every vocabulary key names the host prop that carries it,
+ * or `null` — a declared drop. Exhaustive, so a new key breaks every target's
+ * typecheck until it decides — mapped or dropped, never leaked. No string
+ * index: literals stay typo-checked; loops widen at the read site.
  */
 export type HandlerTargets = Record<HandlerKey, string | null>
 export type AttrTargets = Record<AttrKey, string | null>
 
 /**
- * The all-dropped ledgers: every vocabulary key declared `null`. A target that
- * can't express most of the vocabulary spreads one and overrides what it does
- * carry, instead of writing a wall of `null`s. The trade-off is deliberate:
- * a spreading target inherits `null` for FUTURE vocabulary keys automatically —
- * the compile error for a new key fires here (and in fully-explicit targets),
- * so the drop-by-default decision is made once, next to the vocabulary.
+ * The all-dropped bases: spread one and override what the target can express.
+ * Spreading inherits `null` for future vocabulary keys — the drop-by-default
+ * decision is made once, here, next to the vocabulary.
  */
 export const DROPPED_HANDLERS: HandlerTargets = {
   onPress: null,

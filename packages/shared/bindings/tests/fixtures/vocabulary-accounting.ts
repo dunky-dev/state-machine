@@ -1,7 +1,5 @@
-// The shared conformance suite for the translation contract: walks a target's
-// ledgers and asserts every binding lands on its declared target — or, for a
-// `null` drop, nowhere at all. Each target's normalize.test.ts invokes it with
-// its own ledgers so the accounting stays identical across substrates.
+// The shared conformance suite: walks a target's ledgers and asserts every
+// binding lands on its declared target — or, for a `null` drop, nowhere at all.
 import { describe, expect, it, vi } from 'vitest'
 import type { AttrTargets, HandlerTargets } from '../../src'
 
@@ -17,8 +15,6 @@ export function describeVocabularyAccounting(
     it('routes every handler to its declared target; a null drop leaks nothing', () => {
       for (const [key, target] of Object.entries(handlers)) {
         const out = normalize({ [key]: vi.fn<(payload?: unknown) => void>() })
-        // landed: the declared target carries it (null = nothing at all);
-        // leaked: the logical key survived a rename or a drop.
         const landed = target === null ? Object.keys(out).length === 0 : target in out
         const leaked = target !== key && key in out
         expect({ key, landed, leaked }).toEqual({ key, landed: true, leaked: false })
