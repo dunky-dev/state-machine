@@ -13,6 +13,8 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 import { normalize } from '@dunky.dev/native-state-machine'
+import { ATTR_MAP, HANDLER_MAP } from '../src/normalize'
+import { describeVocabularyAccounting } from '../../shared/bindings/tests/fixtures/vocabulary-accounting'
 
 describe('native normalize — handlers', () => {
   it('keeps onPress as-is (RN Pressable.onPress)', () => {
@@ -307,3 +309,5 @@ describe('native normalize — realistic slider shape', () => {
     expect(onValueChange).toHaveBeenCalledWith({ value: 60 })
   })
 })
+
+describeVocabularyAccounting('native', normalize, HANDLER_MAP, ATTR_MAP)

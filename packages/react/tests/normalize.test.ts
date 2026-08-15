@@ -9,6 +9,8 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 import { normalize } from '@dunky.dev/react-state-machine'
+import { ATTR_MAP, HANDLER_MAP } from '../src/normalize'
+import { describeVocabularyAccounting } from '../../shared/bindings/tests/fixtures/vocabulary-accounting'
 
 describe('react normalize — handlers', () => {
   it('maps onPress to onClick (the DOM activation event)', () => {
@@ -293,3 +295,5 @@ describe('react normalize — expanded attribute surface', () => {
     expect(onValueChange).toHaveBeenCalledWith(expect.objectContaining({ value: '50' }))
   })
 })
+
+describeVocabularyAccounting('react', normalize, HANDLER_MAP, ATTR_MAP)

@@ -174,11 +174,11 @@ whether it needs props/platform or not:
 
 ## Vocabulary
 
-| Term         | What it is                                                                                                                |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| **host**     | The agnostic core — `packages/core/*`. Declares what behavior is.                                                         |
-| **target**   | A substrate-specific bridge package and its render environment — `packages/<target>/*` (`react`, `native`, `opentui`, …). |
-| **machine**  | A state-graph config consumed by `machine()`; returns a startable service.                                                |
-| **connect**  | A function returning the logical surface a view spreads onto elements.                                                    |
-| **bindings** | The substrate-agnostic event + attr vocabulary — lives in `shared/bindings`, consumed by every target's normalize.        |
-| **compose**  | Run several machines as one unit (orthogonal regions): bundled `start`/`stop` + `sync` + `combine`.                       |
+| Term         | What it is                                                                                                                                                                                                                                                                                |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **host**     | The agnostic core — `packages/core/*`. Declares what behavior is.                                                                                                                                                                                                                         |
+| **target**   | A substrate-specific bridge package and its render environment — `packages/<target>/*` (`react`, `native`, `opentui`, …).                                                                                                                                                                 |
+| **machine**  | A state-graph config consumed by `machine()`; returns a startable service.                                                                                                                                                                                                                |
+| **connect**  | A function returning the logical surface a view spreads onto elements.                                                                                                                                                                                                                    |
+| **bindings** | The substrate-agnostic event + attr vocabulary — lives in `shared/bindings`, consumed by every target's normalize. Each ledger is typed by the contract (`HandlerTargets`/`AttrTargets`): every key mapped or a `null` drop — a new binding is a compile error until each target decides. |
+| **compose**  | Run several machines as one unit (orthogonal regions): bundled `start`/`stop` + `sync` + `combine`.                                                                                                                                                                                       |

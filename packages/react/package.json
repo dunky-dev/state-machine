@@ -38,6 +38,7 @@
     "@dunky.dev/state-machine-utils": "workspace:^"
   },
   "devDependencies": {
+    "@dunky.dev/state-machine-bindings": "workspace:^",
     "@testing-library/react": "^16.1.0",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",

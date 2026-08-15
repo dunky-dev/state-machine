@@ -16,6 +16,8 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 import { normalize } from '@dunky.dev/opentui-state-machine'
+import { ATTR_MAP, HANDLER_MAP } from '../src/normalize'
+import { describeVocabularyAccounting } from '../../shared/bindings/tests/fixtures/vocabulary-accounting'
 
 describe('opentui normalize — handlers', () => {
   it('maps onPress to onMouseDown (no synthetic click in a terminal)', () => {
@@ -204,3 +206,5 @@ describe('opentui normalize — combined surface (focusable button shape)', () =
     })
   })
 })
+
+describeVocabularyAccounting('opentui', normalize, HANDLER_MAP, ATTR_MAP)
