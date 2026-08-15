@@ -7,20 +7,13 @@
  * - `onWheel` → `onMouseScroll`; `onScroll`/`onScrollEnd` dropped (scrollbox has no scroll callback).
  * - `onValueChange` → `onChange`; adapter handles both bare string and `(index, option)` shapes.
  * - `onKeyUp` dropped — terminals deliver key presses, not up/down.
+ * - `onFocus`/`onBlur` dropped — OpenTUI signals focus via the `focused` prop.
  * - `focusable` passes through as-is.
  */
 
 import { DROPPED_ATTRS, DROPPED_HANDLERS } from '@dunky.dev/state-machine-bindings'
 import type { AttrTargets, HandlerTargets } from '@dunky.dev/state-machine-bindings'
 
-// The translation contract: the DROPPED_* spread declares everything a `null`
-// drop; the entries after it are what this target can express — the
-// annotation keeps the overrides typo-checked against the vocabulary.
-//
-// Dropped (via the spread) with intent, not just absence: `onFocus`/`onBlur` —
-// OpenTUI signals focus via the `focused` prop; `onScroll`/`onScrollEnd` —
-// scrollbox has no scroll-position callback; `onKeyUp` — terminals deliver
-// presses, not up/down.
 export const HANDLER_MAP: HandlerTargets = {
   ...DROPPED_HANDLERS,
   onPress: 'onMouseDown', // no synthetic click — a press is a button-down

@@ -42,9 +42,6 @@
 import { DROPPED_ATTRS, DROPPED_HANDLERS } from '@dunky.dev/state-machine-bindings'
 import type { AttrTargets, HandlerTargets } from '@dunky.dev/state-machine-bindings'
 
-// The translation contract: the DROPPED_* spread declares everything a `null`
-// drop; the entries after it are what this target can express — the
-// annotation keeps the overrides typo-checked against the vocabulary.
 export const HANDLER_MAP: HandlerTargets = {
   ...DROPPED_HANDLERS, // hover, keyboard, double-press, wheel: no RN analog
   onPress: 'onPress',
@@ -58,9 +55,6 @@ export const HANDLER_MAP: HandlerTargets = {
   onScrollEnd: 'onMomentumScrollEnd',
 }
 
-// Dropped (via the spread) with intent, not just absence: `describedBy` has no
-// describe-by-reference slot in RN (no aria-describedby); routing it into the
-// label slot would misname the element and clobber labelledBy.
 export const ATTR_MAP: AttrTargets = {
   ...DROPPED_ATTRS,
   // Android-only (iOS has no id-reference labelling); the setter takes a

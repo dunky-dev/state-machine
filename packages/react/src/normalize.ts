@@ -1,8 +1,6 @@
 // Translate the machine layer's logical surface to React DOM props.
 import type { AttrTargets, HandlerTargets } from '@dunky.dev/state-machine-bindings'
 
-// The translation contract: every vocabulary key must appear — mapped or a
-// declared `null` drop — so a new binding fails here until this target decides.
 export const HANDLER_MAP: HandlerTargets = {
   onPress: 'onClick',
   onPointerEnter: 'onPointerEnter',
