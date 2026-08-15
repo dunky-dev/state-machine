@@ -34,10 +34,10 @@
     "build": "tsdown"
   },
   "dependencies": {
-    "@dunky.dev/react-state-machine": "workspace:^",
-    "@dunky.dev/state-machine": "workspace:^",
-    "@dunky.dev/state-machine-bindings": "workspace:^",
-    "@dunky.dev/state-machine-utils": "workspace:^"
+    "@dunky.dev/react-state-machine": "workspace:*",
+    "@dunky.dev/state-machine": "workspace:*",
+    "@dunky.dev/state-machine-bindings": "workspace:*",
+    "@dunky.dev/state-machine-utils": "workspace:*"
   },
   "peerDependencies": {
     "react": "*",
