@@ -17,6 +17,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { normalize } from '@dunky.dev/opentui-state-machine'
 import { ATTR_MAP, HANDLER_MAP } from '../src/normalize'
+import { describeVocabularyAccounting } from '../../shared/bindings/tests/fixtures/vocabulary-accounting'
 
 describe('opentui normalize — handlers', () => {
   it('maps onPress to onMouseDown (no synthetic click in a terminal)', () => {
@@ -206,24 +207,4 @@ describe('opentui normalize — combined surface (focusable button shape)', () =
   })
 })
 
-describe('opentui normalize — vocabulary accounting (the translation contract)', () => {
-  it('routes every handler to its declared target; a null drop leaks nothing', () => {
-    for (const [key, target] of Object.entries(HANDLER_MAP)) {
-      const out = normalize({ [key]: vi.fn() })
-      // landed: the declared target carries it (null = nothing at all);
-      // leaked: the logical key survived a rename or a drop.
-      const landed = target === null ? Object.keys(out).length === 0 : target in out
-      const leaked = target !== key && key in out
-      expect({ key, landed, leaked }).toEqual({ key, landed: true, leaked: false })
-    }
-  })
-
-  it('routes every attr to its declared target; a null drop leaks nothing', () => {
-    for (const [key, target] of Object.entries(ATTR_MAP)) {
-      const out = normalize({ [key]: key === 'live' ? 'polite' : true })
-      const landed = target === null ? Object.keys(out).length === 0 : target in out
-      const leaked = target !== key && key in out
-      expect({ key, landed, leaked }).toEqual({ key, landed: true, leaked: false })
-    }
-  })
-})
+describeVocabularyAccounting('opentui', normalize, HANDLER_MAP, ATTR_MAP)
