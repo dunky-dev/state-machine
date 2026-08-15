@@ -14,7 +14,8 @@ import { DROPPED_ATTRS, DROPPED_HANDLERS } from '@dunky.dev/state-machine-bindin
 import type { AttrTargets, HandlerTargets } from '@dunky.dev/state-machine-bindings'
 
 // The translation contract: the DROPPED_* spread declares everything a `null`
-// drop; the entries after it are what this target can express.
+// drop; the entries after it are what this target can express — the
+// annotation keeps the overrides typo-checked against the vocabulary.
 //
 // Dropped (via the spread) with intent, not just absence: `onFocus`/`onBlur` —
 // OpenTUI signals focus via the `focused` prop; `onScroll`/`onScrollEnd` —
@@ -73,7 +74,7 @@ export function normalize(logical: Bindings): Record<string, unknown> {
   for (const [key, value] of Object.entries(logical)) {
     if (value === undefined) continue
 
-    const handler = HANDLER_MAP[key]
+    const handler = (HANDLER_MAP as Record<string, string | null | undefined>)[key]
     if (handler === null) continue
     if (handler) {
       const adapt = PAYLOAD_ADAPTERS[key]
@@ -93,7 +94,7 @@ export function normalize(logical: Bindings): Record<string, unknown> {
       continue
     }
 
-    const attr = ATTR_MAP[key]
+    const attr = (ATTR_MAP as Record<string, string | null | undefined>)[key]
     if (attr === null) continue
     if (attr) {
       out[attr] = value

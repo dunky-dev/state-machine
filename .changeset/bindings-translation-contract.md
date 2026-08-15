@@ -11,9 +11,8 @@ untyped, so a new binding compiled everywhere and silently leaked to the host;
 now it's a compile error in every target until that target decides.
 
 Bindings exports the contract (`HandlerKey`/`AttrKey`, `HandlerTargets`/
-`AttrTargets` — exhaustive over the vocabulary, string-indexable for the
-loop) and the all-dropped bases `DROPPED_HANDLERS`/`DROPPED_ATTRS` for
-targets that express little of the vocabulary (they inherit `null` for
+`AttrTargets`) and the all-dropped bases `DROPPED_HANDLERS`/`DROPPED_ATTRS`
+for targets that express little of the vocabulary (they inherit `null` for
 future keys; the compile error fires at the base):
 
 ```ts

@@ -43,7 +43,8 @@ import { DROPPED_ATTRS, DROPPED_HANDLERS } from '@dunky.dev/state-machine-bindin
 import type { AttrTargets, HandlerTargets } from '@dunky.dev/state-machine-bindings'
 
 // The translation contract: the DROPPED_* spread declares everything a `null`
-// drop; the entries after it are what this target can express.
+// drop; the entries after it are what this target can express — the
+// annotation keeps the overrides typo-checked against the vocabulary.
 export const HANDLER_MAP: HandlerTargets = {
   ...DROPPED_HANDLERS, // hover, keyboard, double-press, wheel: no RN analog
   onPress: 'onPress',
@@ -99,12 +100,13 @@ const A11Y_STATE_KEYS = new Set(
 )
 
 // Logical key → RN's accessibilityValue sub-key (`{ min, max, now, text }`).
-const A11Y_VALUE_KEYS: Record<string, string> = {
-  valueMin: 'min',
-  valueMax: 'max',
-  valueNow: 'now',
-  valueText: 'text',
-}
+// Keys derived from the ledger like A11Y_STATE_KEYS — the `value*` prefix
+// names the sub-key — so the fold can't drift from it.
+const A11Y_VALUE_KEYS: Record<string, string> = Object.fromEntries(
+  Object.entries(ATTR_MAP)
+    .filter(([, target]) => target === 'accessibilityValue')
+    .map(([key]) => [key, key.slice('value'.length).toLowerCase()]),
+)
 
 type RNScrollEvent = {
   nativeEvent?: {
@@ -145,7 +147,7 @@ export function normalize(logical: Bindings): Record<string, unknown> {
   for (const [key, value] of Object.entries(logical)) {
     if (value === undefined) continue
 
-    const handler = HANDLER_MAP[key]
+    const handler = (HANDLER_MAP as Record<string, string | null | undefined>)[key]
     if (handler === null) continue
     if (handler) {
       const adapt = PAYLOAD_ADAPTERS[key]
@@ -177,7 +179,7 @@ export function normalize(logical: Bindings): Record<string, unknown> {
       continue
     }
 
-    const attr = ATTR_MAP[key]
+    const attr = (ATTR_MAP as Record<string, string | null | undefined>)[key]
     if (attr === null) continue
     if (attr) {
       out[attr] = value

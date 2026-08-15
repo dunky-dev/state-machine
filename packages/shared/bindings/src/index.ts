@@ -241,18 +241,15 @@ export type AttrKey = keyof AttrBindings
 /**
  * A target's accounting of the vocabulary: every key names the host prop that
  * carries it (folded channels name the channel), or is `null` — a declared
- * drop for a binding the substrate cannot express. Every vocabulary key is
- * required, so a new one breaks every target's typecheck until that target
- * decides — mapped or dropped, never leaked. The string index makes the
- * ledger directly loop-readable: a miss is `undefined` at runtime — outside
- * the vocabulary, passes through.
+ * drop for a binding the substrate cannot express. `Record`, not `Partial`,
+ * on purpose: a new vocabulary key breaks every target's typecheck until that
+ * target decides — mapped or dropped, never leaked. No string index, so ledger
+ * literals stay typo-checked; a normalize loop widens at the read site
+ * (`as Record<string, string | null | undefined>`) — a miss is `undefined` at
+ * runtime, outside the vocabulary, passes through.
  */
-export type HandlerTargets = { [K in HandlerKey]: string | null } & {
-  [key: string]: string | null | undefined
-}
-export type AttrTargets = { [K in AttrKey]: string | null } & {
-  [key: string]: string | null | undefined
-}
+export type HandlerTargets = Record<HandlerKey, string | null>
+export type AttrTargets = Record<AttrKey, string | null>
 
 /**
  * The all-dropped ledgers: every vocabulary key declared `null`. A target that

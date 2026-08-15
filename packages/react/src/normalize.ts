@@ -130,14 +130,16 @@ export function normalize(logical: Bindings): Record<string, unknown> {
   for (const [key, value] of Object.entries(logical)) {
     if (value === undefined) continue
 
-    const handler = HANDLER_MAP[key]
+    const handler = (HANDLER_MAP as Record<string, string | null | undefined>)[key]
+    if (handler === null) continue
     if (handler) {
       const adapt = PAYLOAD_ADAPTERS[key]
       out[handler] = adapt ? (e: AnyEvent) => (value as (p: unknown) => void)(adapt(e)) : value
       continue
     }
 
-    const attr = ATTR_MAP[key]
+    const attr = (ATTR_MAP as Record<string, string | null | undefined>)[key]
+    if (attr === null) continue
     if (attr) {
       out[attr] = key === 'focusable' ? (value ? 0 : -1) : value
       continue

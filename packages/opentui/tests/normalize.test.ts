@@ -212,7 +212,7 @@ describe('opentui normalize — vocabulary accounting (the translation contract)
       const out = normalize({ [key]: vi.fn() })
       // landed: the declared target carries it (null = nothing at all);
       // leaked: the logical key survived a rename or a drop.
-      const landed = target == null ? Object.keys(out).length === 0 : target in out
+      const landed = target === null ? Object.keys(out).length === 0 : target in out
       const leaked = target !== key && key in out
       expect({ key, landed, leaked }).toEqual({ key, landed: true, leaked: false })
     }
@@ -221,7 +221,7 @@ describe('opentui normalize — vocabulary accounting (the translation contract)
   it('routes every attr to its declared target; a null drop leaks nothing', () => {
     for (const [key, target] of Object.entries(ATTR_MAP)) {
       const out = normalize({ [key]: key === 'live' ? 'polite' : true })
-      const landed = target == null ? Object.keys(out).length === 0 : target in out
+      const landed = target === null ? Object.keys(out).length === 0 : target in out
       const leaked = target !== key && key in out
       expect({ key, landed, leaked }).toEqual({ key, landed: true, leaked: false })
     }
