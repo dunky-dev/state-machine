@@ -4,8 +4,8 @@
  * How the maps are set up — and where each side comes from:
  * - Input keys are the substrate-agnostic vocabulary a connect() emits:
  *   `EventBindings` / `AttrBindings` in `@dunky.dev/state-machine-bindings`.
- *   Every key must be accounted for — mapped, folded, or a `null` drop;
- *   the contract types make an unlisted key a compile error, not a leak.
+ *   Maps and drop sets are vocabulary-typed (`HandlerKey`/`AttrKey`), so a
+ *   typo'd or unknown key is a compile error.
  * - Output keys are verified against RN's own vendored source, not its docs:
  *   - `ReactAndroid/.../uimanager/BaseViewManager.java` — the `@ReactProp`
  *     setters: which view props exist on Android and how each validates.
@@ -38,11 +38,14 @@
  *   it (e.g. 'dialog').
  */
 
-import { DROPPED_ATTRS, DROPPED_HANDLERS } from '@dunky.dev/state-machine-bindings'
-import type { AttrTargets, HandlerTargets } from '@dunky.dev/state-machine-bindings'
+import type {
+  AttrKey,
+  AttrTargets,
+  HandlerKey,
+  HandlerTargets,
+} from '@dunky.dev/state-machine-bindings'
 
 export const HANDLER_MAP: HandlerTargets = {
-  ...DROPPED_HANDLERS, // hover, keyboard, double-press, wheel: no RN analog
   onPress: 'onPress',
   onPointerDown: 'onPressIn',
   onPointerUp: 'onPressOut',
@@ -54,8 +57,19 @@ export const HANDLER_MAP: HandlerTargets = {
   onScrollEnd: 'onMomentumScrollEnd',
 }
 
+// no RN analog — stripped
+export const HANDLER_DROP: ReadonlySet<string> = new Set<HandlerKey>([
+  'onPointerEnter',
+  'onPointerLeave',
+  'onPointerMove',
+  'onPointerCancel',
+  'onKeyDown',
+  'onKeyUp',
+  'onDoublePress',
+  'onWheel',
+])
+
 export const ATTR_MAP: AttrTargets = {
-  ...DROPPED_ATTRS,
   // Android-only (iOS has no id-reference labelling); the setter takes a
   // nativeID string or an array (first element wins).
   labelledBy: 'accessibilityLabelledBy',
@@ -66,31 +80,52 @@ export const ATTR_MAP: AttrTargets = {
   // Android) — accessibilityState has no hidden slot.
   hidden: 'aria-hidden',
   role: 'role', // the web-aligned prop — never the legacy accessibilityRole enum (throws)
-
-  // folded / special channels — normalize() routes these before the rename lookup
-  disabled: 'accessibilityState',
-  expanded: 'accessibilityState',
-  selected: 'accessibilityState',
-  checked: 'accessibilityState',
-  busy: 'accessibilityState',
-  valueMin: 'accessibilityValue',
-  valueMax: 'accessibilityValue',
-  valueNow: 'accessibilityValue',
-  valueText: 'accessibilityValue',
-  focusable: 'focusable', // value coerced; also sets `accessible`
-  live: 'accessibilityLiveRegion', // value transform: ARIA 'off' → RN 'none'
+  // `focusable` and `live` are special-cased in normalize(): the value is
+  // transformed (coerced boolean + `accessible`; ARIA 'off' → RN 'none').
 }
 
-// RN's accessibilityState slots, derived from the ledger so the fold can't drift.
-const A11Y_STATE_KEYS = new Set(
-  Object.entries(ATTR_MAP)
-    .filter(([, target]) => target === 'accessibilityState')
-    .map(([key]) => key),
-)
+// no clean RN analog — stripped
+export const ATTR_DROP: ReadonlySet<string> = new Set<AttrKey>([
+  'describedBy',
+  'controls',
+  'hasPopup',
+  'modal',
+  'pressed',
+  'current',
+  'invalid',
+  'required',
+  'readOnly',
+  'activeDescendant',
+  'errorMessage',
+  'owns',
+  'orientation',
+  'sort',
+  'autoComplete',
+  'multiline',
+  'multiSelectable',
+  'level',
+  'posInSet',
+  'setSize',
+  'colCount',
+  'colIndex',
+  'colSpan',
+  'rowCount',
+  'rowIndex',
+  'rowSpan',
+  'atomic',
+])
 
-// Logical key → accessibilityValue sub-key. Must cover every ledger entry
-// that targets 'accessibilityValue', or the fold drifts.
-const A11Y_VALUE_KEYS: Record<string, string> = {
+// RN's accessibilityState slots — folded into one object in normalize().
+const A11Y_STATE_KEYS: ReadonlySet<string> = new Set<AttrKey>([
+  'disabled',
+  'expanded',
+  'selected',
+  'checked',
+  'busy',
+])
+
+// Logical key → RN's accessibilityValue sub-key.
+const A11Y_VALUE_KEYS: Partial<Record<AttrKey, string>> = {
   valueMin: 'min',
   valueMax: 'max',
   valueNow: 'now',
@@ -136,8 +171,10 @@ export function normalize(logical: Bindings): Record<string, unknown> {
   for (const [key, value] of Object.entries(logical)) {
     if (value === undefined) continue
 
-    const handler = (HANDLER_MAP as Record<string, string | null | undefined>)[key]
-    if (handler === null) continue
+    if (HANDLER_DROP.has(key)) continue
+    if (ATTR_DROP.has(key)) continue
+
+    const handler = HANDLER_MAP[key as HandlerKey]
     if (handler) {
       const adapt = PAYLOAD_ADAPTERS[key]
       out[handler] = adapt ? (arg: unknown) => (value as (p: unknown) => void)(adapt(arg)) : value
@@ -150,7 +187,7 @@ export function normalize(logical: Bindings): Record<string, unknown> {
       continue
     }
 
-    const valueKey = A11Y_VALUE_KEYS[key]
+    const valueKey = A11Y_VALUE_KEYS[key as AttrKey]
     if (valueKey) {
       a11yValue[valueKey] = value
       hasA11yValue = true
@@ -168,8 +205,7 @@ export function normalize(logical: Bindings): Record<string, unknown> {
       continue
     }
 
-    const attr = (ATTR_MAP as Record<string, string | null | undefined>)[key]
-    if (attr === null) continue
+    const attr = ATTR_MAP[key as AttrKey]
     if (attr) {
       out[attr] = value
       continue

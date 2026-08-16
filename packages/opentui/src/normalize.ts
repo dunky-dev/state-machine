@@ -11,11 +11,14 @@
  * - `focusable` passes through as-is.
  */
 
-import { DROPPED_ATTRS, DROPPED_HANDLERS } from '@dunky.dev/state-machine-bindings'
-import type { AttrTargets, HandlerTargets } from '@dunky.dev/state-machine-bindings'
+import type {
+  AttrKey,
+  AttrTargets,
+  HandlerKey,
+  HandlerTargets,
+} from '@dunky.dev/state-machine-bindings'
 
 export const HANDLER_MAP: HandlerTargets = {
-  ...DROPPED_HANDLERS,
   onPress: 'onMouseDown', // no synthetic click — a press is a button-down
   onPointerDown: 'onMouseDown',
   onPointerUp: 'onMouseUp',
@@ -27,13 +30,68 @@ export const HANDLER_MAP: HandlerTargets = {
   onWheel: 'onMouseScroll',
 }
 
+// no terminal analog — see the header for the intent behind each drop
+export const HANDLER_DROP: ReadonlySet<string> = new Set<HandlerKey>([
+  'onPointerCancel',
+  'onFocus',
+  'onBlur',
+  'onKeyUp',
+  'onContextMenu',
+  'onDoublePress',
+  'onScroll',
+  'onScrollEnd',
+])
+
+// visual analogs — routed in normalize()
 export const ATTR_MAP: AttrTargets = {
-  ...DROPPED_ATTRS, // no ARIA tree in a terminal — the whole vocabulary drops
-  // visual analogs — routed in normalize()
   hidden: 'visible',
   focusable: 'focusable',
   disabled: 'disabled',
 }
+
+// no ARIA tree in a terminal — the whole vocabulary drops
+export const ATTR_DROP: ReadonlySet<string> = new Set<AttrKey>([
+  'id',
+  'describedBy',
+  'labelledBy',
+  'controls',
+  'expanded',
+  'selected',
+  'modal',
+  'hasPopup',
+  'role',
+  'label',
+  'checked',
+  'pressed',
+  'current',
+  'busy',
+  'invalid',
+  'required',
+  'readOnly',
+  'activeDescendant',
+  'errorMessage',
+  'owns',
+  'valueMin',
+  'valueMax',
+  'valueNow',
+  'valueText',
+  'orientation',
+  'sort',
+  'autoComplete',
+  'multiline',
+  'multiSelectable',
+  'level',
+  'posInSet',
+  'setSize',
+  'colCount',
+  'colIndex',
+  'colSpan',
+  'rowCount',
+  'rowIndex',
+  'rowSpan',
+  'live',
+  'atomic',
+])
 
 // Adapters are variadic — <select>'s onChange fires `(index, option)`, not a single arg.
 
@@ -66,8 +124,10 @@ export function normalize(logical: Bindings): Record<string, unknown> {
   for (const [key, value] of Object.entries(logical)) {
     if (value === undefined) continue
 
-    const handler = (HANDLER_MAP as Record<string, string | null | undefined>)[key]
-    if (handler === null) continue
+    if (HANDLER_DROP.has(key)) continue
+    if (ATTR_DROP.has(key)) continue
+
+    const handler = HANDLER_MAP[key as HandlerKey]
     if (handler) {
       const adapt = PAYLOAD_ADAPTERS[key]
       out[handler] = adapt
@@ -86,8 +146,7 @@ export function normalize(logical: Bindings): Record<string, unknown> {
       continue
     }
 
-    const attr = (ATTR_MAP as Record<string, string | null | undefined>)[key]
-    if (attr === null) continue
+    const attr = ATTR_MAP[key as AttrKey]
     if (attr) {
       out[attr] = value
       continue

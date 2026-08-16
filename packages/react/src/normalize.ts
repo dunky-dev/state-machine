@@ -1,5 +1,10 @@
 // Translate the machine layer's logical surface to React DOM props.
-import type { AttrTargets, HandlerTargets } from '@dunky.dev/state-machine-bindings'
+import type {
+  AttrKey,
+  AttrTargets,
+  HandlerKey,
+  HandlerTargets,
+} from '@dunky.dev/state-machine-bindings'
 
 export const HANDLER_MAP: HandlerTargets = {
   onPress: 'onClick',
@@ -128,16 +133,14 @@ export function normalize(logical: Bindings): Record<string, unknown> {
   for (const [key, value] of Object.entries(logical)) {
     if (value === undefined) continue
 
-    const handler = (HANDLER_MAP as Record<string, string | null | undefined>)[key]
-    if (handler === null) continue
+    const handler = HANDLER_MAP[key as HandlerKey]
     if (handler) {
       const adapt = PAYLOAD_ADAPTERS[key]
       out[handler] = adapt ? (e: AnyEvent) => (value as (p: unknown) => void)(adapt(e)) : value
       continue
     }
 
-    const attr = (ATTR_MAP as Record<string, string | null | undefined>)[key]
-    if (attr === null) continue
+    const attr = ATTR_MAP[key as AttrKey]
     if (attr) {
       out[attr] = key === 'focusable' ? (value ? 0 : -1) : value
       continue

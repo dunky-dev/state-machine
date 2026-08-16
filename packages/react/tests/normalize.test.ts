@@ -296,4 +296,4 @@ describe('react normalize — expanded attribute surface', () => {
   })
 })
 
-describeVocabularyAccounting('react', normalize, HANDLER_MAP, ATTR_MAP)
+describeVocabularyAccounting('react', normalize, { map: HANDLER_MAP }, { map: ATTR_MAP })
