@@ -13,7 +13,7 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 import { normalize } from '@dunky.dev/native-state-machine'
-import { ATTR_MAP, HANDLER_MAP } from '../src/normalize'
+import { ATTR_DROP, ATTR_MAP, HANDLER_DROP, HANDLER_MAP } from '../src/normalize'
 import { describeVocabularyAccounting } from '../../shared/bindings/tests/fixtures/vocabulary-accounting'
 
 describe('native normalize — handlers', () => {
@@ -310,4 +310,9 @@ describe('native normalize — realistic slider shape', () => {
   })
 })
 
-describeVocabularyAccounting('native', normalize, HANDLER_MAP, ATTR_MAP)
+describeVocabularyAccounting(
+  'native',
+  normalize,
+  { map: HANDLER_MAP, dropped: HANDLER_DROP },
+  { map: ATTR_MAP, dropped: ATTR_DROP },
+)

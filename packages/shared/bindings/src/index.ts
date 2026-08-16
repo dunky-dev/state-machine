@@ -239,81 +239,9 @@ export type HandlerKey = keyof EventBindings
 export type AttrKey = keyof AttrBindings
 
 /**
- * A target's ledger: every vocabulary key names the host prop that carries it,
- * or `null` — a declared drop. Exhaustive, so a new key breaks every target's
- * typecheck until it decides — mapped or dropped, never leaked. No string
- * index: literals stay typo-checked; loops widen at the read site.
+ * A target's rename map: each vocabulary key it expresses names the host prop
+ * that carries it. Vocabulary-typed keys — a typo or an unknown key is a
+ * compile error. Drops live next to it in a target's own typed set.
  */
-export type HandlerTargets = Record<HandlerKey, string | null>
-export type AttrTargets = Record<AttrKey, string | null>
-
-/**
- * The all-dropped bases: spread one and override what the target can express.
- * Spreading inherits `null` for future vocabulary keys — the drop-by-default
- * decision is made once, here, next to the vocabulary.
- */
-export const DROPPED_HANDLERS: HandlerTargets = {
-  onPress: null,
-  onPointerEnter: null,
-  onPointerLeave: null,
-  onPointerMove: null,
-  onPointerDown: null,
-  onPointerUp: null,
-  onPointerCancel: null,
-  onFocus: null,
-  onBlur: null,
-  onKeyDown: null,
-  onKeyUp: null,
-  onValueChange: null,
-  onContextMenu: null,
-  onDoublePress: null,
-  onWheel: null,
-  onScroll: null,
-  onScrollEnd: null,
-}
-
-export const DROPPED_ATTRS: AttrTargets = {
-  id: null,
-  describedBy: null,
-  labelledBy: null,
-  controls: null,
-  hasPopup: null,
-  expanded: null,
-  selected: null,
-  disabled: null,
-  hidden: null,
-  modal: null,
-  focusable: null,
-  role: null,
-  label: null,
-  checked: null,
-  pressed: null,
-  current: null,
-  busy: null,
-  invalid: null,
-  required: null,
-  readOnly: null,
-  activeDescendant: null,
-  errorMessage: null,
-  owns: null,
-  valueMin: null,
-  valueMax: null,
-  valueNow: null,
-  valueText: null,
-  orientation: null,
-  sort: null,
-  autoComplete: null,
-  multiline: null,
-  multiSelectable: null,
-  level: null,
-  posInSet: null,
-  setSize: null,
-  colCount: null,
-  colIndex: null,
-  colSpan: null,
-  rowCount: null,
-  rowIndex: null,
-  rowSpan: null,
-  live: null,
-  atomic: null,
-}
+export type HandlerTargets = Partial<Record<HandlerKey, string>>
+export type AttrTargets = Partial<Record<AttrKey, string>>
