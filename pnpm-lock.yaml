@@ -127,13 +127,16 @@ importers:
   packages/native:
     dependencies:
       '@dunky.dev/react-state-machine':
-        specifier: workspace:^
+        specifier: workspace:*
         version: link:../react
       '@dunky.dev/state-machine':
-        specifier: workspace:^
+        specifier: workspace:*
         version: link:../core
+      '@dunky.dev/state-machine-bindings':
+        specifier: workspace:*
+        version: link:../shared/bindings
       '@dunky.dev/state-machine-utils':
-        specifier: workspace:^
+        specifier: workspace:*
         version: link:../shared/utils
       react:
         specifier: '*'
@@ -144,19 +147,25 @@ importers:
 
   packages/opentui:
     dependencies:
+      '@dunky.dev/state-machine-bindings':
+        specifier: workspace:*
+        version: link:../shared/bindings
       '@dunky.dev/state-machine-utils':
-        specifier: workspace:^
+        specifier: workspace:*
         version: link:../shared/utils
 
   packages/react:
     dependencies:
       '@dunky.dev/state-machine':
-        specifier: workspace:^
+        specifier: workspace:*
         version: link:../core
       '@dunky.dev/state-machine-utils':
-        specifier: workspace:^
+        specifier: workspace:*
         version: link:../shared/utils
     devDependencies:
+      '@dunky.dev/state-machine-bindings':
+        specifier: workspace:*
+        version: link:../shared/bindings
       '@testing-library/react':
         specifier: ^16.1.0
         version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.15))(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -183,12 +192,15 @@ importers:
   packages/vue:
     dependencies:
       '@dunky.dev/state-machine':
-        specifier: workspace:^
+        specifier: workspace:*
         version: link:../core
       '@dunky.dev/state-machine-utils':
-        specifier: workspace:^
+        specifier: workspace:*
         version: link:../shared/utils
     devDependencies:
+      '@dunky.dev/state-machine-bindings':
+        specifier: workspace:*
+        version: link:../shared/bindings
       '@vue/test-utils':
         specifier: ^2.4.6
         version: 2.4.11(@vue/compiler-dom@3.5.38)(@vue/server-renderer@3.5.38(vue@3.5.38(typescript@6.0.3)))(vue@3.5.38(typescript@6.0.3))

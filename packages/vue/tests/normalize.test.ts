@@ -9,6 +9,8 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 import { normalize } from '@dunky.dev/vue-state-machine'
+import { ATTR_MAP, HANDLER_MAP } from '../src/normalize'
+import { describeVocabularyAccounting } from '../../shared/bindings/tests/fixtures/vocabulary-accounting'
 
 describe('vue normalize — handlers', () => {
   it('maps onPress to onClick (the DOM activation event)', () => {
@@ -307,3 +309,5 @@ describe('vue normalize — expanded attribute surface', () => {
     expect(onValueChange).toHaveBeenCalledWith(expect.objectContaining({ value: '50' }))
   })
 })
+
+describeVocabularyAccounting('vue', normalize, { map: HANDLER_MAP }, { map: ATTR_MAP })

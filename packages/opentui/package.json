@@ -1,6 +1,6 @@
 {
   "name": "@dunky.dev/opentui-state-machine",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -34,6 +34,7 @@
     "build": "tsdown"
   },
   "dependencies": {
-    "@dunky.dev/state-machine-utils": "workspace:^"
+    "@dunky.dev/state-machine-bindings": "workspace:*",
+    "@dunky.dev/state-machine-utils": "workspace:*"
   }
 }

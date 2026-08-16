@@ -2,8 +2,14 @@
 // `h()` / v-bind-spread shape). Multi-word DOM events keep only the leading
 // capital (`onPointerenter`): Vue hyphenates the camel tail when deriving the
 // event name, so `onPointerEnter` would listen to `pointer-enter`.
+import type {
+  AttrKey,
+  AttrTargets,
+  HandlerKey,
+  HandlerTargets,
+} from '@dunky.dev/state-machine-bindings'
 
-const HANDLER_MAP: Record<string, string> = {
+export const HANDLER_MAP: HandlerTargets = {
   onPress: 'onClick',
   onPointerEnter: 'onPointerenter',
   onPointerLeave: 'onPointerleave',
@@ -76,7 +82,7 @@ function scrollPayload(e: AnyEvent): unknown {
   }
 }
 
-const ATTR_MAP: Record<string, string> = {
+export const ATTR_MAP: AttrTargets = {
   describedBy: 'aria-describedby',
   labelledBy: 'aria-labelledby',
   controls: 'aria-controls',
@@ -138,14 +144,14 @@ export function normalize(logical: Bindings): Record<string, unknown> {
   for (const [key, value] of Object.entries(logical)) {
     if (value === undefined) continue
 
-    const handler = HANDLER_MAP[key]
+    const handler = HANDLER_MAP[key as HandlerKey]
     if (handler) {
       const adapt = PAYLOAD_ADAPTERS[key]
       out[handler] = adapt ? (e: AnyEvent) => (value as (p: unknown) => void)(adapt(e)) : value
       continue
     }
 
-    const attr = ATTR_MAP[key]
+    const attr = ATTR_MAP[key as AttrKey]
     if (attr) {
       if (key === 'focusable') {
         out[attr] = value ? 0 : -1

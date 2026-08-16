@@ -1,6 +1,6 @@
 {
   "name": "@dunky.dev/vue-state-machine",
-  "version": "0.3.2",
+  "version": "0.0.0",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -34,10 +34,11 @@
     "build": "tsdown"
   },
   "dependencies": {
-    "@dunky.dev/state-machine": "workspace:^",
-    "@dunky.dev/state-machine-utils": "workspace:^"
+    "@dunky.dev/state-machine": "workspace:*",
+    "@dunky.dev/state-machine-utils": "workspace:*"
   },
   "devDependencies": {
+    "@dunky.dev/state-machine-bindings": "workspace:*",
     "@vue/test-utils": "^2.4.6",
     "jsdom": "^29.1.1",
     "vue": "^3.5.13"

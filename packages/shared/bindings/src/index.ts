@@ -232,3 +232,16 @@ export interface AttrBindings {
   /** Announce the whole region (true) or just the changed node (false). */
   atomic?: boolean
 }
+
+// --- translation contract ------------------------------------------------------
+
+export type HandlerKey = keyof EventBindings
+export type AttrKey = keyof AttrBindings
+
+/**
+ * A target's rename map: each vocabulary key it expresses names the host prop
+ * that carries it. Vocabulary-typed keys — a typo or an unknown key is a
+ * compile error. Drops live next to it in a target's own typed set.
+ */
+export type HandlerTargets = Partial<Record<HandlerKey, string>>
+export type AttrTargets = Partial<Record<AttrKey, string>>
