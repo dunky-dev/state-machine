@@ -1,4 +1,4 @@
-import { createEffect, onCleanup, onMount } from 'solid-js'
+import { createEffect, onCleanup, onMount, untrack } from 'solid-js'
 import { createStore, reconcile } from 'solid-js/store'
 import { connector, machine, type Connect, type TransitionConfig } from '@dunky.dev/state-machine'
 
@@ -117,16 +117,16 @@ export function useMachine<
 
   // Component effects — the prop-dependent platform listeners (Escape, etc) the
   // machine can't own. One `createEffect` per entry: it READS the named prop
-  // deps (so Solid re-runs it when one of them changes), runs the effect, and
-  // registers the returned teardown via onCleanup (run before the next re-run
-  // and on unmount). Reading the deps explicitly — rather than letting the
-  // effect body's own reads decide — keeps the dependency set identical to every
-  // other target, driven by the authored `deps` and nothing else.
+  // deps (so Solid re-runs it when one of them changes), runs the effect body
+  // UNTRACKED (a prop the body merely reads must not become a hidden dependency
+  // — the authored `deps` are the whole contract, same as React's dep array),
+  // and registers the returned teardown via onCleanup (run before the next
+  // re-run and on unmount).
   for (const [fn, deps] of effects) {
     createEffect(() => {
       // Touch each declared dep so this effect re-runs when it changes.
       for (const key of deps) void props[key]
-      const cleanup = fn(service, props)
+      const cleanup = untrack(() => fn(service, props))
       if (cleanup) onCleanup(cleanup)
     })
   }

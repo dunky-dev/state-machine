@@ -254,6 +254,30 @@ describe('useMachine — component effects', () => {
     expect(fn).toHaveBeenCalledTimes(2)
   })
 
+  it('does NOT re-run when the effect body reads a prop outside its deps (untracked)', () => {
+    // The authored deps list is the whole re-run contract — same as React's dep
+    // array. A prop the effect merely reads must not become a hidden dependency.
+    const fn = vi.fn((_m: ToggleMachine, props: ToggleProps) => {
+      void props.label // read a NON-dep prop inside the effect body
+    })
+    const effects: ComponentEffect<ToggleMachine, ToggleProps>[] = [[fn, []]]
+    const [label, setLabel] = createSignal('a')
+    function Comp() {
+      const props: ToggleProps = {
+        get label() {
+          return label()
+        },
+      }
+      useMachine(createConfig(), connect, effects, props)
+      return null
+    }
+    render(() => <Comp />)
+    expect(fn).toHaveBeenCalledTimes(1)
+
+    setLabel('b') // read by the effect, but not in deps → no re-run
+    expect(fn).toHaveBeenCalledTimes(1)
+  })
+
   it('receives (machine, props) and can read live machine state', () => {
     let seenOpen: boolean | undefined
     const effects: ComponentEffect<ToggleMachine, ToggleProps>[] = [
