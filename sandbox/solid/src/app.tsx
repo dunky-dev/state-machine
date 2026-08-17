@@ -8,7 +8,7 @@ export function App() {
 
   return (
     <main style={styles.main}>
-      <h1 style={styles.title}>⌘K Command Pallete</h1>
+      <h1 style={styles.title}>⌘K Command Palette</h1>
       <br />
       <CommandPalette
         commands={DEMO_COMMANDS}

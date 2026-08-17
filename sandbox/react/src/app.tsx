@@ -7,7 +7,7 @@ export function App() {
 
   return (
     <main style={styles.main}>
-      <h1 style={styles.title}>⌘K Command Pallete</h1>
+      <h1 style={styles.title}>⌘K Command Palette</h1>
       <br />
       <CommandPalette
         commands={DEMO_COMMANDS}
@@ -20,7 +20,7 @@ export function App() {
       <p style={styles.lead}>
         One state machine drives this ⌘K palette.
         <br />
-        The same machine + connect runs the terminal (OpenTUI) and React Native versions
+        The same machine + connect runs the Solid, terminal (OpenTUI) and React Native versions
       </p>
       <p style={styles.hint}>
         <strong>Last selected: {last}</strong>

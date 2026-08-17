@@ -1,4 +1,4 @@
-import { createEffect, For, type JSX, Show } from 'solid-js'
+import { createEffect, For, type JSX, onCleanup, Show } from 'solid-js'
 import { type ComponentEffect, normalize, useMachine } from '@dunky.dev/solid-state-machine'
 import {
   commandPaletteMachineConfig,
@@ -55,7 +55,12 @@ export function CommandPalette(props: CommandPaletteProps) {
         <div style={styles.backdrop} onClick={() => api.setOpen(false)}>
           <div style={styles.panel} onClick={e => e.stopPropagation()}>
             <input
-              ref={el => (inputEl = el)}
+              // Clear on the Show branch's disposal — otherwise the closed
+              // palette keeps a detached <input> alive until the next open.
+              ref={el => {
+                inputEl = el
+                onCleanup(() => (inputEl = undefined))
+              }}
               {...normalize(api.parts.input)}
               value={api.query}
               placeholder='Type a command…'

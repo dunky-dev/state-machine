@@ -8,6 +8,10 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [solid()],
   resolve: {
+    // The package alias points Vite inside packages/solid, which carries its own
+    // solid-js devDep — dedupe so the app and the package share ONE Solid runtime
+    // (two copies means silently dead reactivity on any version skew).
+    dedupe: ['solid-js'],
     alias: {
       '@dunky.dev/state-machine': resolve(__dirname, '../../packages/core/src'),
       '@dunky.dev/solid-state-machine': resolve(__dirname, '../../packages/solid/src'),
