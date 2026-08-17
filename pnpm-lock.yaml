@@ -198,12 +198,15 @@ importers:
   packages/solid:
     dependencies:
       '@dunky.dev/state-machine':
-        specifier: workspace:^
+        specifier: workspace:*
         version: link:../core
       '@dunky.dev/state-machine-utils':
-        specifier: workspace:^
+        specifier: workspace:*
         version: link:../shared/utils
     devDependencies:
+      '@dunky.dev/state-machine-bindings':
+        specifier: workspace:*
+        version: link:../shared/bindings
       '@solidjs/testing-library':
         specifier: ^0.8.10
         version: 0.8.10(solid-js@1.9.13)
@@ -339,15 +342,15 @@ importers:
 
   sandbox/solid:
     dependencies:
+      '@dunky.dev/solid-state-machine':
+        specifier: workspace:^
+        version: link:../../packages/solid
       '@dunky.dev/state-machine':
         specifier: workspace:^
         version: link:../../packages/core
       '@dunky.dev/state-machine-bindings':
         specifier: workspace:^
         version: link:../../packages/shared/bindings
-      '@dunky.dev/state-machine-solid':
-        specifier: workspace:^
-        version: link:../../packages/solid
       '@dunky.dev/state-machine-utils':
         specifier: workspace:^
         version: link:../../packages/shared/utils

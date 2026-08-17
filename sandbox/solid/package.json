@@ -9,9 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@dunky.dev/solid-state-machine": "workspace:^",
     "@dunky.dev/state-machine": "workspace:^",
     "@dunky.dev/state-machine-bindings": "workspace:^",
-    "@dunky.dev/state-machine-solid": "workspace:^",
     "@dunky.dev/state-machine-utils": "workspace:^",
     "@sandbox/cmdk-core": "workspace:^",
     "solid-js": "^1.9.13"

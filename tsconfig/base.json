@@ -15,7 +15,7 @@
     "paths": {
       "@dunky.dev/state-machine": ["../packages/core/src"],
       "@dunky.dev/react-state-machine": ["../packages/react/src"],
-      "@dunky.dev/state-machine-solid": ["../packages/solid/src"],
+      "@dunky.dev/solid-state-machine": ["../packages/solid/src"],
       "@dunky.dev/native-state-machine": ["../packages/native/src"],
       "@dunky.dev/opentui-state-machine": ["../packages/opentui/src"],
       "@dunky.dev/state-machine-utils": ["../packages/shared/utils/src"],

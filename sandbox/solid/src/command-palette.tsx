@@ -1,5 +1,5 @@
 import { createEffect, For, type JSX, Show } from 'solid-js'
-import { type ComponentEffect, normalize, useMachine } from '@dunky.dev/state-machine-solid'
+import { type ComponentEffect, normalize, useMachine } from '@dunky.dev/solid-state-machine'
 import {
   commandPaletteMachineConfig,
   type CommandPaletteMachine,

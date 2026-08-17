@@ -10,7 +10,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@dunky.dev/state-machine': resolve(__dirname, '../../packages/core/src'),
-      '@dunky.dev/state-machine-solid': resolve(__dirname, '../../packages/solid/src'),
+      '@dunky.dev/solid-state-machine': resolve(__dirname, '../../packages/solid/src'),
       '@dunky.dev/state-machine-utils': resolve(__dirname, '../../packages/shared/utils/src'),
       '@dunky.dev/state-machine-bindings': resolve(__dirname, '../../packages/shared/bindings/src'),
       '@sandbox/cmdk-core': resolve(__dirname, '../shared/src'),

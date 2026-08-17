@@ -1,1 +1,1 @@
-# @dunky.dev/state-machine-solid
+# @dunky.dev/solid-state-machine
