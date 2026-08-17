@@ -137,6 +137,13 @@ inside each `it()`. Reusable multi-file fixtures go in
 `tests/fixtures/` — anything shared across test files lives there, not
 inlined or duplicated.
 
+## Accessibility
+
+Accessibility is referenced, not improvised — the external specs are the
+contract, and the API is cross-matched against them.
+[`ACCESSIBILITY.md`](./ACCESSIBILITY.md) is the reference: read it before
+designing a public API.
+
 ## Versioning
 
 Every PR with a user-visible change to a public package needs a
