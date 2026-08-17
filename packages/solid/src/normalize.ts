@@ -1,8 +1,21 @@
 /**
  * Translate the machine layer's LOGICAL surface to Solid DOM props.
  *
- * Logical handler  → DOM event prop
- * Logical attr     → DOM/ARIA attr
+ * Input keys are the substrate-agnostic vocabulary a connect() emits
+ * (`EventBindings` / `AttrBindings` in `@dunky.dev/state-machine-bindings`),
+ * which is ARIA-shaped by design — see `ACCESSIBILITY.md`. The DOM is the
+ * closest host to that vocabulary, so most attrs are a mechanical `aria-`
+ * prefix and nothing is dropped. The parts that aren't mechanical:
+ * - `onPress` → `onClick`: the DOM's activation event, which fires for
+ *   keyboard Enter/Space on a native control too, not just a mouse press.
+ * - `focusable` → `tabindex` 0 / -1, not a boolean — `false` still has to
+ *   leave the element focusable in script.
+ * - `disabled` → `aria-disabled`, never the HTML `disabled` attribute: a
+ *   disabled control stays in the tab order and keeps announcing itself,
+ *   per APG. A consumer that wants the HTML attribute passes it themselves.
+ * - `onValueChange`/`onWheel`/`onScroll`/`onScrollEnd` also have their
+ *   argument translated — the DOM event is read into the neutral payload
+ *   shape (see PAYLOAD_ADAPTERS), never forwarded raw.
  *
  * Differences from the React DOM normalizer worth flagging:
  *
@@ -10,13 +23,21 @@
  *   `onClick` is fine (Solid delegates it), and the event handed to a handler is
  *   a real `MouseEvent`/`PointerEvent`/`KeyboardEvent`/`WheelEvent`, so the
  *   payload adapters below read the native event shape (same field names).
+ * - `onValueChange` lands on `onInput` (Solid's per-change event; Solid's
+ *   `onChange` fires only on commit) and `onDoublePress` on `onDblClick`.
  * - Solid uses lowercase `tabindex` (the real attribute), not React's camelCase
  *   `tabIndex`. That's the only attr name that differs from the DOM normalizer —
  *   the ARIA attributes (`aria-*`) are written verbatim in Solid JSX, exactly as
  *   here.
  */
+import type {
+  AttrKey,
+  AttrTargets,
+  HandlerKey,
+  HandlerTargets,
+} from '@dunky.dev/state-machine-bindings'
 
-const HANDLER_MAP: Record<string, string> = {
+export const HANDLER_MAP: HandlerTargets = {
   onPress: 'onClick',
   onPointerEnter: 'onPointerEnter',
   onPointerLeave: 'onPointerLeave',
@@ -91,7 +112,7 @@ function scrollPayload(e: AnyEvent): unknown {
   }
 }
 
-const ATTR_MAP: Record<string, string> = {
+export const ATTR_MAP: AttrTargets = {
   describedBy: 'aria-describedby',
   labelledBy: 'aria-labelledby',
   controls: 'aria-controls',
@@ -153,7 +174,7 @@ export function normalize(logical: Bindings): Record<string, unknown> {
   for (const [key, value] of Object.entries(logical)) {
     if (value === undefined) continue
 
-    const handler = HANDLER_MAP[key]
+    const handler = HANDLER_MAP[key as HandlerKey]
     if (handler) {
       const adapt = PAYLOAD_ADAPTERS[key]
       // Wrap when the agnostic payload differs from the raw DOM event; else the
@@ -162,13 +183,9 @@ export function normalize(logical: Bindings): Record<string, unknown> {
       continue
     }
 
-    const attr = ATTR_MAP[key]
+    const attr = ATTR_MAP[key as AttrKey]
     if (attr) {
-      if (key === 'focusable') {
-        out[attr] = value ? 0 : -1
-      } else {
-        out[attr] = value
-      }
+      out[attr] = key === 'focusable' ? (value ? 0 : -1) : value
       continue
     }
 

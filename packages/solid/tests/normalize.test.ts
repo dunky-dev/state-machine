@@ -9,7 +9,9 @@
  * tabindex` (lowercase).
  */
 import { describe, expect, it, vi } from 'vitest'
-import { normalize } from '../src'
+import { normalize } from '@dunky.dev/solid-state-machine'
+import { ATTR_MAP, HANDLER_MAP } from '../src/normalize'
+import { describeVocabularyAccounting } from '../../shared/bindings/tests/fixtures/vocabulary-accounting'
 
 describe('solid normalize — handlers', () => {
   it('maps onPress to onClick (the DOM activation event)', () => {
@@ -49,6 +51,11 @@ describe('solid normalize — attributes', () => {
       'aria-labelledby': 'l',
       'aria-controls': 'c',
     })
+  })
+
+  it('maps hasPopup to aria-haspopup (string or boolean)', () => {
+    expect(normalize({ hasPopup: 'menu' })).toEqual({ 'aria-haspopup': 'menu' })
+    expect(normalize({ hasPopup: true })).toEqual({ 'aria-haspopup': true })
   })
 
   it('maps the boolean state attrs to their aria-* equivalents', () => {
@@ -264,3 +271,5 @@ describe('solid normalize — expanded attribute surface', () => {
     expect(onValueChange).toHaveBeenCalledWith(expect.objectContaining({ value: '50' }))
   })
 })
+
+describeVocabularyAccounting('solid', normalize, { map: HANDLER_MAP }, { map: ATTR_MAP })

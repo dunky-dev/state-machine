@@ -10,7 +10,7 @@ import { createEffect } from 'solid-js'
 import { render, renderHook } from '@solidjs/testing-library'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act as write, machine, type TransitionConfig } from '@dunky.dev/state-machine'
-import { useSelector } from '../src'
+import { useSelector } from '@dunky.dev/solid-state-machine'
 
 type S = 'idle'
 interface Ctx {

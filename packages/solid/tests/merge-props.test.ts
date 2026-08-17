@@ -5,8 +5,8 @@
  * and `style` merged into ONE object (Solid's style is an object, not React's
  * array form).
  */
-import { describe, expect, it, vi } from 'vitest'
-import { mergeProps } from '../src'
+import { describe, expect, expectTypeOf, it, vi } from 'vitest'
+import { mergeProps } from '@dunky.dev/solid-state-machine'
 
 describe('solid mergeProps', () => {
   it('inherits handler composition from the agnostic base', () => {
@@ -65,5 +65,19 @@ describe('solid mergeProps', () => {
   it('non-string class falls back to library-wins (no concat)', () => {
     const out = mergeProps({ id: 'a' }, { class: 'x' })
     expect(out.class).toBe('x')
+  })
+})
+
+describe('solid mergeProps typing', () => {
+  it('preserves a typed consumer through the style merge', () => {
+    interface ButtonLikeProps {
+      style?: Record<string, unknown>
+      class?: string
+      onClick?: () => void
+    }
+    const consumer: ButtonLikeProps = { style: { color: 'red' } }
+    const out = mergeProps(consumer, { style: { color: 'blue' } })
+    expectTypeOf(out).toExtend<ButtonLikeProps>()
+    expect(out.style).toEqual({ color: 'blue' })
   })
 })

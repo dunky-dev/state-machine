@@ -17,7 +17,7 @@ import {
   type Connect,
   type TransitionConfig,
 } from '@dunky.dev/state-machine'
-import { type ComponentEffects, useMachine } from '../src'
+import { type ComponentEffect, useMachine } from '@dunky.dev/solid-state-machine'
 
 type ToggleState = 'closed' | 'open'
 interface ToggleCtx {
@@ -70,7 +70,7 @@ connect.reactions = [
 ]
 
 type ToggleMachine = ReturnType<typeof machine<ToggleState, ToggleCtx, ToggleEvent>>
-const noEffects: ComponentEffects<ToggleMachine, ToggleProps> = []
+const noEffects: ComponentEffect<ToggleMachine, ToggleProps>[] = []
 
 afterEach(() => vi.clearAllMocks())
 
@@ -214,7 +214,7 @@ describe('useMachine — component effects', () => {
   it('runs each ComponentEffect (setup on mount, cleanup on unmount)', () => {
     const setup = vi.fn()
     const cleanup = vi.fn()
-    const effects: ComponentEffects<ToggleMachine, ToggleProps> = [[() => (setup(), cleanup), []]]
+    const effects: ComponentEffect<ToggleMachine, ToggleProps>[] = [[() => (setup(), cleanup), []]]
     function Comp() {
       const props: ToggleProps = {}
       useMachine(createConfig(), connect, effects, props)
@@ -229,7 +229,7 @@ describe('useMachine — component effects', () => {
 
   it('re-runs an effect ONLY when one of its named prop deps changes', () => {
     const fn = vi.fn(() => () => {})
-    const effects: ComponentEffects<ToggleMachine, ToggleProps> = [[fn, ['label']]]
+    const effects: ComponentEffect<ToggleMachine, ToggleProps>[] = [[fn, ['label']]]
     const [label, setLabel] = createSignal('a')
     const [other, setOther] = createSignal(() => {})
     function Comp() {
@@ -256,7 +256,7 @@ describe('useMachine — component effects', () => {
 
   it('receives (machine, props) and can read live machine state', () => {
     let seenOpen: boolean | undefined
-    const effects: ComponentEffects<ToggleMachine, ToggleProps> = [
+    const effects: ComponentEffect<ToggleMachine, ToggleProps>[] = [
       [
         m => {
           seenOpen = m.matches('open')

@@ -22,24 +22,19 @@ import { connector, machine, type Connect, type TransitionConfig } from '@dunky.
  * component's effects are authored ONCE and run unchanged everywhere; only how
  * the bridge consumes the deps differs (a manual dep array on React, reactive
  * reads here).
+ *
+ * A component passes `useMachine` a plain `ComponentEffect[]` list — several
+ * independent effects with DIFFERENT deps each get their own `createEffect`, so
+ * only the one whose dep changed re-subscribes. Unlike React there's no
+ * rules-of-hooks constraint here (a `createEffect` is not a hook), but keeping
+ * the list a stable module constant (`export const xEffects = [...]`) is still
+ * the convention — it reads identically across targets and never rebuilds the
+ * effect closures per call.
  */
 export type ComponentEffect<Machine, Props> = [
   effect: (machine: Machine, props: Props) => (() => void) | void,
   deps: (keyof Props)[],
 ]
-
-/**
- * A component's full set of substrate effects — a list, since one component can
- * have several independent effects with DIFFERENT deps (e.g. an Escape listener
- * gated by `closeOnEscape` and a Tab trap gated by `focusTrap`). Each gets its
- * own `createEffect` so only the one whose dep changed re-subscribes.
- *
- * Unlike React there's no rules-of-hooks constraint here (a `createEffect` is
- * not a hook), but keeping it a stable module constant (`export const xEffects =
- * [...]`) is still the convention — it reads identically across targets and
- * never rebuilds the effect closures per call.
- */
-export type ComponentEffects<Machine, Props> = ComponentEffect<Machine, Props>[]
 
 /**
  * The one generic Solid bridge. Every component's generated api.ts calls this
@@ -74,7 +69,7 @@ export function useMachine<
 >(
   createConfig: (props: Props) => TransitionConfig<State, Context, Event, Computed>,
   connect: Connect<State, Context, Event, Props, Api, Computed>,
-  effects: ComponentEffects<ReturnType<typeof machine<State, Context, Event, Computed>>, Props>,
+  effects: ComponentEffect<ReturnType<typeof machine<State, Context, Event, Computed>>, Props>[],
   props: Props,
 ): { api: Api; machine: ReturnType<typeof machine<State, Context, Event, Computed>> } {
   // Build machine + connector once. A Solid component body runs a single time,

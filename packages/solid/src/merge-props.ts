@@ -16,18 +16,22 @@ type AnyProps = Record<string, unknown>
  *   library-wins; mixing a string and an object on the same element is a consumer
  *   error Solid itself wouldn't merge either.)
  */
-export function mergeProps(consumer: AnyProps | undefined, library: AnyProps): AnyProps {
-  const merged = baseMergeProps(consumer, library)
-  if (!consumer) return merged
+export function mergeProps<Props extends object = AnyProps>(
+  consumer: Props | undefined,
+  library: AnyProps,
+): Props & AnyProps {
+  const merged: AnyProps = baseMergeProps(consumer as AnyProps | undefined, library)
+  if (!consumer) return merged as Props & AnyProps
+  const own = consumer as AnyProps
 
-  if (typeof consumer.class === 'string' && typeof library.class === 'string') {
-    merged.class = `${consumer.class} ${library.class}`.trim()
+  if (typeof own.class === 'string' && typeof library.class === 'string') {
+    merged.class = `${own.class} ${library.class}`.trim()
   }
-  if (isStyleObject(consumer.style) && isStyleObject(library.style)) {
-    merged.style = { ...consumer.style, ...library.style }
+  if (isStyleObject(own.style) && isStyleObject(library.style)) {
+    merged.style = { ...own.style, ...library.style }
   }
 
-  return merged
+  return merged as Props & AnyProps
 }
 
 function isStyleObject(v: unknown): v is Record<string, unknown> {
