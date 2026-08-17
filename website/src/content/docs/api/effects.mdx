@@ -45,7 +45,7 @@ effects: [
 ]
 ```
 
-**`ComponentEffect`:** needs the DOM or reads a prop. Declared outside the machine, passed to `useMachine` in your React component. A `ComponentEffect` is a `[fn, deps]` tuple: the function gets the running machine and current props, and `deps` names the props it reads so the bridge re-runs it only when those change:
+**`ComponentEffect`:** needs the DOM or reads a prop. Declared outside the machine, passed to `useMachine` in your component (the tuple shape is the same on every target). A `ComponentEffect` is a `[fn, deps]` tuple: the function gets the running machine and current props, and `deps` names the props it reads so the bridge re-runs it only when those change:
 
 ```ts
 import { type ComponentEffect } from '@dunky.dev/react-state-machine'
@@ -64,7 +64,8 @@ const onEscapeKey: ComponentEffect<DisclosureMachine, DisclosureProps> = [
   ['closeOnEscape'], // re-run only when this prop changes
 ]
 
-// list length must be stable across renders (one hook per entry)
+// keep the list a module constant (on React each entry becomes a hook,
+// so the length must be stable across renders)
 export const disclosureEffects = [onEscapeKey]
 ```
 
@@ -87,7 +88,7 @@ function Disclosure(props: DisclosureProps) {
 }
 ```
 
-The machine only sees `send({ type: 'close' })`; it has no idea an Escape key exists. On React Native the machine is unchanged; the effect swaps `keydown` for `BackHandler`.
+The machine only sees `send({ type: 'close' })`; it has no idea an Escape key exists. On React Native the machine is unchanged; the effect swaps `keydown` for `BackHandler`. On [Solid](/libs/solid) the same tuple runs as its own `createEffect` — no rules-of-hooks constraint, but the list stays a module constant by convention.
 
 ## Named effects
 

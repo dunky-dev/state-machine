@@ -5,7 +5,9 @@ description: Solid bindings for @dunky.dev/state-machine.
 
 import Install from '../../../components/install.astro'
 
-<Install pkg='@dunky.dev/state-machine-solid' />
+<Install pkg='@dunky.dev/solid-state-machine' />
+
+Supports `solid-js` `^1.6` (the 1.x line). Solid 2.0 — currently a release candidate — reworks the reactivity surface this bridge uses, so 2.0 support will ship as a separate major once 2.0 is stable.
 
 The Solid package is a thin edge layer. Behavior lives in the core machine and the component's `connect` function; this package only adapts them to Solid: lifecycle, fine-grained reactivity, prop translation, and platform effects. **The machine itself is unchanged** — the same `createDialogConfig` and `connectDialog` that drive React run here.
 
@@ -16,7 +18,8 @@ Unlike React, this is not a `useSyncExternalStore` bridge: the connector's snaps
 The one bridge hook. Every component calls it with the four agnostic pieces and gets back the view API as a reactive store:
 
 ```tsx
-import { useMachine, normalize } from '@dunky.dev/state-machine-solid'
+import { Show } from 'solid-js'
+import { useMachine, normalize } from '@dunky.dev/solid-state-machine'
 import { createDialogConfig, connectDialog, dialogEffects } from './dialog'
 
 type DialogProps = {
@@ -36,7 +39,9 @@ function Dialog(props: DialogProps) {
   return (
     <>
       <button {...normalize(api.triggerProps)}>Open</button>
-      {api.isOpen && <div {...normalize(api.contentProps)}>Dialog content</div>}
+      <Show when={api.isOpen}>
+        <div {...normalize(api.contentProps)}>Dialog content</div>
+      </Show>
     </>
   )
 }
@@ -50,7 +55,7 @@ Those three values are where the dialog's behavior actually lives, and none of i
 
 ```ts
 // dialog.ts: plain functions, no Solid
-import type { Connect } from '@dunky.dev/state-machine'
+import { setup, type Connect } from '@dunky.dev/state-machine'
 
 type State = 'closed' | 'open'
 type Context = { closeOnEscape: boolean }
@@ -63,14 +68,15 @@ type Api = {
 
 // createDialogConfig: (props) => machine config. Defines the states
 // ('closed' | 'open'), the events, and seeds context from the first props.
-export const createDialogConfig = (props: DialogProps) => ({
-  initial: props.open ? 'open' : 'closed',
-  context: { closeOnEscape: props.closeOnEscape ?? true },
-  states: {
-    closed: { on: { open: 'open' } },
-    open: { on: { close: 'closed' } },
-  },
-})
+export const createDialogConfig = (props: DialogProps) =>
+  setup.infer().createMachine({
+    initial: props.open ? 'open' : 'closed', // props seed the machine ONCE
+    context: { closeOnEscape: props.closeOnEscape ?? true },
+    states: {
+      closed: { on: { open: { target: 'open' } } },
+      open: { on: { close: { target: 'closed' } } },
+    },
+  })
 
 // connectDialog: a pure connect() that turns a machine snapshot into the view API
 // your JSX spreads. `isOpen`, `triggerProps`, `contentProps` come from here.
@@ -104,18 +110,7 @@ normalize(api.triggerProps)
 // { onClick, 'aria-expanded', role, tabindex, ... }
 ```
 
-| Binding                                         | DOM prop                                                            |
-| ----------------------------------------------- | ------------------------------------------------------------------- |
-| `onPress`                                       | `onClick`                                                           |
-| `onValueChange`                                 | `onInput` (payload adapted to `ChangePayload`)                      |
-| `onDoublePress`                                 | `onDblClick`                                                        |
-| `onPointerEnter/Leave/Move/Down/Up/Cancel`      | same name                                                           |
-| `onFocus` / `onBlur` / `onKeyDown` / `onKeyUp`  | same name                                                           |
-| `onWheel` / `onScroll` / `onScrollEnd`          | same name (payload adapted to `WheelPayload` / `ScrollPayload`)     |
-| `describedBy` / `labelledBy`                    | `aria-describedby` / `aria-labelledby`                              |
-| `expanded` / `selected` / `disabled` / `hidden` | `aria-expanded` / `aria-selected` / `aria-disabled` / `aria-hidden` |
-| `focusable`                                     | `tabindex` (`true → 0`, `false → -1`)                               |
-| `role` / `id`                                   | `role` / `id`                                                       |
+The machine binding maps handlers (`onPress` → `onClick`), ARIA props (`describedBy` → `aria-describedby`), ARIA state (`checked` → `aria-checked`), and focus (`focusable` → `tabindex`). [Check out the full mapping here](https://github.com/dunky-dev/state-machine/blob/main/packages/solid/src/normalize.ts).
 
 The differences from the [React](/libs/react) DOM normalizer are Solid's JSX conventions: `onValueChange → onInput` (Solid forwards native input events), `onDoublePress → onDblClick`, and `focusable → tabindex` (lowercase, the real attribute). `undefined` values are dropped; unknown keys (`class`, `data-*`) pass through unchanged.
 
@@ -126,7 +121,9 @@ A few handlers whose agnostic payload differs from the raw event (`onValueChange
 When a consumer spreads their own props onto the same element the component controls:
 
 ```tsx
-<button {...mergeProps(props, normalize(api.triggerProps))} />
+import { mergeProps, normalize } from '@dunky.dev/solid-state-machine'
+
+<button {...mergeProps(props, normalize(api.triggerProps))}>
 ```
 
 - **Event handlers are chained, consumer-first.** If the consumer calls `e.preventDefault()`, the component's handler is skipped — a clean veto.
@@ -141,7 +138,7 @@ Don't confuse this with Solid's own `mergeProps` from `solid-js` (which merges r
 For a leaf component that should only react when one slice of the machine changes (useful when a single machine drives many rows and each row should only wake for its own value). It returns a Solid **accessor** — call it in JSX:
 
 ```tsx
-import { useSelector } from '@dunky.dev/state-machine-solid'
+import { useSelector } from '@dunky.dev/solid-state-machine'
 
 function Row(props: { machine: RowMachine; value: string }) {
   const isHighlighted = useSelector(
@@ -170,7 +167,7 @@ Reading `api` from `useMachine` is already fine-grained, so `useSelector` is for
 Some behavior can't live in the machine because it touches the DOM or reads props the machine never sees. Declare each as a `[setup/teardown, depPropNames]` tuple; `useMachine` runs one `createEffect` per entry, re-running it (cleanup → setup) when one of its named prop deps changes:
 
 ```ts
-import type { ComponentEffect } from '@dunky.dev/state-machine-solid'
+import type { ComponentEffect } from '@dunky.dev/solid-state-machine'
 import type { DialogMachine, DialogProps } from './dialog'
 
 type Effect = ComponentEffect<DialogMachine, DialogProps>
@@ -196,4 +193,4 @@ See [Effects](/api/effects) for the full mental model of where each type of effe
 
 ## Same machine, every target
 
-`createDialogConfig` and `connectDialog` are written once and shared across React, Solid, the terminal, and React Native. The machine never changes; only the bridge (`useMachine`), `normalize`, and the lifecycle wiring differ between targets.
+`createDialogConfig` and `connectDialog` are written once and shared across [React](/libs/react), Solid, the [terminal](/libs/opentui), and [React Native](/libs/react-native) — the React Native version of this same dialog swaps the DOM `keydown` listener for a `BackHandler`, machine unchanged. Only the bridge (`useMachine`), `normalize`, and the lifecycle wiring differ between targets.

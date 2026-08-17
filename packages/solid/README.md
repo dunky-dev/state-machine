@@ -1,11 +1,36 @@
-# `@dunky.dev/state-machine-solid`
+# `@dunky.dev/solid-state-machine`
 
-The **Solid bindings** for [`@dunky.dev/state-machine`](../core/README.md). The
-core engine is renderer-agnostic; this package is the thin Solid edge that drives
-it: it builds the machine + connector, runs the Solid lifecycle, mirrors the
-connector's snapshot into a fine-grained store, translates the agnostic
-[bindings](../core/README.md#connector--the-view-boundary) vocabulary into DOM
-props, and owns the per-component substrate effects.
+The **Solid bindings** for [`@dunky.dev/state-machine`](../core/README.md).
+
+The behavior lives in the core machine — plain TypeScript, no renderer. This
+package is the thin Solid edge that runs it. It does four things:
+
+1. **`useMachine`** — build the machine once, run its lifecycle, mirror its
+   snapshot into a fine-grained store, run the component's platform effects.
+2. **`useSelector`** — wake a leaf component only when one slice changes.
+3. **`normalize`** — translate the machine's agnostic bindings (`onPress`,
+   `checked`) into real DOM props (`onClick`, `aria-checked`).
+4. **`mergeProps`** — merge the consumer's props with the component's.
+
+```
+  core (agnostic)
+  |
+  |   config + connect()      behavior + snapshot -> view api
+  |
+  v
+  this package (Solid)
+  |
+  |   useMachine              build + start the machine, subscribe
+  |   |
+  |   v
+  |   api                     fine-grained store proxy
+  |   |
+  |   v
+  |   normalize()             DOM / ARIA / events
+  |
+  v
+  <button {...props}>
+```
 
 This is a **first-class Solid target**, not a re-export of the React bridge.
 React's adapters re-export onto React Native and OpenTUI because those share a
@@ -13,12 +38,82 @@ React reconciler; Solid has its own fine-grained reactivity, so the lifecycle is
 implemented with Solid primitives — `createStore` + `reconcile`, `createEffect`,
 `onMount`/`onCleanup` — and there is no `useSyncExternalStore`. The behavior
 still lives in the core machine and the component's `connect`; this layer only
-adapts them to Solid. Four exports: `useMachine`, `useSelector`, `normalize`,
-`mergeProps`, plus the `ComponentEffect` types.
+adapts them to Solid.
+
+## Quick start
+
+A tooltip, end to end — the behavior (core), the surface (`connect`), and the
+Solid component (this package):
+
+```tsx
+import { Show } from 'solid-js'
+import { setup } from '@dunky.dev/state-machine'
+import { useMachine, normalize } from '@dunky.dev/solid-state-machine'
+
+type TooltipProps = { defaultOpen?: boolean }
+
+// 1 — behavior: a plain state machine. No Solid in sight.
+const tooltipConfig = (props: TooltipProps) =>
+  setup.infer().createMachine({
+    initial: props.defaultOpen ? 'open' : 'closed', // props seed the machine ONCE
+    context: {},
+    states: {
+      closed: { on: { hover: { target: 'opening' } } },
+      opening: {
+        after: { 300: { target: 'open' } }, // open after a 300ms hover
+        on: { leave: { target: 'closed' } },
+      },
+      open: { on: { leave: { target: 'closed' } } },
+    },
+  })
+
+// 2 — connect: machine snapshot -> what the view spreads onto elements.
+const connectTooltip = ({ state, send }) => {
+  const open = state === 'open'
+  return {
+    open,
+    triggerProps: {
+      describedBy: open ? 'tip' : undefined,
+      onPointerEnter: () => send({ type: 'hover' }),
+      onPointerLeave: () => send({ type: 'leave' }),
+    },
+    contentProps: { id: 'tip', role: 'tooltip' },
+  }
+}
+
+// 3 — the Solid edge: build + run the machine, render from its api.
+const tooltipEffects = []
+
+export function Tooltip(props: TooltipProps) {
+  const { api } = useMachine(tooltipConfig, connectTooltip, tooltipEffects, props)
+  return (
+    <>
+      <button {...normalize(api.triggerProps)}>Hover me</button>
+      <Show when={api.open}>
+        <div {...normalize(api.contentProps)}>I'm a tooltip</div>
+      </Show>
+    </>
+  )
+}
+```
+
+What happened:
+
+- `useMachine` built the machine and connector **once** (a Solid component body
+  runs a single time — the first props seeded the initial state), started it in
+  `onMount`, stops it in `onCleanup`.
+- Hovering sends plain events; the machine handles the 300ms open delay itself
+  (`after`) — no `setTimeout` in the component.
+- Reading `api.open` in JSX subscribed that spot to exactly that leaf — an
+  unrelated field changing never touches it.
+- `normalize` turned `describedBy` into `aria-describedby` — the same `connect`
+  drives React, React Native, or a terminal through _their_ `normalize`.
+
+That's the whole model. Everything below is reference.
 
 ---
 
-## `useMachine` — the one bridge hook
+## `useMachine` — the bridge hook
 
 Every component's generated `useXxxApi` calls this with the agnostic pieces:
 
@@ -64,7 +159,7 @@ Returns `{ api, machine }`: `api` is the reactive store to spread onto elements;
 
 ---
 
-## `ComponentEffect` — substrate transport, without the boilerplate
+## `ComponentEffect` — platform effects, next to the component
 
 Some behavior can't live in the agnostic machine because it needs the **platform
 itself** — a DOM `keydown` listener for Escape, a `ResizeObserver` — and the
@@ -76,7 +171,7 @@ Each effect is a `[setup/teardown, depPropNames]` tuple (`ComponentEffect`) — 
 and run unchanged on React and Solid:
 
 ```ts
-import type { ComponentEffect } from '@dunky.dev/state-machine-solid'
+import type { ComponentEffect } from '@dunky.dev/solid-state-machine'
 
 type TooltipEffect = ComponentEffect<TooltipMachine, TooltipMachineProps>
 
@@ -109,7 +204,7 @@ every other target.
 
 ---
 
-## `useSelector` — fine-grained leaf subscription
+## `useSelector` — fine-grained subscription
 
 Returns a Solid **accessor** that updates only when one slice of the machine
 changes:
@@ -149,24 +244,20 @@ thousands of rows backed by one machine, each waking only for its own value
 const domProps = normalize(api.triggerProps) // { onClick, 'aria-expanded', role, tabindex, ... }
 ```
 
-Same vocabulary as the React DOM normalizer, with Solid's JSX conventions:
+Same vocabulary as the
+[React DOM normalizer](../react/README.md#normalize--agnostic-bindings--dom-props),
+with Solid's JSX conventions where the DOM prop name differs: `onValueChange` →
+`onInput`, `onDoublePress` → `onDblClick`, and `focusable` → lowercase
+`tabindex` (`true → 0`, `false → -1`).
+[Check out the full mapping here](./src/normalize.ts).
 
-| Agnostic binding | Solid DOM prop                        |
-| ---------------- | ------------------------------------- |
-| `onPress`        | `onClick`                             |
-| `onValueChange`  | `onInput` (wrapped → `ChangePayload`) |
-| `onDoublePress`  | `onDblClick`                          |
-| `focusable`      | `tabindex` (`true → 0`, `false → -1`) |
-
-Pointer/keyboard/focus handlers and the full ARIA attribute set map exactly as in
-the [React DOM normalizer](../react/README.md#normalize--agnostic-bindings--dom-props).
 `undefined` values are dropped; any key not in the map (`class`, `data-*`) passes
 through unchanged. `onValueChange`/`onWheel`/`onScroll`/`onScrollEnd` are wrapped
 so the consumer receives the agnostic payload built from the native DOM event.
 
 ---
 
-## `mergeProps` — combine consumer props with the component's props
+## `mergeProps` — consumer props + component props
 
 When a consumer spreads their own props onto the same element the component
 controls, `mergeProps(consumer, library)` merges them the Radix/Ark way, Solid
@@ -200,6 +291,20 @@ const finalProps = mergeProps(consumerProps, normalize(api.triggerProps))
 | `useSelector(machine, selector, isEqual?)`    | fine-grained subscription to a derived slice; returns a Solid accessor (`O(readers)`)                                |
 | `normalize(bindings)`                         | agnostic bindings → Solid DOM/ARIA props                                                                             |
 | `mergeProps(consumer, library)`               | merge consumer + component props (handlers chained w/ `defaultPrevented` veto; `class` concat; `style` object merge) |
-| `ComponentEffect<M, P>`                       | `[ (machine, props) => cleanup, (keyof P)[] ]` — one substrate effect + its prop deps                                |
-| `ComponentEffects<M, P>`                      | `ComponentEffect<M, P>[]` — a component's effect list                                                                |
+| `ComponentEffect<M, P>`                       | `[ (machine, props) => cleanup, (keyof P)[] ]` — one platform effect + its prop deps; pass a static list of them     |
 | `Bindings`                                    | `Record<string, unknown>` — the loose shape `normalize` accepts                                                      |
+
+---
+
+## Solid version support
+
+Peer range: `solid-js` `^1.6` — the 1.x line, which is what npm's `latest`
+still serves. Solid 2.0 (a release candidate as of August 2026) removes the
+exact surface this bridge is built on — `solid-js/store`, single-argument
+`createEffect`, `onMount`, the 1.x `reconcile` calling convention — so one code
+path cannot serve both majors, and an open peer range would install-but-crash
+on 2.0. Like the rest of the Solid ecosystem (`@solidjs/router`, TanStack,
+`solid-primitives`), 2.0 support lands as a separate major once 2.0 is stable.
+The migration is mapped: `createProjection` replaces the `createStore` +
+`reconcile` mirror, `createEffect(compute, apply)` replaces the single-arg
+form, and `onSettled` replaces `onMount`.
