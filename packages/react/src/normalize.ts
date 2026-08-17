@@ -1,4 +1,22 @@
-// Translate the machine layer's logical surface to React DOM props.
+/**
+ * Translate the machine layer's logical surface to React DOM props.
+ *
+ * Input keys are the substrate-agnostic vocabulary a connect() emits
+ * (`EventBindings` / `AttrBindings` in `@dunky.dev/state-machine-bindings`),
+ * which is ARIA-shaped by design — see `ACCESSIBILITY.md`. The DOM is the
+ * closest host to that vocabulary, so most attrs are a mechanical `aria-`
+ * prefix and nothing is dropped. The parts that aren't mechanical:
+ * - `onPress` → `onClick`: the DOM's activation event, which fires for
+ *   keyboard Enter/Space on a native control too, not just a mouse press.
+ * - `focusable` → `tabIndex` 0 / -1, not a boolean — `false` still has to
+ *   leave the element focusable in script.
+ * - `disabled` → `aria-disabled`, never the HTML `disabled` attribute: a
+ *   disabled control stays in the tab order and keeps announcing itself,
+ *   per APG. A consumer that wants the HTML attribute passes it themselves.
+ * - `onValueChange`/`onWheel`/`onScroll`/`onScrollEnd` also have their
+ *   argument translated — the DOM event is read into the neutral payload
+ *   shape (see PAYLOAD_ADAPTERS), never forwarded raw.
+ */
 import type {
   AttrKey,
   AttrTargets,

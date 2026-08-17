@@ -1,5 +1,10 @@
 // Substrate-agnostic binding vocabulary: event handlers and attributes a connect() emits.
 // Each renderer's normalize() is the only code that turns these into platform props.
+//
+// The attribute half is WAI-ARIA 1.2 (https://www.w3.org/TR/wai-aria-1.2/) with the
+// `aria-` prefix dropped and the names camelCased — the spec's terms and its value
+// domains, not invented ones, so a key means on every substrate what it means there.
+// Deviations are justified on the key itself. See ACCESSIBILITY.md at the repo root.
 
 export interface PointerPayload {
   /** True when an upstream handler called preventDefault / equivalent. */
