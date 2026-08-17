@@ -105,6 +105,7 @@ The full layered model and the "the machine never sees props" rule are in:
 - **[`ARCHITECTURE.md`](./ARCHITECTURE.md)** — the big-picture map and the layered model.
 - **[`packages/core/README.md`](./packages/core/README.md)** — the state machine engine and its full API.
 - **[`benchmark/README.md`](./benchmark/README.md)** — what's measured, the methodology, and results vs. XState & Zag.
+- **[`ACCESSIBILITY.md`](./ACCESSIBILITY.md)** — the external specs every package answers to.
 - **[`AGENTS.md`](./AGENTS.md)** — the contributor / agent contract.
 
 ## Inspiration & prior art

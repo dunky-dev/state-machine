@@ -1,6 +1,6 @@
 {
-  "name": "@dunky.dev/state-machine-react",
-  "version": "0.2.0",
+  "name": "@dunky.dev/react-state-machine",
+  "version": "0.3.3",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -8,7 +8,8 @@
     "directory": "packages/react"
   },
   "files": [
-    "dist"
+    "dist",
+    "src"
   ],
   "type": "module",
   "sideEffects": false,
@@ -33,10 +34,11 @@
     "build": "tsdown"
   },
   "dependencies": {
-    "@dunky.dev/state-machine": "workspace:^",
-    "@dunky.dev/state-machine-utils": "workspace:^"
+    "@dunky.dev/state-machine": "workspace:*",
+    "@dunky.dev/state-machine-utils": "workspace:*"
   },
   "devDependencies": {
+    "@dunky.dev/state-machine-bindings": "workspace:*",
     "@testing-library/react": "^16.1.0",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",

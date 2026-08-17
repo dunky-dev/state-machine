@@ -1,17 +1,52 @@
 /**
  * Translate the machine layer's logical surface to React Native props.
  *
+ * How the maps are set up — and where each side comes from:
+ * - Input keys are the substrate-agnostic vocabulary a connect() emits:
+ *   `EventBindings` / `AttrBindings` in `@dunky.dev/state-machine-bindings`.
+ *   Maps and drop sets are vocabulary-typed (`HandlerKey`/`AttrKey`), so a
+ *   typo'd or unknown key is a compile error.
+ * - Output keys are verified against RN's own vendored source, not its docs:
+ *   - `ReactAndroid/.../uimanager/BaseViewManager.java` — the `@ReactProp`
+ *     setters: which view props exist on Android and how each validates.
+ *   - `ReactAndroid/.../uimanager/ReactAccessibilityDelegate.kt` — `Role`
+ *     (web-aligned; unknown values resolve to null and degrade) vs
+ *     `AccessibilityRole` (legacy enum whose `fromValue` throws natively on
+ *     unknown values — never target it).
+ *   - `Libraries/Components/View/ViewAccessibility.d.ts` — the accessibility
+ *     prop surface; `AccessibilityState` has exactly the disabled / selected /
+ *     checked / busy / expanded slots.
+ *   - `React/Views/RCTViewManager.m` — the iOS side; values go through
+ *     RCTConvert, which defaults instead of throwing.
+ * - Rule for new mappings: only target props whose native setters degrade
+ *   gracefully on values they don't recognize — Android setters that throw
+ *   crash the whole surface at mount, before JS can catch anything.
+ *
  * Notable differences from the DOM normalizer:
  * - `onPress` keeps its name; `onPointerDown`/`onPointerUp` → `onPressIn`/`onPressOut`.
  * - No hover — pointer move/enter/leave/cancel are dropped.
  * - `onContextMenu` → `onLongPress`; `onDoublePress`/`onWheel` dropped (no RN analog).
- * - `expanded`/`selected`/`disabled`/`hidden`/`checked`/`busy` fold into `accessibilityState`.
+ * - `expanded`/`selected`/`disabled`/`checked`/`busy` fold into `accessibilityState`.
+ * - `hidden` → `aria-hidden` and `modal` → `aria-modal`: web-aligned aliases RN
+ *   fans out per platform.
  * - `valueMin`/`valueMax`/`valueNow`/`valueText` fold into `accessibilityValue`.
  * - `live` → `accessibilityLiveRegion`; `'off'` → `'none'`.
- * - `controls`/`hasPopup`/`modal` and most ARIA-only attrs are dropped.
+ * - `controls`/`hasPopup`/`describedBy` and most ARIA-only attrs are dropped
+ *   (`describedBy`: RN has no describe-by-reference slot).
+ * - `role` passes through unchanged: RN's web-aligned `role` prop takes the
+ *   full ARIA vocabulary and degrades gracefully, while the legacy
+ *   `accessibilityRole` enum throws natively on Android for values outside
+ *   it (e.g. 'dialog').
  */
 
-const HANDLER_MAP: Record<string, string> = {
+import type {
+  AttrKey,
+  AttrTargets,
+  HandlerKey,
+  HandlerTargets,
+} from '@dunky.dev/state-machine-bindings'
+
+export const HANDLER_MAP: HandlerTargets = {
   onPress: 'onPress',
   onPointerDown: 'onPressIn',
   onPointerUp: 'onPressOut',
@@ -23,8 +58,8 @@ const HANDLER_MAP: Record<string, string> = {
   onScrollEnd: 'onMomentumScrollEnd',
 }
 
-// No RN analog — stripped.
-const HANDLER_DROP = new Set([
+// no RN analog — stripped
+export const HANDLER_DROP: ReadonlySet<string> = new Set<HandlerKey>([
   'onPointerEnter',
   'onPointerLeave',
   'onPointerMove',
@@ -35,20 +70,29 @@ const HANDLER_DROP = new Set([
   'onWheel',
 ])
 
-const ATTR_MAP: Record<string, string> = {
-  describedBy: 'accessibilityLabelledBy',
+export const ATTR_MAP: AttrTargets = {
+  // Android-only (iOS has no id-reference labelling); the setter takes a
+  // nativeID string or an array (first element wins).
   labelledBy: 'accessibilityLabelledBy',
-  role: 'accessibilityRole',
   id: 'nativeID',
   label: 'accessibilityLabel',
-  // `live` needs a value transform ('off' → 'none'), handled inline in normalize().
+  // The web-aligned alias, not the legacy pair: RN's own components fan it out
+  // per platform (accessibilityElementsHidden on iOS, no-hide-descendants on
+  // Android) — accessibilityState has no hidden slot.
+  hidden: 'aria-hidden',
+  // Same alias block as aria-hidden; RN routes it to accessibilityViewIsModal,
+  // which is iOS-only — Android has no sibling-inerting equivalent to fan out to.
+  modal: 'aria-modal',
+  role: 'role', // the web-aligned prop — never the legacy accessibilityRole enum (throws)
+  // `focusable` and `live` are special-cased in normalize(): the value is
+  // transformed (coerced boolean + `accessible`; ARIA 'off' → RN 'none').
 }
 
-// No clean RN analog — stripped.
-const ATTR_DROP = new Set([
+// no clean RN analog — stripped
+export const ATTR_DROP: ReadonlySet<string> = new Set<AttrKey>([
+  'describedBy',
   'controls',
   'hasPopup',
-  'modal',
   'pressed',
   'current',
   'invalid',
@@ -74,11 +118,17 @@ const ATTR_DROP = new Set([
   'atomic',
 ])
 
-// RN's accessibilityState slots.
-const A11Y_STATE_KEYS = new Set(['disabled', 'expanded', 'selected', 'hidden', 'checked', 'busy'])
+// RN's accessibilityState slots — folded into one object in normalize().
+const A11Y_STATE_KEYS: ReadonlySet<string> = new Set<AttrKey>([
+  'disabled',
+  'expanded',
+  'selected',
+  'checked',
+  'busy',
+])
 
-// Logical key → RN's accessibilityValue sub-key (`{ min, max, now, text }`).
-const A11Y_VALUE_KEYS: Record<string, string> = {
+// Logical key → RN's accessibilityValue sub-key.
+const A11Y_VALUE_KEYS: Partial<Record<AttrKey, string>> = {
   valueMin: 'min',
   valueMax: 'max',
   valueNow: 'now',
@@ -127,7 +177,7 @@ export function normalize(logical: Bindings): Record<string, unknown> {
     if (HANDLER_DROP.has(key)) continue
     if (ATTR_DROP.has(key)) continue
 
-    const handler = HANDLER_MAP[key]
+    const handler = HANDLER_MAP[key as HandlerKey]
     if (handler) {
       const adapt = PAYLOAD_ADAPTERS[key]
       out[handler] = adapt ? (arg: unknown) => (value as (p: unknown) => void)(adapt(arg)) : value
@@ -140,7 +190,7 @@ export function normalize(logical: Bindings): Record<string, unknown> {
       continue
     }
 
-    const valueKey = A11Y_VALUE_KEYS[key]
+    const valueKey = A11Y_VALUE_KEYS[key as AttrKey]
     if (valueKey) {
       a11yValue[valueKey] = value
       hasA11yValue = true
@@ -158,7 +208,7 @@ export function normalize(logical: Bindings): Record<string, unknown> {
       continue
     }
 
-    const attr = ATTR_MAP[key]
+    const attr = ATTR_MAP[key as AttrKey]
     if (attr) {
       out[attr] = value
       continue

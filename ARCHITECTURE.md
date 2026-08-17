@@ -174,11 +174,27 @@ whether it needs props/platform or not:
 
 ## Vocabulary
 
-| Term         | What it is                                                                                                                |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| **host**     | The agnostic core — `packages/core/*`. Declares what behavior is.                                                         |
-| **target**   | A substrate-specific bridge package and its render environment — `packages/<target>/*` (`react`, `native`, `opentui`, …). |
-| **machine**  | A state-graph config consumed by `machine()`; returns a startable service.                                                |
-| **connect**  | A function returning the logical surface a view spreads onto elements.                                                    |
-| **bindings** | The substrate-agnostic event + attr vocabulary — lives in `shared/bindings`, consumed by every target's normalize.        |
-| **compose**  | Run several machines as one unit (orthogonal regions): bundled `start`/`stop` + `sync` + `combine`.                       |
+| Term         | What it is                                                                                                                                                                                                                                                                             |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **host**     | The agnostic core — `packages/core/*`. Declares what behavior is.                                                                                                                                                                                                                      |
+| **target**   | A substrate-specific bridge package and its render environment — `packages/<target>/*` (`react`, `native`, `opentui`, …).                                                                                                                                                              |
+| **machine**  | A state-graph config consumed by `machine()`; returns a startable service.                                                                                                                                                                                                             |
+| **connect**  | A function returning the logical surface a view spreads onto elements.                                                                                                                                                                                                                 |
+| **bindings** | The substrate-agnostic event + attr vocabulary — lives in `shared/bindings`, consumed by every target's normalize. Each target's rename map and drop set are vocabulary-typed (`HandlerTargets`/`AttrTargets`, `HandlerKey`/`AttrKey`), so a typo'd or unknown key is a compile error. |
+| **compose**  | Run several machines as one unit (orthogonal regions): bundled `start`/`stop` + `sync` + `combine`.                                                                                                                                                                                    |
+
+## Versioning
+
+Every package versions independently; `.changeset/config.json` keeps `fixed`
+and `linked` empty, so no group is ever forced to share a version number —
+an untouched package never gets an empty bump.
+
+Internal workspace dependencies pin exact (`workspace:*`), never a caret
+range (`workspace:^`). Independent versions mean siblings drift apart at
+their own pace, so a caret range between two packages that share a further
+dependency can let a consumer's install resolve to two different physical
+copies of it — a dependency diamond. Anything identity-sensitive further
+down (a singleton, a `WeakMap`, module-level state) breaks silently across
+the two copies. An exact pin collapses the diamond to one resolvable
+version: a mismatch fails at publish time, not at runtime in a consumer's
+app.

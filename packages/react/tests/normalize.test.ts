@@ -8,7 +8,9 @@
  * pass-through.
  */
 import { describe, expect, it, vi } from 'vitest'
-import { normalize } from '@dunky.dev/state-machine-react'
+import { normalize } from '@dunky.dev/react-state-machine'
+import { ATTR_MAP, HANDLER_MAP } from '../src/normalize'
+import { describeVocabularyAccounting } from '../../shared/bindings/tests/fixtures/vocabulary-accounting'
 
 describe('react normalize — handlers', () => {
   it('maps onPress to onClick (the DOM activation event)', () => {
@@ -293,3 +295,5 @@ describe('react normalize — expanded attribute surface', () => {
     expect(onValueChange).toHaveBeenCalledWith(expect.objectContaining({ value: '50' }))
   })
 })
+
+describeVocabularyAccounting('react', normalize, { map: HANDLER_MAP }, { map: ATTR_MAP })

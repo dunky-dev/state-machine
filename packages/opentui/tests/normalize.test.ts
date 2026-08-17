@@ -15,7 +15,9 @@
  *   - hidden → visible (inverted), focusable → focusable, disabled passes through.
  */
 import { describe, expect, it, vi } from 'vitest'
-import { normalize } from '@dunky.dev/state-machine-opentui'
+import { normalize } from '@dunky.dev/opentui-state-machine'
+import { ATTR_DROP, ATTR_MAP, HANDLER_DROP, HANDLER_MAP } from '../src/normalize'
+import { describeVocabularyAccounting } from '../../shared/bindings/tests/fixtures/vocabulary-accounting'
 
 describe('opentui normalize — handlers', () => {
   it('maps onPress to onMouseDown (no synthetic click in a terminal)', () => {
@@ -204,3 +206,10 @@ describe('opentui normalize — combined surface (focusable button shape)', () =
     })
   })
 })
+
+describeVocabularyAccounting(
+  'opentui',
+  normalize,
+  { map: HANDLER_MAP, dropped: HANDLER_DROP },
+  { map: ATTR_MAP, dropped: ATTR_DROP },
+)

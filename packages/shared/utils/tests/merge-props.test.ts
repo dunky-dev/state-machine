@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { mergeProps } from '@dunky.dev/state-machine-utils'
 
 describe('mergeProps', () => {
@@ -83,5 +83,20 @@ describe('mergeProps', () => {
     const merged = mergeProps(consumer, { id: 'b' })
     expect(merged).not.toBe(consumer)
     expect(consumer.id).toBe('a')
+  })
+})
+
+describe('mergeProps typing', () => {
+  it('accepts a typed consumer interface and preserves its type', () => {
+    // An interface without an index signature — the shape every framework's
+    // prop types have. Must be accepted and returned as-is, cast-free.
+    interface ButtonLikeProps {
+      id?: string
+      onClick?: (event: { defaultPrevented: boolean }) => void
+    }
+    const consumer: ButtonLikeProps = { id: 'mine' }
+    const out = mergeProps(consumer, { role: 'button' })
+    expectTypeOf(out).toExtend<ButtonLikeProps>()
+    expect(out.id).toBe('mine')
   })
 })
