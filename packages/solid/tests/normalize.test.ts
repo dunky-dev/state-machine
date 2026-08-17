@@ -127,6 +127,29 @@ describe('solid normalize — expanded handler surface', () => {
     expect(onValueChange).toHaveBeenLastCalledWith(expect.objectContaining({ value: true }))
   })
 
+  it('binds payload.preventDefault to the event (a detached native method throws)', () => {
+    const onValueChange = vi.fn()
+    const onWheel = vi.fn()
+    const out = normalize({ onValueChange, onWheel })
+    // Fake event whose preventDefault asserts its `this`, like a native Event does.
+    const makeEvent = () => ({
+      target: { value: 'x', type: 'text' },
+      defaultPrevented: false,
+      preventDefault(this: { defaultPrevented: boolean }) {
+        this.defaultPrevented = true
+      },
+    })
+    const inputEvent = makeEvent()
+    ;(out.onInput as (e: unknown) => void)(inputEvent)
+    ;(onValueChange.mock.calls[0]![0] as { preventDefault: () => void }).preventDefault()
+    expect(inputEvent.defaultPrevented).toBe(true)
+
+    const wheelEvent = makeEvent()
+    ;(out.onWheel as (e: unknown) => void)(wheelEvent)
+    ;(onWheel.mock.calls[0]![0] as { preventDefault: () => void }).preventDefault()
+    expect(wheelEvent.defaultPrevented).toBe(true)
+  })
+
   it('onWheel receives a WheelPayload with a neutral deltaUnit (deltaMode → enum)', () => {
     const onWheel = vi.fn()
     const out = normalize({ onWheel })

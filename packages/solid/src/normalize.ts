@@ -86,7 +86,7 @@ const PAYLOAD_ADAPTERS: Record<string, (e: AnyEvent) => unknown> = {
     const t = e?.target
     // checkbox/radio carry the boolean on `.checked`; everything else on `.value`.
     const value = t && (t.type === 'checkbox' || t.type === 'radio') ? t.checked : t?.value
-    return { value, defaultPrevented: e?.defaultPrevented, preventDefault: e?.preventDefault }
+    return { value, defaultPrevented: e?.defaultPrevented, preventDefault: boundPreventDefault(e) }
   },
   onWheel: e => ({
     deltaX: e?.deltaX,
@@ -94,10 +94,16 @@ const PAYLOAD_ADAPTERS: Record<string, (e: AnyEvent) => unknown> = {
     deltaZ: e?.deltaZ,
     deltaUnit: WHEEL_UNIT[e?.deltaMode ?? 0] ?? 'pixel',
     defaultPrevented: e?.defaultPrevented,
-    preventDefault: e?.preventDefault,
+    preventDefault: boundPreventDefault(e),
   }),
   onScroll: scrollPayload,
   onScrollEnd: scrollPayload,
+}
+
+// Keep `this = event`: a detached native preventDefault throws "illegal invocation".
+function boundPreventDefault(e: AnyEvent): (() => void) | undefined {
+  const pd = e?.preventDefault
+  return pd && (() => pd.call(e))
 }
 
 function scrollPayload(e: AnyEvent): unknown {
