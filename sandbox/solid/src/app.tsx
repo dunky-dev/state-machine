@@ -20,8 +20,7 @@ export function App() {
       <p class='demo-lead'>
         One state machine drives this ⌘K palette.
         <br />
-        The same machine + connect runs the Solid, terminal (OpenTUI) and React Native
-        versions
+        The same machine + connect runs the Solid, terminal (OpenTUI) and React Native versions
       </p>
       <p class='demo-hint'>
         <strong>Last selected: {last()}</strong>
