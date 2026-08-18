@@ -10,6 +10,7 @@ produces.
 ```
 sandbox/
 +-- shared/      @sandbox/cmdk-core — the machine + connect() + commands (NO framework)
+|                + styles.css — the one stylesheet the React and Solid apps share
 +-- react/       Vite + React DOM     → normalize → onClick / aria-* / role
 +-- solid/       Vite + Solid         → normalize → onClick / aria-* / tabindex
 +-- opentui/     Bun + @opentui/react → normalize → onMouseDown / focusable / cells
