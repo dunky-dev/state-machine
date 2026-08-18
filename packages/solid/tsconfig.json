@@ -1,5 +1,4 @@
 {
-  // Solid 2.0 moved the web JSX namespace out of `solid-js` into `@solidjs/web`.
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "jsx": "preserve",
