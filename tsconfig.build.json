@@ -1,6 +1,4 @@
 {
-  // `pnpm typecheck` entry: builds every project. Each package owns its
-  // tsconfig; the "." reference covers the root config files.
   "files": [],
   "references": [
     { "path": "./tsconfig.json" },
