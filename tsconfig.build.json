@@ -1,0 +1,16 @@
+{
+  // `pnpm typecheck` entry: builds every project. Each package owns its
+  // tsconfig; the "." reference covers the root config files.
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.json" },
+    { "path": "./packages/core" },
+    { "path": "./packages/react" },
+    { "path": "./packages/solid" },
+    { "path": "./packages/native" },
+    { "path": "./packages/opentui" },
+    { "path": "./packages/shared/utils" },
+    { "path": "./packages/shared/bindings" },
+    { "path": "./benchmark" }
+  ]
+}

@@ -1,8 +1,6 @@
 {
-  // Referenced from tsconfig/all.json; lives here (like vitest.config.ts) so
-  // the root workspace carries no Solid dependencies. Solid 2.0 moved the web
-  // JSX namespace out of `solid-js` into `@solidjs/web`.
-  "extends": "../../tsconfig/base.json",
+  // Solid 2.0 moved the web JSX namespace out of `solid-js` into `@solidjs/web`.
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
     "jsx": "preserve",
     "jsxImportSource": "@solidjs/web"
