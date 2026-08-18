@@ -1,9 +1,12 @@
 {
-  // Thin shim so editors and tsdown find a tsconfig inside the package. The real
-  // Solid project — JSX settings + the typecheck `include`/`exclude` — lives in
-  // tsconfig/solid.json (referenced by tsconfig/all.json). This re-declares
-  // `include` relative to the package dir for tools that resolve from here.
-  "extends": "../../tsconfig/solid.json",
-  "include": ["src", "tests"],
+  // Referenced from tsconfig/all.json; lives here (like vitest.config.ts) so
+  // the root workspace carries no Solid dependencies. Solid 2.0 moved the web
+  // JSX namespace out of `solid-js` into `@solidjs/web`.
+  "extends": "../../tsconfig/base.json",
+  "compilerOptions": {
+    "jsx": "preserve",
+    "jsxImportSource": "@solidjs/web"
+  },
+  "include": ["src", "tests", "vitest.config.ts"],
   "exclude": ["**/node_modules", "**/dist"]
 }

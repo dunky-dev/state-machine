@@ -1,5 +1,5 @@
 import { createSignal } from 'solid-js'
-import type { JSX } from 'solid-js'
+import type { JSX } from '@solidjs/web'
 import { DEMO_COMMANDS } from '@sandbox/cmdk-core'
 import { CommandPalette } from './command-palette'
 

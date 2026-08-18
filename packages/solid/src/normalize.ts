@@ -1,34 +1,14 @@
 /**
- * Translate the machine layer's LOGICAL surface to Solid DOM props.
- *
- * Input keys are the substrate-agnostic vocabulary a connect() emits
- * (`EventBindings` / `AttrBindings` in `@dunky.dev/state-machine-bindings`),
- * which is ARIA-shaped by design — see `ACCESSIBILITY.md`. The DOM is the
- * closest host to that vocabulary, so most attrs are a mechanical `aria-`
- * prefix and nothing is dropped. The parts that aren't mechanical:
- * - `onPress` → `onClick`: the DOM's activation event, which fires for
- *   keyboard Enter/Space on a native control too, not just a mouse press.
- * - `focusable` → `tabindex` 0 / -1, not a boolean — `false` still has to
- *   leave the element focusable in script.
- * - `disabled` → `aria-disabled`, never the HTML `disabled` attribute: a
- *   disabled control stays in the tab order and keeps announcing itself,
- *   per APG. A consumer that wants the HTML attribute passes it themselves.
- * - `onValueChange`/`onWheel`/`onScroll`/`onScrollEnd` also have their
- *   argument translated — the DOM event is read into the neutral payload
- *   shape (see PAYLOAD_ADAPTERS), never forwarded raw.
- *
- * Differences from the React DOM normalizer worth flagging:
- *
- * - Solid's JSX event props are NATIVE DOM events, not React's synthetic ones.
- *   `onClick` is fine (Solid delegates it), and the event handed to a handler is
- *   a real `MouseEvent`/`PointerEvent`/`KeyboardEvent`/`WheelEvent`, so the
- *   payload adapters below read the native event shape (same field names).
- * - `onValueChange` lands on `onInput` (Solid's per-change event; Solid's
- *   `onChange` fires only on commit) and `onDoublePress` on `onDblClick`.
- * - Solid uses lowercase `tabindex` (the real attribute), not React's camelCase
- *   `tabIndex`. That's the only attr name that differs from the DOM normalizer —
- *   the ARIA attributes (`aria-*`) are written verbatim in Solid JSX, exactly as
- *   here.
+ * Translate the machine layer's logical surface (ARIA-shaped, see
+ * ACCESSIBILITY.md) to Solid DOM props. Mostly a mechanical `aria-` prefix;
+ * the exceptions:
+ * - `onPress` → `onClick` (the DOM activation event, incl. keyboard Enter/Space)
+ * - `focusable` → `tabindex` 0/-1 (`false` must stay script-focusable)
+ * - `disabled` → `aria-disabled` (stays in tab order + announces, per APG)
+ * - `onValueChange`/`onWheel`/`onScroll(End)` payloads are adapted, never raw
+ * Vs the React normalizer: Solid handlers receive NATIVE events,
+ * `onValueChange` lands on `onInput` (Solid's `onChange` fires on commit), and
+ * `tabindex` is lowercase.
  */
 import type {
   AttrKey,
@@ -60,12 +40,9 @@ export const HANDLER_MAP: HandlerTargets = {
   onScrollEnd: 'onScrollEnd',
 }
 
-// Some handlers can't just be renamed: the agnostic payload the component reads
-// (`ChangePayload`/`WheelPayload`/`ScrollPayload`) is a different SHAPE from the
-// native DOM event. For those, normalize wraps the handler so the component
-// receives the agnostic payload — built here from the DOM event — rather than
-// the event itself. (onPress/pointer/keyboard handlers already receive a shape
-// that overlaps PointerPayload/KeyboardPayload, so they pass through unwrapped.)
+// These payload shapes differ from the native event, so normalize wraps the
+// handler to hand the component the agnostic payload instead. (Pointer/keyboard
+// events already overlap their payload shapes and pass through unwrapped.)
 
 // DOM WheelEvent.deltaMode (0/1/2) → the neutral WheelPayload unit.
 const WHEEL_UNIT = ['pixel', 'line', 'page'] as const

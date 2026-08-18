@@ -3,18 +3,10 @@ import { mergeProps as baseMergeProps } from '@dunky.dev/state-machine-utils'
 type AnyProps = Record<string, unknown>
 
 /**
- * Merge consumer props with the component's normalized props, Solid-style.
- *
- * Layers Solid's DOM conventions on the substrate-agnostic mergeProps (handler
- * compose with the `defaultPrevented` veto; everything else library-wins):
- *
- * - `class` is concatenated with a space (Solid uses `class`, not React's
- *   `className`).
- * - `style` is merged into ONE object, library winning on conflicting keys.
- *   Solid's `style` prop is a plain object (or string), NOT React's array form —
- *   so styles merge rather than wrap. (String styles fall through to
- *   library-wins; mixing a string and an object on the same element is a consumer
- *   error Solid itself wouldn't merge either.)
+ * Merge consumer props with the component's normalized props, Solid-style:
+ * the substrate-agnostic mergeProps (handlers compose, library wins) plus
+ * Solid's `class` concat and single-object `style` merge (library wins on
+ * conflicting keys; string styles fall through to library-wins).
  */
 export function mergeProps<Props extends object = AnyProps>(
   consumer: Props | undefined,

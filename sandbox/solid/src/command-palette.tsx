@@ -1,4 +1,5 @@
-import { createEffect, For, type JSX, onCleanup, Show } from 'solid-js'
+import { createEffect, For, Show } from 'solid-js'
+import type { JSX } from '@solidjs/web'
 import { type ComponentEffect, normalize, useMachine } from '@dunky.dev/solid-state-machine'
 import {
   commandPaletteMachineConfig,
@@ -7,10 +8,8 @@ import {
   connectCommandPalette,
 } from '@sandbox/cmdk-core'
 
-// Global ⌘K / Ctrl+K to open — a PLATFORM listener (a document key event), so it
-// lives here as a component effect, not in the machine. The machine just receives
-// `open`. This is the per-target "behavior meets platform" seam — and the tuple
-// is byte-for-byte the same shape the React sandbox uses.
+// Global ⌘K / Ctrl+K to open — a platform listener, so it lives here as a
+// component effect, not in the machine. Same tuple shape as the React sandbox.
 const cmdkShortcut: ComponentEffect<CommandPaletteMachine, CommandPaletteProps> = [
   machine => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -25,10 +24,8 @@ const cmdkShortcut: ComponentEffect<CommandPaletteMachine, CommandPaletteProps> 
   [],
 ]
 
-// The DOM renderer. It owns ZERO interaction logic — `useMachine` runs the shared
-// machine, `connect` produces logical bindings, and `normalize` turns them into
-// DOM props (onPress→onClick, role/aria-*, etc). `api` is a fine-grained Solid
-// store: reading `api.open` / `api.results` in JSX tracks exactly those fields.
+// The DOM renderer — zero interaction logic; `useMachine` runs the shared
+// machine and `normalize` maps the logical bindings to DOM props.
 export function CommandPalette(props: CommandPaletteProps) {
   const { api } = useMachine(
     commandPaletteMachineConfig,
@@ -39,11 +36,16 @@ export function CommandPalette(props: CommandPaletteProps) {
 
   let inputEl: HTMLInputElement | undefined
 
-  // Focus the input whenever the palette opens (a renderer concern, not the
-  // machine's — focus is a platform touchpoint). createEffect tracks `api.open`.
-  createEffect(() => {
-    if (api.open) inputEl?.focus()
-  })
+  // Focus on open; drop the ref on close so a detached <input> isn't retained.
+  // (The drop lives here because Solid 2.0 refs are unowned — no onCleanup
+  // inside ref callbacks.)
+  createEffect(
+    () => api.open,
+    open => {
+      if (open) inputEl?.focus()
+      else inputEl = undefined
+    },
+  )
 
   return (
     <div>
@@ -55,12 +57,7 @@ export function CommandPalette(props: CommandPaletteProps) {
         <div style={styles.backdrop} onClick={() => api.setOpen(false)}>
           <div style={styles.panel} onClick={e => e.stopPropagation()}>
             <input
-              // Clear on the Show branch's disposal — otherwise the closed
-              // palette keeps a detached <input> alive until the next open.
-              ref={el => {
-                inputEl = el
-                onCleanup(() => (inputEl = undefined))
-              }}
+              ref={el => (inputEl = el)}
               {...normalize(api.parts.input)}
               value={api.query}
               placeholder='Type a command…'

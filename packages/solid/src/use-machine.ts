@@ -1,35 +1,11 @@
-import { createEffect, onCleanup, onMount, untrack } from 'solid-js'
-import { createStore, reconcile } from 'solid-js/store'
+import { createEffect, createStore, onCleanup, onSettled, reconcile } from 'solid-js'
 import { connector, machine, type Connect, type TransitionConfig } from '@dunky.dev/state-machine'
 
 /**
- * One substrate-specific effect, declared as a plain setup/teardown function
- * plus the prop names it depends on:
- *
- *   const escape: ComponentEffect<Machine, Props> = [
- *     (machine, props) => { ...addEventListener...; return () => ...remove... },
- *     ['closeOnEscape', 'onEscapeKeyDown'], // re-run when these props change
- *   ]
- *
- * The author writes no Solid. The deps are prop NAMES (typed `(keyof Props)[]`,
- * so typos are compile errors). The bridge runs each effect inside its own
- * `createEffect` and READS those named props there, so Solid's auto-tracking
- * re-runs the effect (cleanup → setup) only when one of those props actually
- * changes — not on unrelated changes, never stale. `machine` is a constant, so
- * it's not a dependency.
- *
- * The tuple shape is identical across every target (React, Solid, …) so a
- * component's effects are authored ONCE and run unchanged everywhere; only how
- * the bridge consumes the deps differs (a manual dep array on React, reactive
- * reads here).
- *
- * A component passes `useMachine` a plain `ComponentEffect[]` list — several
- * independent effects with DIFFERENT deps each get their own `createEffect`, so
- * only the one whose dep changed re-subscribes. Unlike React there's no
- * rules-of-hooks constraint here (a `createEffect` is not a hook), but keeping
- * the list a stable module constant (`export const xEffects = [...]`) is still
- * the convention — it reads identically across targets and never rebuilds the
- * effect closures per call.
+ * One substrate-specific effect: a setup/teardown function plus the prop names
+ * that re-run it. The tuple shape is identical across every target, so a
+ * component's effects are authored once; `deps` are prop names (typed, so
+ * typos are compile errors) — the authored list is the whole re-run contract.
  */
 export type ComponentEffect<Machine, Props> = [
   effect: (machine: Machine, props: Props) => (() => void) | void,
@@ -37,27 +13,10 @@ export type ComponentEffect<Machine, Props> = [
 ]
 
 /**
- * The one generic Solid bridge. Every component's generated api.ts calls this
- * with the agnostic pieces — a config factory and the connect — plus the
- * component's substrate effects and the (reactive) props:
- *
- *   useMachine(tooltipMachineConfig, connectTooltip, tooltipEffects, props)
- *
- * It builds the machine + connector ONCE (a Solid component body runs once, so
- * no memo is needed — the first render's props seed context + the initial
- * state), mirrors the connector's snapshot into a fine-grained `createStore`
- * (via `reconcile`, so only the leaves that actually changed notify their JSX
- * readers — the whole point of a Solid target), starts the machine on mount and
- * stops it on cleanup (the connector's reactions follow the machine's lifecycle
- * automatically), keeps props fresh via a tracked `setProps` effect, and runs
- * the component's prop-dependent effects (Escape, etc — one `createEffect` each,
- * re-running when their named prop deps change).
- *
- * Returns the connect() api (the reactive store proxy — read `api.isOpen` in
- * JSX and it updates fine-grained) and the running machine.
- *
- * Later prop changes flow through `setProps`, never a rebuild — recreating would
- * lose state.
+ * The generic Solid bridge: builds the machine + connector once, mirrors the
+ * connector's snapshot into a fine-grained store, runs the lifecycle and the
+ * component's effects. Returns the connect() api (reactive store proxy) and
+ * the running machine.
  */
 export function useMachine<
   State extends string,
@@ -72,64 +31,122 @@ export function useMachine<
   effects: ComponentEffect<ReturnType<typeof machine<State, Context, Event, Computed>>, Props>[],
   props: Props,
 ): { api: Api; machine: ReturnType<typeof machine<State, Context, Event, Computed>> } {
-  // Build machine + connector once. A Solid component body runs a single time,
-  // so a plain build IS "build once" — no useMemo equivalent needed. The props
-  // proxy is reactive; reading it here at build time seeds context + the initial
-  // state from the first values.
-  //
-  // CRITICAL: seed the connector with a PLAIN snapshot (`{ ...props }`), never
-  // the live Solid props proxy. The connector value-dedups in setProps
-  // (shallowEqual), and if it held the proxy it would later compare the proxy
-  // against a fresh spread of that same proxy — whose values have already
-  // updated through the getters — find them equal, and never wake. A frozen
-  // plain copy makes "did a prop change?" a real comparison.
+  // Seed with a plain copy, never the live props proxy: setProps value-dedups,
+  // and a held proxy would compare equal to its own fresh spread and never wake.
   const service = machine(createConfig(props))
   const connection = connector(service, connect, { ...props })
 
-  // Mirror the connector's snapshot into a fine-grained store. `reconcile`
-  // deep-diffs the new snapshot against the store, so reading `api.isOpen` in
-  // JSX subscribes to exactly that leaf — an unrelated field changing won't
-  // touch it. This is what makes the Solid target fine-grained rather than a
-  // coarse "re-render the whole component" bridge. The connector already
-  // memoizes its snapshot (stable identity while clean), and `reconcile` is a
-  // no-op when nothing changed, so a wake that didn't move anything is cheap.
-  const [api, setApi] = createStore<Api>(connection.snapshot)
-  const off = connection.subscribe(() => setApi(reconcile(connection.snapshot)))
+  // Fine-grained mirror of the snapshot. Function leaves take a detour:
+  // solid-js 2.0.0-rc.0's reconcile corrupts a store node when it REPLACES a
+  // function-valued property (next tracked read halts reactivity), and
+  // connect() rebuilds every closure per wake. So reconcile sees the previous
+  // function identities (no-op) and the fresh ones land via plain draft
+  // writes, all in one setter. Remove the detour once fixed upstream.
+  // (The cast mirrors Solid's NoFn guard — a connect() api is never a function.)
+  const [api, setApi] = createStore<Api>(connection.snapshot as Api extends Function ? never : Api)
+  const off = connection.subscribe(() => {
+    const next = connection.snapshot
+    setApi(draft => {
+      reconcile(stableFunctionView(next, draft) as Api)(draft)
+      restoreFunctionLeaves(draft as Record<string, unknown>, next as Record<string, unknown>)
+    })
+  })
   onCleanup(off)
 
-  // Keep consumer props fresh (controlled flags, callbacks). `createEffect`
-  // tracks every prop read inside `connection.setProps(props)` — Solid props are
-  // a reactive proxy — so this re-runs whenever any consumed prop changes, with
-  // no manual dep list. setProps value-dedups, so an unchanged prop set is a
-  // no-op. (The connector was seeded with the initial props at build, so this
-  // only pushes subsequent changes.)
-  createEffect(() => connection.setProps({ ...props }))
+  // The compute spread reads every prop, so any consumed prop change re-runs
+  // this; setProps value-dedups.
+  createEffect(
+    () => ({ ...props }),
+    snapshot => connection.setProps(snapshot),
+  )
 
-  // Lifecycle: boot on mount, tear down on cleanup. The connector wired its
-  // reactions to the machine's own start/stop, so start()/stop() is all the
-  // bridge needs — reactions follow automatically.
-  //
-  // We deliberately do NOT call connection.destroy(): the connector shares this
-  // component's lifetime with the machine (both built above), so they're GC'd
-  // together. destroy() exists for callers that build a connector standalone.
-  onMount(() => service.start())
-  onCleanup(() => service.stop())
+  // No connection.destroy(): connector and machine share this component's
+  // lifetime and are GC'd together; destroy() is for standalone connectors.
+  onSettled(() => {
+    service.start()
+    return () => service.stop()
+  })
 
-  // Component effects — the prop-dependent platform listeners (Escape, etc) the
-  // machine can't own. One `createEffect` per entry: it READS the named prop
-  // deps (so Solid re-runs it when one of them changes), runs the effect body
-  // UNTRACKED (a prop the body merely reads must not become a hidden dependency
-  // — the authored `deps` are the whole contract, same as React's dep array),
-  // and registers the returned teardown via onCleanup (run before the next
-  // re-run and on unmount).
+  // One effect per entry: compute tracks exactly the named deps (fresh array,
+  // so apply fires on every dep change); the body runs untracked in apply, so
+  // a prop it merely reads never becomes a hidden dependency.
   for (const [fn, deps] of effects) {
-    createEffect(() => {
-      // Touch each declared dep so this effect re-runs when it changes.
-      for (const key of deps) void props[key]
-      const cleanup = untrack(() => fn(service, props))
-      if (cleanup) onCleanup(cleanup)
-    })
+    createEffect(
+      () => deps.map(key => props[key]),
+      () => fn(service, props),
+    )
   }
 
   return { api, machine: service }
+}
+
+type AnyRecord = Record<string, unknown>
+
+// Plain data only — the shapes reconcile recurses into; anything else is a
+// leaf value to a store.
+function isPlainData(value: unknown): value is AnyRecord {
+  if (value === null || typeof value !== 'object') return false
+  if (Array.isArray(value)) return true
+  const proto = Object.getPrototypeOf(value)
+  return proto === Object.prototype || proto === null
+}
+
+// Copy-on-write view of `next` with each function leaf swapped for the one the
+// store already holds (reconcile no-ops on it; restoreFunctionLeaves writes the
+// fresh identity). Function leaves with no counterpart are dropped from the
+// view. Subtrees without functions are shared, not copied.
+function stableFunctionView(next: unknown, prev: unknown): unknown {
+  if (!isPlainData(next)) return next
+  if (Array.isArray(next)) {
+    let copy: unknown[] | undefined
+    for (let i = 0; i < next.length; i++) {
+      const item = next[i]
+      let stable = item
+      if (typeof item === 'function') {
+        const before = Array.isArray(prev) ? (prev as unknown[])[i] : undefined
+        stable = typeof before === 'function' ? before : null
+      } else if (isPlainData(item)) {
+        stable = stableFunctionView(item, Array.isArray(prev) ? (prev as unknown[])[i] : undefined)
+      }
+      if (stable !== item) {
+        if (!copy) copy = next.slice()
+        copy[i] = stable
+      }
+    }
+    return copy ?? next
+  }
+  const before = isPlainData(prev) && !Array.isArray(prev) ? prev : undefined
+  let copy: AnyRecord | undefined
+  for (const key in next) {
+    const item = next[key]
+    if (typeof item === 'function') {
+      if (!copy) copy = { ...next }
+      const held = before?.[key]
+      if (typeof held === 'function') copy[key] = held
+      else delete copy[key]
+      continue
+    }
+    const stable = stableFunctionView(item, before?.[key])
+    if (stable !== item) {
+      if (!copy) copy = { ...next }
+      copy[key] = stable
+    }
+  }
+  return copy ?? next
+}
+
+// Assign the snapshot's function leaves into the draft — same setter as the
+// reconcile, so the intermediate state is never observable.
+function restoreFunctionLeaves(draft: AnyRecord, next: AnyRecord): void {
+  for (const key in next) {
+    const item = next[key]
+    if (typeof item === 'function') {
+      draft[key] = item
+    } else if (isPlainData(item)) {
+      const slot = draft[key]
+      if (slot !== null && typeof slot === 'object') {
+        restoreFunctionLeaves(slot as AnyRecord, item)
+      }
+    }
+  }
 }

@@ -1,13 +1,7 @@
 // @vitest-environment jsdom
-/**
- * `useMachine` — the Solid bridge. These tests pin the behavioral contract: build
- * ONCE, run the machine lifecycle (start on mount / stop on cleanup), keep
- * consumer props fresh via a tracked setProps effect (value-deduped), run the
- * connector's reactions across the machine lifecycle, run each ComponentEffect as
- * its own dep-tracked createEffect, and expose the connect() api as a fine-grained
- * store — so JSX reading one field updates only when THAT field changes.
- */
-import { createSignal } from 'solid-js'
+// `useMachine` behavioral contract: build once, machine lifecycle, props
+// freshness, reactions, dep-tracked ComponentEffects, fine-grained api store.
+import { createSignal, flush } from 'solid-js'
 import { render } from '@solidjs/testing-library'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -113,6 +107,7 @@ describe('useMachine — lifecycle', () => {
     const { getByTestId } = render(() => <Comp />)
     expect(getByTestId('state').textContent).toBe('closed')
     api!.toggle()
+    flush() // Solid 2.0 defers store commits + DOM updates to the microtask queue
     expect(getByTestId('state').textContent).toBe('open')
     expect(api!.count).toBe(1)
   })
@@ -120,10 +115,6 @@ describe('useMachine — lifecycle', () => {
 
 describe('useMachine — fine-grained store', () => {
   it('a field read updates ONLY when that field changes, not on unrelated changes', () => {
-    // `count` and `open` both live on the api store. A reader of `count` must not
-    // re-run when only an unrelated render happens, and the store reconciles in
-    // place so untouched leaves keep identity. We assert the store proxy reflects
-    // each field independently after a toggle.
     let api: ToggleApi | undefined
     const countReads = vi.fn()
     function Comp() {
@@ -142,6 +133,7 @@ describe('useMachine — fine-grained store', () => {
     const countReadsBefore = countReads.mock.calls.length
 
     api!.toggle() // open: n→y AND count: 0→1
+    flush()
     expect(getByTestId('open').textContent).toBe('y')
     expect(getByTestId('count').textContent).toBe('1')
     expect(countReads.mock.calls.length).toBeGreaterThan(countReadsBefore)
@@ -166,6 +158,7 @@ describe('useMachine — build once', () => {
     expect(api!.open).toBe(true)
 
     setLabel('b') // prop change must NOT rebuild/reset state
+    flush()
     expect(api!.open).toBe(true)
     expect(api!.count).toBe(1)
     expect(api!.label).toBe('b') // but the new prop IS reflected
@@ -188,6 +181,7 @@ describe('useMachine — props freshness via setProps', () => {
     render(() => <Comp />)
     expect(api!.label).toBe('first')
     setLabel('second')
+    flush()
     expect(api!.label).toBe('second')
   })
 })
@@ -207,6 +201,51 @@ describe('useMachine — reactions follow the machine lifecycle', () => {
     expect(onOpenChange).toHaveBeenCalledWith(true)
     api!.toggle()
     expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
+})
+
+describe('useMachine — function-valued api leaves', () => {
+  // Regression: solid-js 2.0.0-rc.0's reconcile halts reactivity when it
+  // replaces a function-valued property, and connect() rebuilds every closure
+  // per wake — the bridge routes function leaves around reconcile.
+  type PartsApi = {
+    open: boolean
+    results: { id: string; label: string }[]
+    parts: { getItemProps: (id: string) => Record<string, unknown> }
+    toggle: () => void
+  }
+  const connectParts: Connect<ToggleState, ToggleCtx, ToggleEvent, ToggleProps, PartsApi> = ({
+    state,
+    context,
+    send,
+  }) => ({
+    open: state === 'open',
+    results: [{ id: 'a', label: `A${context.count}` }],
+    parts: { getItemProps: id => ({ id, open: state === 'open' }) },
+    toggle: () => send({ type: 'toggle' }),
+  })
+
+  it('keeps readers of nested function leaves live across updates', () => {
+    let api: PartsApi | undefined
+    function Comp() {
+      const props: ToggleProps = {}
+      api = useMachine(createConfig(), connectParts, [], props).api
+      return (
+        <div data-testid='row'>
+          {api.results.map(c => String(api!.parts.getItemProps(c.id)['open']))}
+        </div>
+      )
+    }
+    const { getByTestId } = render(() => <Comp />)
+    expect(getByTestId('row').textContent).toBe('false')
+
+    api!.toggle()
+    flush()
+    expect(getByTestId('row').textContent).toBe('true')
+
+    api!.toggle()
+    flush()
+    expect(getByTestId('row').textContent).toBe('false')
   })
 })
 
@@ -231,14 +270,16 @@ describe('useMachine — component effects', () => {
     const fn = vi.fn(() => () => {})
     const effects: ComponentEffect<ToggleMachine, ToggleProps>[] = [[fn, ['label']]]
     const [label, setLabel] = createSignal('a')
-    const [other, setOther] = createSignal(() => {})
+    // Wrapped in an object: a bare function value would hit Solid 2.0's
+    // compute-form createSignal overload.
+    const [other, setOther] = createSignal<{ cb: (open: boolean) => void }>({ cb: () => {} })
     function Comp() {
       const props: ToggleProps = {
         get label() {
           return label()
         },
         get onOpenChange() {
-          return other()
+          return other().cb
         },
       }
       useMachine(createConfig(), connect, effects, props)
@@ -247,10 +288,12 @@ describe('useMachine — component effects', () => {
     render(() => <Comp />)
     expect(fn).toHaveBeenCalledTimes(1)
 
-    setOther(() => () => {}) // non-dep prop changed → no re-run
+    setOther({ cb: () => {} }) // non-dep prop changed → no re-run
+    flush()
     expect(fn).toHaveBeenCalledTimes(1)
 
     setLabel('b') // dep changed → re-run
+    flush()
     expect(fn).toHaveBeenCalledTimes(2)
   })
 
@@ -275,6 +318,7 @@ describe('useMachine — component effects', () => {
     expect(fn).toHaveBeenCalledTimes(1)
 
     setLabel('b') // read by the effect, but not in deps → no re-run
+    flush()
     expect(fn).toHaveBeenCalledTimes(1)
   })
 

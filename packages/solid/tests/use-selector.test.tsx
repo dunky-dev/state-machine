@@ -1,12 +1,7 @@
 // @vitest-environment jsdom
-/**
- * `useSelector` — fine-grained leaf subscription. These tests pin the contract:
- * the selector reads the machine directly, the returned accessor updates ONLY
- * when the selected value changes (value-deduped, Object.is by default, custom
- * isEqual for object selections), and a change to one leaf's slice wakes only
- * that leaf's accessor (the O(readers) property).
- */
-import { createEffect } from 'solid-js'
+// `useSelector` contract: value-deduped accessor (Object.is default, custom
+// isEqual), and a slice change wakes only its own reader.
+import { createEffect, flush } from 'solid-js'
 import { render, renderHook } from '@solidjs/testing-library'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act as write, machine, type TransitionConfig } from '@dunky.dev/state-machine'
@@ -49,36 +44,49 @@ describe('useSelector — value-deduped accessor', () => {
     const { result } = renderHook(() => useSelector(m, () => m.context.a))
     expect(result()).toBe(0)
     m.send({ type: 'incA' })
+    flush() // Solid 2.0 defers signal commits to the microtask queue
     expect(result()).toBe(1)
   })
 
   it('updates the accessor ONLY when the selected slice changes', () => {
     const m = makeMachine()
     const reads = vi.fn()
-    const { result } = renderHook(() => useSelector(m, () => m.context.a))
-    // A tracked reader of the accessor; it re-runs only when the signal changes.
-    createEffect(() => reads(result()))
+    // A tracked reader of the accessor, created inside the hook render so it is
+    // owned; the apply phase re-runs only when the signal changes.
+    renderHook(() => {
+      const result = useSelector(m, () => m.context.a)
+      createEffect(() => result(), reads)
+    })
+    flush() // effects run after the queue flushes
     expect(reads).toHaveBeenCalledTimes(1)
 
     m.send({ type: 'incB' }) // selects `a`, `b` changed → no update
+    flush()
     expect(reads).toHaveBeenCalledTimes(1)
 
     m.send({ type: 'noop' }) // nothing changed → no update
+    flush()
     expect(reads).toHaveBeenCalledTimes(1)
 
     m.send({ type: 'incA' }) // `a` changed → update
+    flush()
     expect(reads).toHaveBeenCalledTimes(2)
   })
 
   it('defaults to Object.is equality (a re-derived equal value does not update)', () => {
     const m = makeMachine()
     const reads = vi.fn()
-    const { result } = renderHook(() => useSelector(m, () => m.context.a > 0))
-    createEffect(() => reads(result()))
+    renderHook(() => {
+      const result = useSelector(m, () => m.context.a > 0)
+      createEffect(() => result(), reads)
+    })
+    flush()
     expect(reads).toHaveBeenCalledTimes(1)
     m.send({ type: 'incA' }) // false → true (update)
+    flush()
     expect(reads).toHaveBeenCalledTimes(2)
     m.send({ type: 'incA' }) // true → true (no update)
+    flush()
     expect(reads).toHaveBeenCalledTimes(2)
   })
 })
@@ -87,20 +95,23 @@ describe('useSelector — custom isEqual for object selections', () => {
   it('uses the provided isEqual to dedup an object selection', () => {
     const m = makeMachine()
     const reads = vi.fn()
-    const { result } = renderHook(() =>
-      useSelector(
+    renderHook(() => {
+      const result = useSelector(
         m,
         () => ({ a: m.context.a }),
         (x, y) => x.a === y.a,
-      ),
-    )
-    createEffect(() => reads(result()))
+      )
+      createEffect(() => result(), reads)
+    })
+    flush()
     expect(reads).toHaveBeenCalledTimes(1)
 
     m.send({ type: 'incB' }) // selected {a} unchanged → no update
+    flush()
     expect(reads).toHaveBeenCalledTimes(1)
 
     m.send({ type: 'incA' }) // {a} changed → update
+    flush()
     expect(reads).toHaveBeenCalledTimes(2)
   })
 })
@@ -128,10 +139,12 @@ describe('useSelector — O(readers): a slice change wakes only its reader', () 
     expect(bRenders).toHaveBeenCalledTimes(1)
 
     m.send({ type: 'incA' }) // only LeafA's slice changed
+    flush()
     expect(aRenders).toHaveBeenCalledTimes(2)
     expect(bRenders).toHaveBeenCalledTimes(1)
 
     m.send({ type: 'incB' }) // only LeafB's slice changed
+    flush()
     expect(aRenders).toHaveBeenCalledTimes(2)
     expect(bRenders).toHaveBeenCalledTimes(2)
   })

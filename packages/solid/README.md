@@ -35,8 +35,9 @@ package is the thin Solid edge that runs it. It does four things:
 This is a **first-class Solid target**, not a re-export of the React bridge.
 React's adapters re-export onto React Native and OpenTUI because those share a
 React reconciler; Solid has its own fine-grained reactivity, so the lifecycle is
-implemented with Solid primitives — `createStore` + `reconcile`, `createEffect`,
-`onMount`/`onCleanup` — and there is no `useSyncExternalStore`. The behavior
+implemented with Solid primitives — `createStore` + `reconcile`,
+`createEffect(compute, apply)`, `onSettled`/`onCleanup` — and there is no
+`useSyncExternalStore`. The behavior
 still lives in the core machine and the component's `connect`; this layer only
 adapts them to Solid.
 
@@ -100,8 +101,8 @@ export function Tooltip(props: TooltipProps) {
 What happened:
 
 - `useMachine` built the machine and connector **once** (a Solid component body
-  runs a single time — the first props seeded the initial state), started it in
-  `onMount`, stops it in `onCleanup`.
+  runs a single time — the first props seeded the initial state), started it
+  once rendering settled (`onSettled`), stops it on disposal.
 - Hovering sends plain events; the machine handles the 300ms open delay itself
   (`after`) — no `setTimeout` in the component.
 - Reading `api.open` in JSX subscribed that spot to exactly that leaf — an
@@ -142,12 +143,12 @@ It:
   it. `api` is the store proxy — **don't destructure it** (`const { isOpen } =
 api` snapshots the value and drops reactivity); read its fields where you use
   them.
-- **keeps props fresh** via a tracked effect — `createEffect(() =>
-connection.setProps({ ...props }))`. Solid auto-tracks every prop read in the
-  spread, so it re-runs whenever a consumed prop changes, with no manual dep
-  list. `setProps` value-dedups.
-- **runs the lifecycle** — `service.start()` in `onMount`, `service.stop()` in
-  `onCleanup`. The connector wired its
+- **keeps props fresh** via a tracked effect — `createEffect(() => ({ ...props }),
+snapshot => connection.setProps(snapshot))`. Solid auto-tracks every prop read
+  in the compute phase's spread, so it re-runs whenever a consumed prop changes,
+  with no manual dep list. `setProps` value-dedups.
+- **runs the lifecycle** — `service.start()` in `onSettled`, `service.stop()` in
+  its returned cleanup. The connector wired its
   [reactions](../core/README.md#reactions--firing-prop-callbacks-without-the-machine-knowing)
   to the machine's own `start`/`stop`, so prop-callbacks follow automatically.
 - **runs the component's substrate effects** — one `createEffect` per
@@ -191,13 +192,14 @@ const trackEscape: TooltipEffect = [
 export const tooltipEffects = [trackEscape]
 ```
 
-`useMachine` runs the list — **one `createEffect` per entry**. Each effect READS
-its declared prop deps, so Solid's auto-tracking re-runs it (cleanup → setup)
-only when one of those props actually changes, never on unrelated changes. The
-deps are prop NAMES — typed `(keyof Props)[]`, so a typo is a compile error.
-Reading the deps explicitly (rather than letting the effect body's own reads
-decide) keeps the dependency set driven by the authored `deps` and identical to
-every other target.
+`useMachine` runs the list — **one `createEffect` per entry**. The compute phase
+READS the declared prop deps, so Solid's auto-tracking re-runs the effect
+(cleanup → setup) only when one of those props actually changes, never on
+unrelated changes; the body runs in the apply phase, which Solid leaves
+untracked. The deps are prop NAMES — typed `(keyof Props)[]`, so a typo is a
+compile error. Reading the deps explicitly (rather than letting the effect
+body's own reads decide) keeps the dependency set driven by the authored `deps`
+and identical to every other target.
 
 > The agnostic _decision_ lives in the core component's resolver; only the
 > _transport_ (the DOM listener) is here. The machine just receives a plain event.
@@ -298,13 +300,19 @@ const finalProps = mergeProps(consumerProps, normalize(api.triggerProps))
 
 ## Solid version support
 
-Peer range: `solid-js` `^1.6` — the 1.x line, which is what npm's `latest`
-still serves. Solid 2.0 (a release candidate as of August 2026) removes the
-exact surface this bridge is built on — `solid-js/store`, single-argument
-`createEffect`, `onMount`, the 1.x `reconcile` calling convention — so one code
-path cannot serve both majors, and an open peer range would install-but-crash
-on 2.0. Like the rest of the Solid ecosystem (`@solidjs/router`, TanStack,
-`solid-primitives`), 2.0 support lands as a separate major once 2.0 is stable.
-The migration is mapped: `createProjection` replaces the `createStore` +
-`reconcile` mirror, `createEffect(compute, apply)` replaces the single-arg
-form, and `onSettled` replaces `onMount`.
+Peer range: `solid-js` `^2.0.0-rc.0` — Solid 2.0 is the first-class target.
+Solid 1.x is NOT supported: 2.0 removed the exact surface this bridge is built
+on (`solid-js/store` moved into the root export, single-argument `createEffect`
+became `createEffect(compute, apply)`, `onMount` became `onSettled`), so one
+code path cannot serve both majors, and 1.x lacks the root exports this package
+imports. Like the rest of the Solid ecosystem (`@solidjs/router`, TanStack,
+`solid-primitives`), the majors are version-split.
+
+Two 2.0 behaviors worth knowing as a consumer:
+
+- Writes commit on the microtask queue — after `send()`, a synchronous read of
+  the `api` store or a `useSelector` accessor returns the previous value until
+  the queue flushes. JSX readers always settle correctly; in tests, call
+  `flush()` from `solid-js` before asserting.
+- JSX types live in the renderer package: set `"jsxImportSource": "@solidjs/web"`
+  and import `render` from `@solidjs/web`, not `solid-js/web`.
