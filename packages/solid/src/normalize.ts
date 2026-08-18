@@ -111,8 +111,8 @@ export const ATTR_MAP: AttrTargets = {
 
   // labeling
   label: 'aria-label',
-  // widget state (values pass through untransformed — booleans, the 'mixed'
-  // tristate, and the aria-current / aria-invalid enums all serialize as-is)
+  // widget state ('mixed' tristate and the aria-current / aria-invalid enums
+  // pass through as-is; booleans are stringified in normalize below)
   checked: 'aria-checked',
   pressed: 'aria-pressed',
   current: 'aria-current',
@@ -168,7 +168,15 @@ export function normalize(logical: Bindings): Record<string, unknown> {
 
     const attr = ATTR_MAP[key as AttrKey]
     if (attr) {
-      out[attr] = key === 'focusable' ? (value ? 0 : -1) : value
+      if (key === 'focusable') {
+        out[attr] = value ? 0 : -1
+      } else if (typeof value === 'boolean' && attr.startsWith('aria-')) {
+        // Solid 2.0 treats a boolean attribute as presence/absence; ARIA
+        // states are literal "true"/"false" tokens, so serialize explicitly.
+        out[attr] = String(value)
+      } else {
+        out[attr] = value
+      }
       continue
     }
 

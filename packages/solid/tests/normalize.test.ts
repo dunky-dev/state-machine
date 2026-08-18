@@ -55,18 +55,20 @@ describe('solid normalize — attributes', () => {
 
   it('maps hasPopup to aria-haspopup (string or boolean)', () => {
     expect(normalize({ hasPopup: 'menu' })).toEqual({ 'aria-haspopup': 'menu' })
-    expect(normalize({ hasPopup: true })).toEqual({ 'aria-haspopup': true })
+    expect(normalize({ hasPopup: true })).toEqual({ 'aria-haspopup': 'true' })
   })
 
-  it('maps the boolean state attrs to their aria-* equivalents', () => {
+  // Booleans stringify: Solid 2.0 renders a boolean attribute as presence/
+  // absence, but ARIA states are literal "true"/"false" tokens.
+  it('maps the boolean state attrs to their aria-* equivalents as string tokens', () => {
     expect(
       normalize({ expanded: true, selected: false, disabled: true, hidden: false, modal: true }),
     ).toEqual({
-      'aria-expanded': true,
-      'aria-selected': false,
-      'aria-disabled': true,
-      'aria-hidden': false,
-      'aria-modal': true,
+      'aria-expanded': 'true',
+      'aria-selected': 'false',
+      'aria-disabled': 'true',
+      'aria-hidden': 'false',
+      'aria-modal': 'true',
     })
   })
 
@@ -197,12 +199,12 @@ describe('solid normalize — expanded attribute surface', () => {
       }),
     ).toEqual({
       'aria-checked': 'mixed',
-      'aria-pressed': true,
+      'aria-pressed': 'true',
       'aria-current': 'page',
-      'aria-busy': true,
+      'aria-busy': 'true',
       'aria-invalid': 'spelling',
-      'aria-required': true,
-      'aria-readonly': false,
+      'aria-required': 'true',
+      'aria-readonly': 'false',
     })
   })
 
@@ -248,8 +250,8 @@ describe('solid normalize — expanded attribute surface', () => {
       'aria-orientation': 'horizontal',
       'aria-sort': 'ascending',
       'aria-autocomplete': 'list',
-      'aria-multiline': true,
-      'aria-multiselectable': false,
+      'aria-multiline': 'true',
+      'aria-multiselectable': 'false',
       'aria-level': 2,
       'aria-posinset': 3,
       'aria-setsize': 10,
@@ -265,7 +267,7 @@ describe('solid normalize — expanded attribute surface', () => {
   it('maps live-region attrs (off passes through as aria-live="off")', () => {
     expect(normalize({ live: 'off', atomic: true })).toEqual({
       'aria-live': 'off',
-      'aria-atomic': true,
+      'aria-atomic': 'true',
     })
   })
 
