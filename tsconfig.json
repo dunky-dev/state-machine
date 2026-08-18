@@ -1,7 +1,4 @@
 {
-  // The shared base: packages, sandboxes, and the benchmark extend this. Each
-  // package owns its project tsconfig (referenced from tsconfig.build.json);
-  // this file's own include covers only the root config files.
   "compilerOptions": {
     "target": "esnext",
     "allowJs": false,
