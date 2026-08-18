@@ -36,13 +36,9 @@ export function useMachine<
   const service = machine(createConfig(props))
   const connection = connector(service, connect, { ...props })
 
-  // Fine-grained mirror of the snapshot. Function leaves take a detour:
-  // solid-js 2.0.0-rc.0's reconcile corrupts a store node when it REPLACES a
-  // function-valued property (next tracked read halts reactivity), and
-  // connect() rebuilds every closure per wake. So reconcile sees the previous
-  // function identities (no-op) and the fresh ones land via plain draft
-  // writes, all in one setter. Remove the detour once fixed upstream.
-  // (The cast mirrors Solid's NoFn guard — a connect() api is never a function.)
+  // Workaround for a solid-js 2.0.0-rc.0 bug: reconcile corrupts a store
+  // node when it replaces a function prop. We reconcile with the old
+  // functions kept in place, then write the new functions in after.
   const [api, setApi] = createStore<Api>(connection.snapshot as Api extends Function ? never : Api)
   const off = connection.subscribe(() => {
     const next = connection.snapshot
