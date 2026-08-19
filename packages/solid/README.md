@@ -300,7 +300,7 @@ const finalProps = mergeProps(consumerProps, normalize(api.triggerProps))
 
 ## Solid version support
 
-Peer range: `solid-js` `^2.0.0-rc.0` — Solid 2.0 is the first-class target.
+Peer range: `solid-js` `^2.0.0-rc.1` — Solid 2.0 is the first-class target.
 Solid 1.x is NOT supported: 2.0 removed the exact surface this bridge is built
 on (`solid-js/store` moved into the root export, single-argument `createEffect`
 became `createEffect(compute, apply)`, `onMount` became `onSettled`), so one

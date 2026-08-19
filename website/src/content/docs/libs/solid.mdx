@@ -7,7 +7,7 @@ import Install from '../../../components/install.astro'
 
 <Install pkg='@dunky.dev/solid-state-machine' />
 
-Targets Solid 2.0 (`solid-js` `^2.0.0-rc.0`) as a first-class citizen. Solid 1.x is not supported — 2.0 reworked the reactivity surface this bridge is built on, so, like the rest of the Solid ecosystem, the majors are version-split.
+Targets Solid 2.0 (`solid-js` `^2.0.0-rc.1`) as a first-class citizen. Solid 1.x is not supported — 2.0 reworked the reactivity surface this bridge is built on, so, like the rest of the Solid ecosystem, the majors are version-split.
 
 The Solid package is a thin edge layer. Behavior lives in the core machine and the component's `connect` function; this package only adapts them to Solid: lifecycle, fine-grained reactivity, prop translation, and platform effects. **The machine itself is unchanged** — the same `createDialogConfig` and `connectDialog` that drive React run here.
 

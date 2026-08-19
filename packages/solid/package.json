@@ -40,13 +40,13 @@
   "devDependencies": {
     "@dunky.dev/state-machine-bindings": "workspace:*",
     "@solidjs/testing-library": "^1.0.0-beta.2",
-    "@solidjs/web": "^2.0.0-rc.0",
+    "@solidjs/web": "^2.0.0-rc.1",
     "jsdom": "^29.1.1",
-    "solid-js": "^2.0.0-rc.0",
+    "solid-js": "^2.0.0-rc.1",
     "vite-plugin-solid": "^3.0.0-next.27",
     "vitest": "^4.1.7"
   },
   "peerDependencies": {
-    "solid-js": "^2.0.0-rc.0"
+    "solid-js": "^2.0.0-rc.1"
   }
 }
