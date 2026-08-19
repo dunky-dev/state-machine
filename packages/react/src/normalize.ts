@@ -79,8 +79,7 @@ const PAYLOAD_ADAPTERS: Record<string, (e: AnyEvent) => unknown> = {
 
 // Keep `this = event`: a detached native preventDefault throws "illegal invocation".
 function boundPreventDefault(e: AnyEvent): (() => void) | undefined {
-  const pd = e?.preventDefault
-  return pd && (() => pd.call(e))
+  return e?.preventDefault?.bind(e)
 }
 
 function scrollPayload(e: AnyEvent): unknown {
