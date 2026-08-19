@@ -98,7 +98,7 @@ class MachineClass<
       }
       if (!changed) return
       Object.assign(this.ctx, patch) // in place — this.ctx identity never changes
-      this.bump()
+      this.notify()
     }
     this.send = event => this.doSend(event)
   }
@@ -112,9 +112,9 @@ class MachineClass<
     this.busDirty = true
   }
 
-  private bump(): void {
+  private notify(): void {
     // Iterate a stable snapshot so mid-pass (un)subscribes take effect after the current pass.
-    // Skip the has() guard in the steady state. A nested bump() clears busDirty, so also treat
+    // Skip the has() guard in the steady state. A nested notify() clears busDirty, so also treat
     // a swapped busSnapshot (rebuilds always allocate anew) as mid-pass churn.
     if (this.busDirty) {
       this.busSnapshot = [...this.bus]
@@ -142,7 +142,7 @@ class MachineClass<
   private setState(next: State): void {
     if (next === this.stateValue) return
     this.stateValue = next
-    this.bump()
+    this.notify()
   }
 
   // Guard params are built lazily — guardless transitions (the common case) never allocate them.
@@ -312,7 +312,7 @@ class MachineClass<
         string,
         unknown
       >
-      // Defer: the selection fires inside bump() (mid-transition). Running actions immediately
+      // Defer: the selection fires inside notify() (mid-transition). Running actions immediately
       // would be re-entrant. The `running` check at job time drops pending runs on stop().
       const off = this.makeSelection(() => source[key]).subscribe(() => {
         this.enqueue(() => {
