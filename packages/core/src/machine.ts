@@ -1,4 +1,5 @@
 import { type ActionHost, runActions } from './actions'
+import { makeBroadcast } from './broadcast'
 import { installComputed } from './computed'
 import { isDev, MACHINE_INIT, MAX_DRAIN } from './constants'
 import { makeGuardParams } from './guards'
@@ -39,11 +40,7 @@ class MachineClass<
   ctx: Context
   stateValue: State
   tagsOf: Record<State, ReadonlySet<string>>
-  // Coarse notification bus. Mutated through busAdd/busDelete so the iteration snapshot
-  // (busSnapshot) is only re-derived when membership changes — steady-state notifies allocate nothing.
-  bus = new Set<() => void>()
-  busSnapshot: Array<() => void> = []
-  busDirty = false
+  broadcast = makeBroadcast()
   // Run-to-completion queue. Events (objects) and deferred jobs (functions) both wait for
   // the in-flight transition to finish before running.
   queue: Array<Event | (() => void)> = []
@@ -104,27 +101,8 @@ class MachineClass<
     this.send = event => this.doSend(event)
   }
 
-  private busAdd(listener: () => void): void {
-    this.bus.add(listener)
-    this.busDirty = true
-  }
-  private busDelete(listener: () => void): void {
-    this.bus.delete(listener)
-    this.busDirty = true
-  }
-
   private notify(): void {
-    // Iterate a stable snapshot so mid-pass (un)subscribes take effect after the current pass.
-    // Skip the has() guard in the steady state. A nested notify() clears busDirty, so also treat
-    // a swapped busSnapshot (rebuilds always allocate anew) as mid-pass churn.
-    if (this.busDirty) {
-      this.busSnapshot = [...this.bus]
-      this.busDirty = false
-    }
-    const snapshot = this.busSnapshot
-    for (const l of snapshot) {
-      if ((!this.busDirty && snapshot === this.busSnapshot) || this.bus.has(l)) l()
-    }
+    this.broadcast.notify()
   }
 
   get state(): State {
@@ -354,16 +332,10 @@ class MachineClass<
     return () => this.stopListeners?.delete(fn)
   }
 
-  subscribe = (listener: () => void): (() => void) => {
-    this.busAdd(listener)
-    return () => this.busDelete(listener)
-  }
+  subscribe = (listener: () => void): (() => void) => this.broadcast.add(listener)
 
   private makeSelection<Value>(selector: () => Value): Selection<Value> {
-    return makeSelection(selector, onWake => {
-      this.busAdd(onWake)
-      return () => this.busDelete(onWake)
-    })
+    return makeSelection(selector, onWake => this.broadcast.add(onWake))
   }
   // Built on first access, then reused — the facade is stateless, so one instance serves all reads.
   selectFacade: Select<State, Context, Computed> | null = null
