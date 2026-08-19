@@ -281,8 +281,23 @@ class MachineClass<
     }
   }
   private stopEffects(): void {
-    for (const cleanup of this.stateCleanups) cleanup()
-    this.stateCleanups.length = 0
+    // A throwing cleanup must not leak the others (timers, subscriptions) or leave the
+    // list populated for a double run on the next stop. Finish the pass, rethrow after.
+    const cleanups = this.stateCleanups
+    let thrown: unknown
+    let didThrow = false
+    for (const cleanup of cleanups) {
+      try {
+        cleanup()
+      } catch (error) {
+        if (!didThrow) {
+          didThrow = true
+          thrown = error
+        }
+      }
+    }
+    cleanups.length = 0
+    if (didThrow) throw thrown
   }
 
   private readField(key: string): unknown {
