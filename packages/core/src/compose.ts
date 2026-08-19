@@ -1,4 +1,5 @@
-import type { EqualityFn, Machine, Selection } from './types'
+import { makeSelection } from './selection'
+import type { Machine, Selection } from './types'
 
 /** Any machine, regardless of its specific generics. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -59,21 +60,7 @@ export function compose<Members extends Record<string, AnyMachine>>(
       return register(list.map(m => m.subscribe(reaction)))
     },
     combine<Value>(selector: () => Value): Selection<Value> {
-      return {
-        get value() {
-          return selector()
-        },
-        subscribe(listener: (value: Value) => void, equals: EqualityFn<Value> = Object.is) {
-          let prev = selector()
-          const onChange = () => {
-            const next = selector()
-            if (equals(prev, next)) return
-            prev = next
-            listener(next)
-          }
-          return register(list.map(m => m.subscribe(onChange)))
-        },
-      }
+      return makeSelection(selector, onWake => register(list.map(m => m.subscribe(onWake))))
     },
   }
 }

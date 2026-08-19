@@ -2,6 +2,7 @@ import { type ActionHost, runActions } from './actions'
 import { installComputed } from './computed'
 import { isDev, MACHINE_INIT, MAX_DRAIN } from './constants'
 import { makeGuardParams } from './guards'
+import { makeSelection } from './selection'
 import { lookupOn, resolve } from './transitions'
 import type {
   Actions,
@@ -359,24 +360,10 @@ class MachineClass<
   }
 
   private makeSelection<Value>(selector: () => Value): Selection<Value> {
-    const add = this.busAdd.bind(this)
-    const remove = this.busDelete.bind(this)
-    return {
-      get value() {
-        return selector()
-      },
-      subscribe(listener, equals = Object.is) {
-        let prev = selector()
-        const l = () => {
-          const next = selector()
-          if (equals(prev, next)) return
-          prev = next
-          listener(next)
-        }
-        add(l)
-        return () => remove(l)
-      },
-    }
+    return makeSelection(selector, onWake => {
+      this.busAdd(onWake)
+      return () => this.busDelete(onWake)
+    })
   }
   // Built on first access, then reused — the facade is stateless, so one instance serves all reads.
   selectFacade: Select<State, Context, Computed> | null = null
