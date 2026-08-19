@@ -300,20 +300,21 @@ class MachineClass<
     if (didThrow) throw thrown
   }
 
-  private readField(key: string): unknown {
-    return key in this.ctx
-      ? (this.ctx as Record<string, unknown>)[key]
-      : (this.computed as Record<string, unknown>)[key]
-  }
   private startWatchers(): void {
     const watch = this.config.watch
     if (!watch) return
     for (const key in watch) {
       const actions = watch[key as keyof typeof watch]
       if (!actions) continue
-      let prev = this.readField(key)
+      // Bind the source once: computed keys are fixed at construction, while ctx keys
+      // may appear later (optional fields patched in), so membership is probed on computed.
+      const source = (key in (this.computed as object) ? this.computed : this.ctx) as Record<
+        string,
+        unknown
+      >
+      let prev = source[key]
       const listener = () => {
-        const next = this.readField(key)
+        const next = source[key]
         if (Object.is(prev, next)) return
         prev = next
         // Defer: this fires inside bump() (mid-transition). Running actions immediately
