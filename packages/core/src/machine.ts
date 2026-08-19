@@ -114,12 +114,16 @@ class MachineClass<
 
   private bump(): void {
     // Iterate a stable snapshot so mid-pass (un)subscribes take effect after the current pass.
-    // Skip the has() guard in the steady state; flip to checked mode if membership changes mid-pass.
+    // Skip the has() guard in the steady state. A nested bump() clears busDirty, so also treat
+    // a swapped busSnapshot (rebuilds always allocate anew) as mid-pass churn.
     if (this.busDirty) {
       this.busSnapshot = [...this.bus]
       this.busDirty = false
     }
-    for (const l of this.busSnapshot) if (!this.busDirty || this.bus.has(l)) l()
+    const snapshot = this.busSnapshot
+    for (const l of snapshot) {
+      if ((!this.busDirty && snapshot === this.busSnapshot) || this.bus.has(l)) l()
+    }
   }
 
   get state(): State {

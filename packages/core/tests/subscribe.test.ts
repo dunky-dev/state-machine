@@ -357,4 +357,39 @@ describe('reentrancy — subscribing/unsubscribing during a notify', () => {
     m.send({ type: 'inc' })
     expect(calls).toEqual(['a'])
   })
+
+  it('a nested notify does not resurrect a listener removed in the outer pass', () => {
+    let set!: (patch: Partial<{ n: number }>) => void
+    const m = machine<'idle', { n: number }, { type: 'inc' }>({
+      initial: 'idle',
+      context: { n: 0 },
+      states: {
+        idle: {
+          effects: [
+            ({ setContext }) => {
+              set = setContext
+            },
+          ],
+          on: { inc: { actions: [({ context, setContext }) => setContext({ n: context.n + 1 })] } },
+        },
+      },
+    })
+    m.start()
+    const calls: string[] = []
+    let offB = () => {}
+    let nested = false
+    m.subscribe(() => {
+      calls.push('a')
+      if (!nested) {
+        nested = true
+        offB()
+        set({ n: 99 }) // nested notify while the outer pass is still iterating
+      }
+    })
+    offB = m.subscribe(() => calls.push('b'))
+    m.send({ type: 'inc' })
+    // A fires in the outer pass and again in the nested one; B was removed
+    // before the nested notify and must not fire in either.
+    expect(calls).toEqual(['a', 'a'])
+  })
 })
