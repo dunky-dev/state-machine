@@ -119,6 +119,12 @@ const counter = () =>
   })
 
 describe('select(fn) — function form', () => {
+  it('the select facade is a stable identity across accesses', () => {
+    const m = counter()
+    // consumers may capture it, destructure it, or pass it to dependency arrays
+    expect(m.select).toBe(m.select)
+  })
+
   it('.value reads the current selected value', () => {
     const m = counter()
     const len = m.select(() => m.context.items.length)

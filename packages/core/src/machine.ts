@@ -382,7 +382,10 @@ class MachineClass<
       },
     }
   }
+  // Built on first access, then reused — the facade is stateless, so one instance serves all reads.
+  selectFacade: Select<State, Context, Computed> | null = null
   get select(): Select<State, Context, Computed> {
+    if (this.selectFacade) return this.selectFacade
     const sel = (<Value>(selector: () => Value) => this.makeSelection(selector)) as Select<
       State,
       Context,
@@ -392,7 +395,7 @@ class MachineClass<
     sel.computed = <K extends keyof Computed>(key: K) =>
       this.makeSelection(() => this.computed[key])
     sel.state = () => this.makeSelection(() => this.stateValue)
-    return sel
+    return (this.selectFacade = sel)
   }
 }
 
