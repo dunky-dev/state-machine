@@ -137,6 +137,14 @@ describe('useMachine — fine-grained store', () => {
     expect(getByTestId('open').textContent).toBe('y')
     expect(getByTestId('count').textContent).toBe('1')
     expect(countReads.mock.calls.length).toBeGreaterThan(countReadsBefore)
+
+    // The negative half of the claim: open→closed flips `open` but leaves
+    // `count` untouched — the count reader must not re-run.
+    const countReadsAfterFirstToggle = countReads.mock.calls.length
+    api!.toggle()
+    flush()
+    expect(getByTestId('open').textContent).toBe('n')
+    expect(countReads.mock.calls.length).toBe(countReadsAfterFirstToggle)
   })
 })
 
@@ -195,19 +203,26 @@ describe('useMachine — reactions follow the machine lifecycle', () => {
       api = useMachine(createConfig(), connect, noEffects, props).api
       return null
     }
-    render(() => <Comp />)
+    const { unmount } = render(() => <Comp />)
     expect(onOpenChange).not.toHaveBeenCalled() // not on subscribe
     api!.toggle()
     expect(onOpenChange).toHaveBeenCalledWith(true)
     api!.toggle()
     expect(onOpenChange).toHaveBeenCalledWith(false)
+
+    // The stop half: unmount stops the machine, which unhooks the connector's
+    // reactions — a send may still transition, but the callback must not fire.
+    unmount()
+    api!.toggle()
+    expect(onOpenChange).toHaveBeenCalledTimes(2)
   })
 })
 
 describe('useMachine — function-valued api leaves', () => {
-  // Regression: solid-js 2.0.0-rc.0's reconcile halts reactivity when it
-  // replaces a function-valued property, and connect() rebuilds every closure
-  // per wake — the bridge routes function leaves around reconcile.
+  // Regression for a solid-js 2.0.0-rc.0 bug (fixed in rc.1): reconcile
+  // invoked a function-valued property instead of replacing it, corrupting
+  // it on the next wake — connect() rebuilds every closure per wake, so this
+  // hit any nested function leaf (e.g. parts.getItemProps) once read.
   type PartsApi = {
     open: boolean
     results: { id: string; label: string }[]
@@ -295,6 +310,31 @@ describe('useMachine — component effects', () => {
     setLabel('b') // dep changed → re-run
     flush()
     expect(fn).toHaveBeenCalledTimes(2)
+  })
+
+  it('runs the previous cleanup BEFORE re-running on a dep change', () => {
+    // The double-subscribe hazard: a listener-registering effect must tear
+    // down before it sets up again, or every dep change stacks a listener.
+    const cleanup = vi.fn()
+    const fn = vi.fn(() => cleanup)
+    const effects: ComponentEffect<ToggleMachine, ToggleProps>[] = [[fn, ['label']]]
+    const [label, setLabel] = createSignal('a')
+    function Comp() {
+      const props: ToggleProps = {
+        get label() {
+          return label()
+        },
+      }
+      useMachine(createConfig(), connect, effects, props)
+      return null
+    }
+    render(() => <Comp />)
+    expect(cleanup).not.toHaveBeenCalled()
+
+    setLabel('b')
+    flush()
+    expect(cleanup).toHaveBeenCalledOnce()
+    expect(cleanup.mock.invocationCallOrder[0]!).toBeLessThan(fn.mock.invocationCallOrder[1]!)
   })
 
   it('does NOT re-run when the effect body reads a prop outside its deps (untracked)', () => {
