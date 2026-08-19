@@ -34,7 +34,17 @@ export function compose<Members extends Record<string, AnyMachine>>(
   members: Members,
 ): Composition<Members> {
   const list = Object.values(members)
-  const disposers: Array<() => void> = []
+  // A Set so a hand-run disposer can remove itself — otherwise long-lived groups
+  // with subscribe/unsubscribe churn grow the registry without bound.
+  const disposers = new Set<() => void>()
+  const register = (offs: Array<() => void>): (() => void) => {
+    const dispose = () => {
+      disposers.delete(dispose)
+      for (const off of offs) off()
+    }
+    disposers.add(dispose)
+    return dispose
+  }
 
   return {
     members,
@@ -42,17 +52,11 @@ export function compose<Members extends Record<string, AnyMachine>>(
       for (const m of list) m.start()
     },
     stop() {
-      for (const dispose of disposers) dispose()
-      disposers.length = 0
+      for (const dispose of disposers) dispose() // self-deletes mid-iteration — safe on a Set
       for (let i = list.length - 1; i >= 0; i--) list[i]!.stop()
     },
     sync(reaction) {
-      const offs = list.map(m => m.subscribe(reaction))
-      const dispose = () => {
-        for (const off of offs) off()
-      }
-      disposers.push(dispose)
-      return dispose
+      return register(list.map(m => m.subscribe(reaction)))
     },
     combine<Value>(selector: () => Value): Selection<Value> {
       return {
@@ -67,12 +71,7 @@ export function compose<Members extends Record<string, AnyMachine>>(
             prev = next
             listener(next)
           }
-          const offs = list.map(m => m.subscribe(onChange))
-          const dispose = () => {
-            for (const off of offs) off()
-          }
-          disposers.push(dispose)
-          return dispose
+          return register(list.map(m => m.subscribe(onChange)))
         },
       }
     },
