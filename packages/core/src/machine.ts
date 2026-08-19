@@ -312,19 +312,14 @@ class MachineClass<
         string,
         unknown
       >
-      let prev = source[key]
-      const listener = () => {
-        const next = source[key]
-        if (Object.is(prev, next)) return
-        prev = next
-        // Defer: this fires inside bump() (mid-transition). Running actions immediately
-        // would be re-entrant. The `running` check at job time drops pending runs on stop().
+      // Defer: the selection fires inside bump() (mid-transition). Running actions immediately
+      // would be re-entrant. The `running` check at job time drops pending runs on stop().
+      const off = this.makeSelection(() => source[key]).subscribe(() => {
         this.enqueue(() => {
           if (this.running) this.runActions(actions, { type: MACHINE_INIT } as Event)
         })
-      }
-      this.busAdd(listener)
-      this.watcherCleanups.push(() => this.busDelete(listener))
+      })
+      this.watcherCleanups.push(off)
     }
   }
   private stopWatchers(): void {
