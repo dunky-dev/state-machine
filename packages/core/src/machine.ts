@@ -3,6 +3,7 @@ import { makeBroadcast } from './broadcast'
 import { installComputed } from './computed'
 import { isDev, MACHINE_INIT, MAX_DRAIN } from './constants'
 import { makeGuardParams } from './guards'
+import { shouldPatch } from './patch'
 import { makeSelection } from './selection'
 import { lookupOn, resolve } from './transitions'
 import type {
@@ -87,14 +88,7 @@ class MachineClass<
     }
 
     this.setContext = patch => {
-      let changed = false
-      for (const key in patch) {
-        if (!Object.is(this.ctx[key], patch[key])) {
-          changed = true
-          break
-        }
-      }
-      if (!changed) return
+      if (!shouldPatch(this.ctx, patch)) return
       Object.assign(this.ctx, patch) // in place — this.ctx identity never changes
       this.notify()
     }
