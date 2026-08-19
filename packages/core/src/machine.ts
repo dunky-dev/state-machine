@@ -38,8 +38,6 @@ class MachineClass<
   ctx: Context
   stateValue: State
   tagsOf: Record<State, ReadonlySet<string>>
-  // Monotonic counter bumped on every notify — lets computed memoize without per-field tracking.
-  version = 0
   // Coarse notification bus. Mutated through busAdd/busDelete so the iteration snapshot
   // (busSnapshot) is only re-derived when membership changes — steady-state notifies allocate nothing.
   bus = new Set<() => void>()
@@ -115,7 +113,6 @@ class MachineClass<
   }
 
   private bump(): void {
-    this.version++
     // Iterate a stable snapshot so mid-pass (un)subscribes take effect after the current pass.
     // Skip the has() guard in the steady state; flip to checked mode if membership changes mid-pass.
     if (this.busDirty) {
