@@ -1,6 +1,6 @@
 import { type ActionHost, runActions } from './actions'
 import { makeBroadcast } from './broadcast'
-import { installComputed } from './computed'
+import { defineComputed } from './computed'
 import { isDev, MACHINE_INIT, MAX_DRAIN } from './constants'
 import { makeGuardParams } from './guards'
 import { shouldPatch } from './patch'
@@ -71,7 +71,7 @@ class MachineClass<
 
     this.computed = {} as Computed
     if (config.computed) {
-      installComputed(this.computed, config.computed, {
+      defineComputed(this.computed, config.computed, {
         context: () => this.ctx,
         computed: () => this.computed,
         state: () => this.stateValue,
