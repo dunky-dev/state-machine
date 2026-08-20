@@ -36,16 +36,16 @@ These were run on a **MacBook Pro (M1, 32 GB)**. Your absolute numbers will diff
 - **`n/a ᵃ`**: _async._ Zag's `send` is microtask-batched, so it can't run in a synchronous ops/sec or `flushSync` loop, only where it runs synchronously (construction, memory, React rendering).
 - **`n/a ᶠ`**: _no equivalent feature._ The engine has no first-class primitive for that scenario (e.g. XState has no lazy/memoized `computed`), so there's nothing comparable to time.
 
-**Reading the ops/sec tables:** higher is better, and a gap between two rows is only real if it clears both rows' run-to-run noise (`±rme`). A 1.0× / 1.2× difference is a tie; the 8×–33× gaps are the point.
+**Reading the ops/sec tables:** higher is better, and a gap between two rows is only real if it clears both rows' run-to-run noise (`±rme`). A 1.0× / 1.2× difference is a tie; the 7×–31× gaps are the point.
 
 ## Overview
 
-|                           |           Dunky | XState |    Zag |
-| ------------------------- | --------------: | -----: | -----: |
-| Event throughput          | **7.2 M ops/s** |  897 K |  n/a ᵃ |
-| Memory, 2-field context   |      **3.6 KB** | 3.6 KB | 9.1 KB |
-| Memory, 64-field context  |      **4.1 KB** | 4.1 KB | 134 KB |
-| Re-render wall, 1000 rows |      **3.9 ms** | 6.8 ms |  n/a ᵃ |
+|                           |            Dunky | XState |    Zag |
+| ------------------------- | ---------------: | -----: | -----: |
+| Event throughput          | **11.4 M ops/s** |  1.6 M |  n/a ᵃ |
+| Memory, 2-field context   |       **3.9 KB** | 3.6 KB | 8.9 KB |
+| Memory, 64-field context  |       **4.4 KB** | 4.1 KB | 134 KB |
+| Re-render wall, 1000 rows |       **2.4 ms** | 4.2 ms |  n/a ᵃ |
 
 ᵃ Zag's `send` is microtask-batched; can't run in a synchronous ops/sec loop.
 
@@ -53,9 +53,9 @@ These were run on a **MacBook Pro (M1, 32 GB)**. Your absolute numbers will diff
 
 A single machine, one event, tight loop:
 
-|         |     Dunky | XState |   Zag |
-| ------- | --------: | -----: | ----: |
-| ops/sec | **7.2 M** |  898 K | n/a ᵃ |
+|         |      Dunky | XState |   Zag |
+| ------- | ---------: | -----: | ----: |
+| ops/sec | **11.4 M** |  1.6 M | n/a ᵃ |
 
 XState allocates a new immutable snapshot on every transition. Dunky mutates context in place, so a transition allocates nothing.
 
@@ -65,8 +65,8 @@ Change a field no observer has selected. The dedup layer re-evaluates and value-
 
 | Observers | Dunky (ops/s) | XState (ops/s) |
 | --------- | ------------: | -------------: |
-| 1 000     |     **4.5 M** |          536 K |
-| 5 000     |     **1.9 M** |          453 K |
+| 1 000     |     **5.3 M** |        909.4 K |
+| 5 000     |     **3.3 M** |        734.4 K |
 
 XState's `actor.subscribe` is coarse: it fires on every snapshot change. To match Dunky's behavior you'd add a differ in the listener, which is what the `xstate` column already does, for a fair comparison.
 
@@ -77,9 +77,9 @@ affected observer" cycles complete per second (higher is better):
 
 | Observers | Dunky (ops/s) | XState (ops/s) |
 | --------- | ------------: | -------------: |
-| 100       |         325 K |          253 K |
-| 1 000     |        10.7 K |         10.7 K |
-| 5 000     |     **7.9 K** |            741 |
+| 100       |       690.1 K |        455.3 K |
+| 1 000     |        59.7 K |         52.6 K |
+| 5 000     |    **15.0 K** |          1.4 K |
 
 Roughly par at small N. The gap widens with N because a coarse subscribe re-runs every listener on each change, while a fine-grained selection wakes only the affected one.
 
@@ -89,8 +89,8 @@ The whole point of the plain-object model: memory grows with your data, not with
 
 | Context width |  Dunky | XState |    Zag |
 | ------------- | -----: | -----: | -----: |
-| 2 fields      | 3.6 KB | 3.6 KB | 9.1 KB |
-| 64 fields     | 4.1 KB | 4.1 KB | 134 KB |
+| 2 fields      | 3.9 KB | 3.6 KB | 8.9 KB |
+| 64 fields     | 4.4 KB | 4.1 KB | 134 KB |
 
 Going 2 → 64 fields costs Dunky **~0.5 KB/machine**. Zag allocates one reactive cell per field, so a 64-field context grows to **134 KB/machine**.
 
@@ -100,9 +100,9 @@ Spin-up cost per machine:
 
 |              | Dunky |   XState |  Zag |
 | ------------ | ----: | -------: | ---: |
-| µs / machine |  2.42 | **1.95** | 8.16 |
+| µs / machine |  1.44 | **1.34** | 4.78 |
 
-XState cold-starts ~1.2× faster; Zag is ~3.4× slower than both. A one-time cost paid at `start()`; see [the trade-off](#the-trade-off).
+XState cold-starts ~1.1× faster; Zag is ~3.3× slower than both. A one-time cost paid at `start()`; see [the trade-off](#the-trade-off).
 
 ## Where this matters
 
