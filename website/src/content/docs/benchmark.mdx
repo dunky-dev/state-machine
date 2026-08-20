@@ -42,10 +42,10 @@ These were run on a **MacBook Pro (M1, 32 GB)**. Your absolute numbers will diff
 
 |                           |            Dunky | XState |    Zag |
 | ------------------------- | ---------------: | -----: | -----: |
-| Event throughput          | **11.4 M ops/s** |  1.6 M |  n/a ᵃ |
+| Event throughput          | **11.6 M ops/s** |  1.6 M |  n/a ᵃ |
 | Memory, 2-field context   |       **3.9 KB** | 3.6 KB | 8.9 KB |
 | Memory, 64-field context  |       **4.4 KB** | 4.1 KB | 134 KB |
-| Re-render wall, 1000 rows |       **2.4 ms** | 4.2 ms |  n/a ᵃ |
+| Re-render wall, 1000 rows |       **2.4 ms** | 4.3 ms |  n/a ᵃ |
 
 ᵃ Zag's `send` is microtask-batched; can't run in a synchronous ops/sec loop.
 
@@ -55,7 +55,7 @@ A single machine, one event, tight loop:
 
 |         |      Dunky | XState |   Zag |
 | ------- | ---------: | -----: | ----: |
-| ops/sec | **11.4 M** |  1.6 M | n/a ᵃ |
+| ops/sec | **11.6 M** |  1.6 M | n/a ᵃ |
 
 XState allocates a new immutable snapshot on every transition. Dunky mutates context in place, so a transition allocates nothing.
 
@@ -65,8 +65,8 @@ Change a field no observer has selected. The dedup layer re-evaluates and value-
 
 | Observers | Dunky (ops/s) | XState (ops/s) |
 | --------- | ------------: | -------------: |
-| 1 000     |     **5.3 M** |        909.4 K |
-| 5 000     |     **3.3 M** |        734.4 K |
+| 1 000     |     **5.4 M** |        987.9 K |
+| 5 000     |     **4.4 M** |        844.1 K |
 
 XState's `actor.subscribe` is coarse: it fires on every snapshot change. To match Dunky's behavior you'd add a differ in the listener, which is what the `xstate` column already does, for a fair comparison.
 
@@ -77,9 +77,9 @@ affected observer" cycles complete per second (higher is better):
 
 | Observers | Dunky (ops/s) | XState (ops/s) |
 | --------- | ------------: | -------------: |
-| 100       |       690.1 K |        455.3 K |
-| 1 000     |        59.7 K |         52.6 K |
-| 5 000     |    **15.0 K** |          1.4 K |
+| 100       |       658.5 K |        437.8 K |
+| 1 000     |        56.8 K |         49.2 K |
+| 5 000     |    **15.5 K** |          1.3 K |
 
 Roughly par at small N. The gap widens with N because a coarse subscribe re-runs every listener on each change, while a fine-grained selection wakes only the affected one.
 
@@ -100,9 +100,9 @@ Spin-up cost per machine:
 
 |              | Dunky |   XState |  Zag |
 | ------------ | ----: | -------: | ---: |
-| µs / machine |  1.44 | **1.34** | 4.78 |
+| µs / machine |  1.58 | **1.35** | 5.06 |
 
-XState cold-starts ~1.1× faster; Zag is ~3.3× slower than both. A one-time cost paid at `start()`; see [the trade-off](#the-trade-off).
+XState cold-starts ~1.2× faster; Zag is ~3.2× slower than both. A one-time cost paid at `start()`; see [the trade-off](#the-trade-off).
 
 ## Where this matters
 

@@ -4,7 +4,7 @@ A performance harness for `@dunky.dev/state-machine`. It measures the engine's
 hot paths in isolation and compares the runnable parts against
 [XState](https://stately.ai/docs) and [Zag](https://zagjs.com/).
 
-Numbers below are from one clean run (Node 24, Apple Silicon). Absolute figures
+Numbers below are averaged over four clean runs (Node 24, Apple Silicon). Absolute figures
 vary by machine, Node version, and thermal state — **run it yourself** — but the
 ranking and the scaling shape are what hold.
 
@@ -95,9 +95,9 @@ XState's coarse `actor.subscribe`.
 
 | Change 1 of N | Dunky (ops/sec) | XState (ops/sec) |   Zag |
 | ------------- | --------------: | ---------------: | ----: |
-| 100           |         690.1 K |          455.3 K | n/a ᵃ |
-| 1000          |          59.7 K |           52.6 K | n/a ᵃ |
-| 5000          |      **15.0 K** |            1.4 K | n/a ᵃ |
+| 100           |         658.5 K |          437.8 K | n/a ᵃ |
+| 1000          |          56.8 K |           49.2 K | n/a ᵃ |
+| 5000          |      **15.5 K** |            1.3 K | n/a ᵃ |
 
 → Roughly par at small N, but Dunky **~11× faster at 5000 observers** — XState's
 coarse subscribe degrades much faster as the observer set grows.
@@ -109,8 +109,8 @@ model gets for free and a coarse bus has to work to ignore.
 
 | Irrelevant write, N cells | Dunky (ops/sec) | XState (ops/sec) |   Zag |
 | ------------------------- | --------------: | ---------------: | ----: |
-| 1000                      |       **5.3 M** |          909.4 K | n/a ᵃ |
-| 5000                      |       **3.3 M** |          734.4 K | n/a ᵃ |
+| 1000                      |       **5.4 M** |          987.9 K | n/a ᵃ |
+| 5000                      |       **4.4 M** |          844.1 K | n/a ᵃ |
 
 → Dunky is **~6× faster** at shrugging off a write nobody is watching (1000
 cells); the value-deduping bus skips waking observers entirely.
@@ -120,7 +120,7 @@ selection scaling — the raw `send` price.
 
 | Single machine, one event |    ops/sec |
 | ------------------------- | ---------: |
-| Dunky                     | **11.4 M** |
+| Dunky                     | **11.6 M** |
 | XState (raw)              |      1.6 M |
 | XState (diffed)           |      1.6 M |
 | Zag                       |      n/a ᵃ |
@@ -142,12 +142,12 @@ change (the O(members) path by design).
 
 | Members | Dunky combine (ops/sec) | Dunky sync (ops/sec) | XState | Zag   |
 | ------- | ----------------------: | -------------------: | ------ | ----- |
-| 2       |                  11.1 M |               11.4 M | n/a ᶠ  | n/a ᶠ |
-| 10      |                  10.2 M |               10.8 M | n/a ᶠ  | n/a ᶠ |
-| 50      |                   9.8 M |                9.0 M | n/a ᶠ  | n/a ᶠ |
+| 2       |                  11.0 M |               11.7 M | n/a ᶠ  | n/a ᶠ |
+| 10      |                  10.1 M |               10.5 M | n/a ᶠ  | n/a ᶠ |
+| 50      |                   8.7 M |               10.2 M | n/a ᶠ  | n/a ᶠ |
 
-→ Cross-region coordination stays in the **~9.0–11.4 M ops/sec** band even at 50
-synced members — the O(M) re-eval pass costs ~12–20% going from 2 to 50.
+→ Cross-region coordination stays in the **~8.7–11.7 M ops/sec** band even at 50
+synced members — the O(M) re-eval pass costs ~13–21% going from 2 to 50.
 
 > A third "chain" sub-test (a sync rule that `send()`s downstream every change) was
 > removed: under a tight loop it shows superlinear slowdown. That's a real
@@ -163,13 +163,13 @@ profile: XState has no first-class lazy/memoized `computed` (**n/a ᶠ**), and Z
 
 | Scenario                             | Dunky (ops/sec) | XState | Zag   |
 | ------------------------------------ | --------------: | ------ | ----- |
-| Cached read (no change)              |      **44.7 M** | n/a ᶠ  | n/a ᵃ |
-| Fine-grain (change unread, re-read)  |          11.3 M | n/a ᶠ  | n/a ᵃ |
-| Recompute (change read field)        |           5.1 M | n/a ᶠ  | n/a ᵃ |
-| 4-deep chain (change root, read tip) |           1.6 M | n/a ᶠ  | n/a ᵃ |
+| Cached read (no change)              |      **44.0 M** | n/a ᶠ  | n/a ᵃ |
+| Fine-grain (change unread, re-read)  |          10.7 M | n/a ᶠ  | n/a ᵃ |
+| Recompute (change read field)        |           4.9 M | n/a ᶠ  | n/a ᵃ |
+| 4-deep chain (change root, read tip) |           1.5 M | n/a ᶠ  | n/a ᵃ |
 
-→ A cached read is **~44.7 M/sec** (near-free memo hit), and changing a field the
-computed _doesn't_ read stays a memo hit at ~11.3 M/sec — read-key tracking means
+→ A cached read is **~44 M/sec** (near-free memo hit), and changing a field the
+computed _doesn't_ read stays a memo hit at ~10.7 M/sec — read-key tracking means
 you only pay the recompute when an input you actually read changes.
 
 ## 4. Engine hot paths (`tests/engine.ts`)
@@ -182,14 +182,14 @@ Zag's `send` is async (**n/a ᵃ**).
 | Scenario                               | Dunky (ops/sec) | XState | Zag   |
 | -------------------------------------- | --------------: | ------ | ----- |
 | Guard fallthrough — 2 candidates       |           5.2 M | n/a ᶠ  | n/a ᵃ |
-| Guard fallthrough — 8 candidates       |           4.6 M | n/a ᶠ  | n/a ᵃ |
-| Guard fallthrough — 32 candidates      |           3.3 M | n/a ᶠ  | n/a ᵃ |
-| State churn — exit+entry every event   |           9.3 M | n/a ᶠ  | n/a ᵃ |
-| Effect churn — boot+cleanup each trans |           8.6 M | n/a ᶠ  | n/a ᵃ |
-| Sub churn — stable set                 |          11.7 M | n/a ᶠ  | n/a ᵃ |
-| Sub churn — churning set (rebuild)     |           8.2 M | n/a ᶠ  | n/a ᵃ |
+| Guard fallthrough — 8 candidates       |           4.5 M | n/a ᶠ  | n/a ᵃ |
+| Guard fallthrough — 32 candidates      |           3.2 M | n/a ᶠ  | n/a ᵃ |
+| State churn — exit+entry every event   |           8.8 M | n/a ᶠ  | n/a ᵃ |
+| Effect churn — boot+cleanup each trans |           8.2 M | n/a ᶠ  | n/a ᵃ |
+| Sub churn — stable set                 |          11.1 M | n/a ᶠ  | n/a ᵃ |
+| Sub churn — churning set (rebuild)     |           8.0 M | n/a ᶠ  | n/a ᵃ |
 
-→ Even the heavy paths hold **~3–12 M ops/sec**: a 32-candidate guard walk, full
+→ Even the heavy paths hold **~3–11 M ops/sec**: a 32-candidate guard walk, full
 state transitions with entry/exit actions, and effect boot/cleanup every
 transition all stay in the same order of magnitude as a bare `send`.
 
@@ -201,11 +201,11 @@ warmed first.
 
 | Build + start | Dunky (µs/machine) | XState |  Zag |
 | ------------- | -----------------: | -----: | ---: |
-| 10 000        |               1.44 |   1.34 | 4.78 |
+| 10 000        |               1.58 |   1.35 | 5.06 |
 
 → Construction is the one axis where Dunky **doesn't** win — XState spins up
-~1.1× faster. Dunky's bet is flat memory + hot-path throughput, not spin-up;
-it's still ~3.3× faster than Zag's per-field reactive cells.
+~1.2× faster. Dunky's bet is flat memory + hot-path throughput, not spin-up;
+it's still ~3.2× faster than Zag's per-field reactive cells.
 
 ## 6. Memory per machine (`tests/memory.ts`)
 
@@ -250,15 +250,15 @@ List of 1000 rows:
 
 | Strategy             | Rows woken / move | Mount (ms) | Re-render wall (ms) |
 | -------------------- | ----------------: | ---------: | ------------------: |
-| Dunky/instance       |             **2** |        3.5 |             **2.4** |
-| Dunky/selector       |                 2 |        5.0 |                 3.7 |
-| xstate/selector      |                 2 |        3.8 |                 4.2 |
-| zag/instance         |                 2 |        3.7 |               n/a ᵃ |
-| naive (anti-pattern) |           **980** |        4.4 |                36.8 |
+| Dunky/instance       |             **2** |        3.6 |             **2.4** |
+| Dunky/selector       |                 2 |        4.9 |                 3.8 |
+| xstate/selector      |                 2 |        3.7 |                 4.3 |
+| zag/instance         |                 2 |        3.9 |               n/a ᵃ |
+| naive (anti-pattern) |           **980** |        4.5 |                38.3 |
 
 → Every properly-set-up engine wakes only the **2** rows that changed (vs. the
 naive whole-snapshot subscription, which re-renders all **980** — a ~490× gap and
-~15× the wall time). Among the surgical strategies Dunky re-renders **~1.7×
+~16× the wall time). Among the surgical strategies Dunky re-renders **~1.8×
 faster than XState**.
 
 Zag mounts and wakes the same **2** rows, but its re-render wall is **n/a ᵃ** — the
