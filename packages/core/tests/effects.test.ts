@@ -147,6 +147,33 @@ describe('enter → cleanup on exit', () => {
     expect(() => m.send({ type: 'toB' })).toThrow(/no effect "missing"/)
   })
 
+  it('a throwing cleanup still runs the remaining cleanups and clears the pass', () => {
+    const log: string[] = []
+    const m = machine<'a' | 'b', object, { type: 'toB' | 'toA' }>({
+      initial: 'a',
+      context: {},
+      states: {
+        a: { on: { toB: { target: 'b' } } },
+        b: {
+          effects: [
+            () => () => {
+              log.push('c1')
+              throw new Error('boom')
+            },
+            () => () => log.push('c2'),
+          ],
+          on: { toA: { target: 'a' } },
+        },
+      },
+    })
+    m.start()
+    m.send({ type: 'toB' })
+    expect(() => m.send({ type: 'toA' })).toThrow('boom')
+    expect(log).toEqual(['c1', 'c2']) // c2 must not be skipped by c1's throw
+    m.stop() // the failed pass already ran its cleanups — stop must not re-run them
+    expect(log).toEqual(['c1', 'c2'])
+  })
+
   it('an effect can read context/event and queue events via send', () => {
     const seen: string[] = []
     const m = machine<'a' | 'b', { label: string }, { type: 'toB' | 'mark' }>({

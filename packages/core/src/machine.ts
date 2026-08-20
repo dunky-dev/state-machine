@@ -1,7 +1,10 @@
 import { type ActionHost, runActions } from './actions'
-import { installComputed } from './computed'
+import { makeBroadcast } from './broadcast'
+import { defineComputed } from './computed'
 import { isDev, MACHINE_INIT, MAX_DRAIN } from './constants'
 import { makeGuardParams } from './guards'
+import { shouldPatch } from './patch'
+import { makeSelection } from './selection'
 import { lookupOn, resolve } from './transitions'
 import type {
   Actions,
@@ -38,13 +41,7 @@ class MachineClass<
   ctx: Context
   stateValue: State
   tagsOf: Record<State, ReadonlySet<string>>
-  // Monotonic counter bumped on every notify — lets computed memoize without per-field tracking.
-  version = 0
-  // Coarse notification bus. Mutated through busAdd/busDelete so the iteration snapshot
-  // (busSnapshot) is only re-derived when membership changes — steady-state notifies allocate nothing.
-  bus = new Set<() => void>()
-  busSnapshot: Array<() => void> = []
-  busDirty = false
+  broadcast = makeBroadcast()
   // Run-to-completion queue. Events (objects) and deferred jobs (functions) both wait for
   // the in-flight transition to finish before running.
   queue: Array<Event | (() => void)> = []
@@ -74,7 +71,7 @@ class MachineClass<
 
     this.computed = {} as Computed
     if (config.computed) {
-      installComputed(this.computed, config.computed, {
+      defineComputed(this.computed, config.computed, {
         context: () => this.ctx,
         computed: () => this.computed,
         state: () => this.stateValue,
@@ -91,38 +88,15 @@ class MachineClass<
     }
 
     this.setContext = patch => {
-      let changed = false
-      for (const key in patch) {
-        if (!Object.is(this.ctx[key], patch[key])) {
-          changed = true
-          break
-        }
-      }
-      if (!changed) return
+      if (!shouldPatch(this.ctx, patch)) return
       Object.assign(this.ctx, patch) // in place — this.ctx identity never changes
-      this.bump()
+      this.notify()
     }
     this.send = event => this.doSend(event)
   }
 
-  private busAdd(listener: () => void): void {
-    this.bus.add(listener)
-    this.busDirty = true
-  }
-  private busDelete(listener: () => void): void {
-    this.bus.delete(listener)
-    this.busDirty = true
-  }
-
-  private bump(): void {
-    this.version++
-    // Iterate a stable snapshot so mid-pass (un)subscribes take effect after the current pass.
-    // Skip the has() guard in the steady state; flip to checked mode if membership changes mid-pass.
-    if (this.busDirty) {
-      this.busSnapshot = [...this.bus]
-      this.busDirty = false
-    }
-    for (const l of this.busSnapshot) if (!this.busDirty || this.bus.has(l)) l()
+  private notify(): void {
+    this.broadcast.notify()
   }
 
   get state(): State {
@@ -141,7 +115,7 @@ class MachineClass<
   private setState(next: State): void {
     if (next === this.stateValue) return
     this.stateValue = next
-    this.bump()
+    this.notify()
   }
 
   // Guard params are built lazily — guardless transitions (the common case) never allocate them.
@@ -280,34 +254,45 @@ class MachineClass<
     }
   }
   private stopEffects(): void {
-    for (const cleanup of this.stateCleanups) cleanup()
-    this.stateCleanups.length = 0
+    // A throwing cleanup must not leak the others (timers, subscriptions) or leave the
+    // list populated for a double run on the next stop. Finish the pass, rethrow after.
+    const cleanups = this.stateCleanups
+    let thrown: unknown
+    let didThrow = false
+    for (const cleanup of cleanups) {
+      try {
+        cleanup()
+      } catch (error) {
+        if (!didThrow) {
+          didThrow = true
+          thrown = error
+        }
+      }
+    }
+    cleanups.length = 0
+    if (didThrow) throw thrown
   }
 
-  private readField(key: string): unknown {
-    return key in this.ctx
-      ? (this.ctx as Record<string, unknown>)[key]
-      : (this.computed as Record<string, unknown>)[key]
-  }
   private startWatchers(): void {
     const watch = this.config.watch
     if (!watch) return
     for (const key in watch) {
       const actions = watch[key as keyof typeof watch]
       if (!actions) continue
-      let prev = this.readField(key)
-      const listener = () => {
-        const next = this.readField(key)
-        if (Object.is(prev, next)) return
-        prev = next
-        // Defer: this fires inside bump() (mid-transition). Running actions immediately
-        // would be re-entrant. The `running` check at job time drops pending runs on stop().
+      // Bind the source once: computed keys are fixed at construction, while ctx keys
+      // may appear later (optional fields patched in), so membership is probed on computed.
+      const source = (key in (this.computed as object) ? this.computed : this.ctx) as Record<
+        string,
+        unknown
+      >
+      // Defer: the selection fires inside notify() (mid-transition). Running actions immediately
+      // would be re-entrant. The `running` check at job time drops pending runs on stop().
+      const off = this.makeSelection(() => source[key]).subscribe(() => {
         this.enqueue(() => {
           if (this.running) this.runActions(actions, { type: MACHINE_INIT } as Event)
         })
-      }
-      this.busAdd(listener)
-      this.watcherCleanups.push(() => this.busDelete(listener))
+      })
+      this.watcherCleanups.push(off)
     }
   }
   private stopWatchers(): void {
@@ -341,32 +326,15 @@ class MachineClass<
     return () => this.stopListeners?.delete(fn)
   }
 
-  subscribe = (listener: () => void): (() => void) => {
-    this.busAdd(listener)
-    return () => this.busDelete(listener)
-  }
+  subscribe = (listener: () => void): (() => void) => this.broadcast.add(listener)
 
   private makeSelection<Value>(selector: () => Value): Selection<Value> {
-    const add = this.busAdd.bind(this)
-    const remove = this.busDelete.bind(this)
-    return {
-      get value() {
-        return selector()
-      },
-      subscribe(listener, equals = Object.is) {
-        let prev = selector()
-        const l = () => {
-          const next = selector()
-          if (equals(prev, next)) return
-          prev = next
-          listener(next)
-        }
-        add(l)
-        return () => remove(l)
-      },
-    }
+    return makeSelection(selector, onWake => this.broadcast.add(onWake))
   }
+  // Built on first access, then reused — the facade is stateless, so one instance serves all reads.
+  selectFacade: Select<State, Context, Computed> | null = null
   get select(): Select<State, Context, Computed> {
+    if (this.selectFacade) return this.selectFacade
     const sel = (<Value>(selector: () => Value) => this.makeSelection(selector)) as Select<
       State,
       Context,
@@ -376,7 +344,7 @@ class MachineClass<
     sel.computed = <K extends keyof Computed>(key: K) =>
       this.makeSelection(() => this.computed[key])
     sel.state = () => this.makeSelection(() => this.stateValue)
-    return sel
+    return (this.selectFacade = sel)
   }
 }
 

@@ -1,3 +1,6 @@
+import { makeBroadcast } from './broadcast'
+import { shouldPatch } from './patch'
+
 export type Listener<T> = (state: T) => void
 export type SetStateAction<T> = Partial<T> | ((state: T) => Partial<T>)
 
@@ -15,25 +18,19 @@ export function createStore<T extends object, Methods extends object = object>(
   build: (store: Store<T>) => Methods = () => ({}) as Methods,
 ): Store<T> & Methods {
   let state = initial
-  const listeners = new Set<Listener<T>>()
+  const broadcast = makeBroadcast()
   const base: Store<T> = {
     get: () => state,
     set(action) {
       const patch = typeof action === 'function' ? action(state) : action
-      let changed = false
-      for (const k in patch) {
-        if (!Object.is(state[k as keyof T], patch[k as keyof T])) {
-          changed = true
-          break
-        }
-      }
-      if (!changed) return
+      if (!shouldPatch(state, patch)) return
+      // Fresh identity on purpose — get() serves as a useSyncExternalStore
+      // snapshot, so the identity change IS the re-render signal.
       state = { ...state, ...patch }
-      for (const listener of [...listeners]) listener(state)
+      broadcast.notify()
     },
     subscribe(listener) {
-      listeners.add(listener)
-      return () => listeners.delete(listener)
+      return broadcast.add(() => listener(state))
     },
   }
   return { ...base, ...build(base) }
