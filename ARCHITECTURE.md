@@ -24,7 +24,7 @@ The host
                                |
 +-----------------------------------------------------------------------+
 |  shared/utils                                                         |
-|  Cross-target helpers (mergeProps)                                    |
+|  Cross-target helpers (mergeProps, composeHandlers)                   |
 +-----------------------------------------------------------------------+
                                |  bridged per target
                                v
@@ -56,7 +56,7 @@ actions. Nothing in `core/` knows that React or the DOM exists.
 
 **`shared/`** is the cross-target side — `shared/bindings` owns the
 substrate-agnostic event and attr vocabulary (`onPress`, `role`, …); `shared/utils`
-owns cross-target helpers (mergeProps).
+owns cross-target helpers (mergeProps, composeHandlers).
 
 **`<target>/`** is the substrate side — `react`, `native`, `opentui`, and any
 future renderer. Each target is the runtime bridge for one environment: the
@@ -97,7 +97,7 @@ Zag, whose machines read props directly.)
 | --------------------------- | ------------------------------------------------------------- |
 | `packages/core/`            | State-machine engine (plain-mutation kernel)                  |
 | `packages/shared/bindings/` | Substrate-agnostic event + attr vocabulary (onPress, role, …) |
-| `packages/shared/utils/`    | mergeProps                                                    |
+| `packages/shared/utils/`    | mergeProps, composeHandlers                                   |
 | `packages/<target>/`        | Hook + normalize per substrate (react, native, opentui, …)    |
 
 ## The map
@@ -119,7 +119,7 @@ shared/bindings                       substrate-agnostic event + attr vocabulary
 +-- (onPress, role, aria-*, …)        consumed by every target's normalize
 
 shared/utils                          cross-target, cross-component helpers
-+-- (mergeProps)
++-- (mergeProps, composeHandlers)
 
 <target>                              one substrate (react, native, opentui, …)
 |                                     runtime, hooks, and props translator
@@ -134,7 +134,7 @@ Three package groups, three jobs:
   knows nothing about a renderer.
 - **`shared/`** — _the cross-target side_. `shared/bindings` owns the
   event + attr vocabulary; `shared/utils` owns agnostic helpers (prop
-  merging).
+  merging, handler composition).
 - **`<target>/`** — _the substrate side_. One folder per renderer
   (`react`, `native`, `opentui`). Owns its runtime bridge and its props translator.
 
