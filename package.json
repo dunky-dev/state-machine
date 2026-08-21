@@ -10,7 +10,7 @@
     "website:dev": "pnpm -C website dev",
     "website:prod": "pnpm -C website build",
     "build": "tsdown",
-    "typecheck": "tsc -b tsconfig.all.json",
+    "typecheck": "tsc -b tsconfig/all.json",
     "lint": "oxlint .",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",

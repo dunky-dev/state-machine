@@ -1,11 +1,11 @@
 {
-  "name": "@dunky.dev/react-state-machine",
-  "version": "0.3.3",
+  "name": "@dunky.dev/solid-state-machine",
+  "version": "0.2.0",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dunky-dev/state-machine.git",
-    "directory": "packages/react"
+    "directory": "packages/solid"
   },
   "files": [
     "dist",
@@ -40,14 +40,14 @@
   },
   "devDependencies": {
     "@dunky.dev/state-machine-bindings": "workspace:*",
-    "@testing-library/react": "^16.1.0",
-    "@types/react": "^19.2.15",
-    "@types/react-dom": "^19.2.3",
+    "@solidjs/testing-library": "^1.0.0-beta.2",
+    "@solidjs/web": "^2.0.0-rc.1",
     "jsdom": "^29.1.1",
-    "react": "^19.2.6",
-    "react-dom": "^19.2.6"
+    "solid-js": "^2.0.0-rc.1",
+    "vite-plugin-solid": "^3.0.0-next.27",
+    "vitest": "^4.1.7"
   },
   "peerDependencies": {
-    "react": "*"
+    "solid-js": "^2.0.0-rc.1"
   }
 }

@@ -1,16 +1,19 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
 import { resolve } from 'node:path'
+import solid from 'vite-plugin-solid'
+import { defineConfig } from 'vite'
 
 // The @dunky.dev/* packages and the shared cmdk core all point `main` at their TS
 // `src/index.ts` (no build step). Alias each to its source so Vite transpiles them
 // directly — the whole point of the sandbox is to run the workspace source live.
 export default defineConfig({
-  plugins: [react()],
+  plugins: [solid()],
   resolve: {
+    // One Solid runtime for app + aliased packages — two copies means silently
+    // dead reactivity.
+    dedupe: ['solid-js', '@solidjs/web'],
     alias: {
       '@dunky.dev/state-machine': resolve(__dirname, '../../packages/core/src'),
-      '@dunky.dev/react-state-machine': resolve(__dirname, '../../packages/react/src'),
+      '@dunky.dev/solid-state-machine': resolve(__dirname, '../../packages/solid/src'),
       '@dunky.dev/state-machine-utils': resolve(__dirname, '../../packages/shared/utils/src'),
       '@dunky.dev/state-machine-bindings': resolve(__dirname, '../../packages/shared/bindings/src'),
       '@dunky.dev/state-machine-dom': resolve(__dirname, '../../packages/dom/src'),

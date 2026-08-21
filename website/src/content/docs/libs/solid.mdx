@@ -1,0 +1,180 @@
+---
+title: Solid
+description: Solid bindings for @dunky.dev/state-machine.
+---
+
+import Install from '../../../components/install.astro'
+
+<Install pkg='@dunky.dev/solid-state-machine' />
+
+Targets Solid 2.0 (`solid-js` `^2.0.0-rc.1`) as a first-class citizen. Solid 1.x is not supported — 2.0 reworked the reactivity surface this bridge is built on, so, like the rest of the Solid ecosystem, the majors are version-split.
+
+The Solid package is a thin edge layer. Behavior lives in the core machine and the component's `connect` function; this package only adapts them to Solid: lifecycle, fine-grained reactivity, prop translation, and platform effects. **The machine itself is unchanged** — the same `createDialogConfig` and `connectDialog` that drive React run here.
+
+Unlike React, this is not a `useSyncExternalStore` bridge: the connector's snapshot is mirrored into a Solid **store**, so reading `api.isOpen` in JSX subscribes to exactly that field — only the markup that reads a changed field updates.
+
+## `useMachine`
+
+The one bridge hook. Every component calls it with the four agnostic pieces and gets back the view API as a reactive store:
+
+```tsx
+import { Show } from 'solid-js'
+import { useMachine, normalize } from '@dunky.dev/solid-state-machine'
+import { createDialogConfig, connectDialog, dialogEffects } from './dialog'
+
+type DialogProps = {
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  closeOnEscape?: boolean
+}
+
+function Dialog(props: DialogProps) {
+  const { api } = useMachine(
+    createDialogConfig, // (props) => MachineConfig; seeds context once
+    connectDialog, // pure connect(): snapshot → view api
+    dialogEffects, // ComponentEffect[]: DOM listeners, gated by props
+    props,
+  )
+
+  return (
+    <>
+      <button {...normalize(api.triggerProps)}>Open</button>
+      <Show when={api.isOpen}>
+        <div {...normalize(api.contentProps)}>Dialog content</div>
+      </Show>
+    </>
+  )
+}
+```
+
+`useMachine` builds the machine and connector **once** (a Solid component body runs a single time, so the first props seed context; later changes flow through `setProps`, not a rebuild), starts on mount, stops on cleanup, and exposes the connect output as a fine-grained store. `api` is the store proxy — read its fields directly in JSX; do **not** destructure it (`const { isOpen } = api` snapshots the value and loses reactivity).
+
+### The three imports
+
+Those three values are where the dialog's behavior actually lives, and none of it is Solid. You write them once, in a `./dialog` module, and they run unchanged on any platform:
+
+```ts
+// dialog.ts: plain functions, no Solid
+import { setup, type Connect } from '@dunky.dev/state-machine'
+
+type State = 'closed' | 'open'
+type Context = { closeOnEscape: boolean }
+type Event = { type: 'open' } | { type: 'close' }
+type Api = {
+  isOpen: boolean
+  triggerProps: object
+  contentProps: object
+}
+
+export const createDialogConfig = (props: DialogProps) =>
+  setup.infer().createMachine({
+    initial: props.open ? 'open' : 'closed', // props seed the machine ONCE
+    context: { closeOnEscape: props.closeOnEscape ?? true },
+    states: {
+      closed: { on: { open: { target: 'open' } } },
+      open: { on: { close: { target: 'closed' } } },
+    },
+  })
+
+export const connectDialog: Connect<State, Context, Event, DialogProps, Api> = ({
+  state,
+  send,
+}) => ({
+  isOpen: state === 'open',
+  triggerProps: {
+    onPress: () => send({ type: 'open' }),
+    expanded: state === 'open',
+  },
+  contentProps: { role: 'dialog', modal: true },
+})
+
+export const dialogEffects = [onEscapeKey]
+```
+
+So `useMachine` is the only Solid-specific piece: `createDialogConfig` is the machine definition, `connectDialog` is the snapshot-to-view-API mapping, and `dialogEffects` are the DOM listeners. This is the **same** `./dialog` module the [React page](/libs/react) imports — only the bridge differs. See [Setup](/api/setup) for configs and [Connector](/api/connector) for how `connect` works in depth.
+
+## `normalize`: bindings → DOM props
+
+`connect` returns substrate-agnostic bindings (`onPress`, `role`, `describedBy`). `normalize` translates them to real DOM/ARIA props as Solid's JSX expects them:
+
+```ts
+normalize(api.triggerProps)
+// { onClick, 'aria-expanded', role, tabindex, ... }
+```
+
+The machine binding maps handlers (`onPress` → `onClick`), ARIA props (`describedBy` → `aria-describedby`), ARIA state (`checked` → `aria-checked`), and focus (`focusable` → `tabindex`). [Check out the full mapping here](https://github.com/dunky-dev/state-machine/blob/main/packages/solid/src/normalize.ts).
+
+## `mergeProps`: consumer + component props
+
+When a consumer spreads their own props onto the same element the component controls:
+
+```tsx
+import { mergeProps, normalize } from '@dunky.dev/solid-state-machine'
+
+<button {...mergeProps(props, normalize(api.triggerProps))}>
+```
+
+- **Event handlers are chained, consumer-first.** If the consumer calls `e.preventDefault()`, the component's handler is skipped — a clean veto.
+- **`class` is concatenated** with a space (Solid uses `class`, not `className`).
+- **`style` is merged into one object**, library winning on conflicting keys. Solid's `style` prop is a plain object, not React's array form — so styles merge rather than wrap.
+- **Everything else: component wins** (`id`, `role`, `aria-*`).
+
+Don't confuse this with Solid's own `mergeProps` from `solid-js` (which merges reactive prop objects). This one merges the consumer's props with the component's normalized bindings, with the handler-veto and `class`/`style` semantics above.
+
+## `useSelector`: fine-grained leaf subscription
+
+For a leaf component that should only react when one slice of the machine changes (useful when a single machine drives many rows and each row should only wake for its own value). It returns a Solid **accessor** — call it in JSX:
+
+```tsx
+import { useSelector } from '@dunky.dev/solid-state-machine'
+
+function Row(props: { machine: RowMachine; value: string }) {
+  const isHighlighted = useSelector(
+    props.machine,
+    () => props.machine.context.highlightedValue === props.value,
+  )
+
+  return <div data-highlighted={isHighlighted()}>{props.value}</div>
+}
+```
+
+The accessor updates only when the selected value changes — `Object.is` by default. For object selections, pass a custom equality function so a re-derived equal object doesn't push a new value:
+
+```tsx
+const pos = useSelector(
+  props.machine,
+  () => ({ x: props.machine.context.x, y: props.machine.context.y }),
+  (a, b) => a.x === b.x && a.y === b.y,
+)
+```
+
+Reading `api` from `useMachine` is already fine-grained, so `useSelector` is for the case where a leaf wants to track one slice of a machine it doesn't otherwise own — e.g. thousands of items backed by one machine, each waking only for its own value.
+
+## `ComponentEffect`: platform effects
+
+Some behavior can't live in the machine because it touches the DOM or reads props the machine never sees. Declare each as a `[setup/teardown, depPropNames]` tuple; `useMachine` runs one `createEffect` per entry, re-running it (cleanup → setup) when one of its named prop deps changes:
+
+```ts
+import type { ComponentEffect } from '@dunky.dev/solid-state-machine'
+import type { DialogMachine, DialogProps } from './dialog'
+
+type Effect = ComponentEffect<DialogMachine, DialogProps>
+
+const onEscapeKey: Effect = [
+  (machine, props) => {
+    if (!props.closeOnEscape) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') machine.send({ type: 'close' })
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  },
+  ['closeOnEscape'], // re-run only when this prop changes
+]
+
+export const dialogEffects = [onEscapeKey]
+```
+
+The tuple shape is **identical to every other target** — the same `./dialog` effects run on React and Solid. The deps are prop NAMES (typed `(keyof Props)[]`, so a typo is a compile error); the Solid bridge reads exactly those props inside the effect's `createEffect`, so Solid's auto-tracking re-subscribes only when one of them actually changes. The machine only receives `send({ type: 'close' })`; it has no idea a keyboard event exists.
+
+See [Effects](/api/effects) for the full mental model of where each type of effect lives.

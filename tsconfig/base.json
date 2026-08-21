@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "allowJs": false,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "noImplicitReturns": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "paths": {
+      "@dunky.dev/state-machine": ["../packages/core/src"],
+      "@dunky.dev/react-state-machine": ["../packages/react/src"],
+      "@dunky.dev/solid-state-machine": ["../packages/solid/src"],
+      "@dunky.dev/native-state-machine": ["../packages/native/src"],
+      "@dunky.dev/opentui-state-machine": ["../packages/opentui/src"],
+      "@dunky.dev/state-machine-utils": ["../packages/shared/utils/src"],
+      "@dunky.dev/state-machine-bindings": ["../packages/shared/bindings/src"]
+    },
+    "types": ["@types/node", "vitest/globals"]
+  }
+}
