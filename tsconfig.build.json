@@ -3,6 +3,7 @@
   "references": [
     { "path": "./tsconfig.json" },
     { "path": "./packages/core" },
+    { "path": "./packages/dom" },
     { "path": "./packages/react" },
     { "path": "./packages/solid" },
     { "path": "./packages/native" },

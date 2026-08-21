@@ -116,72 +116,13 @@ describe('solid normalize — expanded handler surface', () => {
     expect(out.onDblClick).toBe(onDoublePress)
   })
 
-  it('onValueChange receives a ChangePayload built from the DOM event', () => {
+  // Payload construction is pinned once in @dunky.dev/state-machine-dom's own
+  // tests; this only proves normalize WRAPS the handler with its adapter.
+  it('onValueChange receives the adapted ChangePayload, not the raw event', () => {
     const onValueChange = vi.fn()
     const out = normalize({ onValueChange })
     ;(out.onInput as (e: unknown) => void)({ target: { value: 'hi', type: 'text' } })
-    expect(onValueChange).toHaveBeenCalledWith({
-      value: 'hi',
-      defaultPrevented: undefined,
-      preventDefault: undefined,
-    })
-    ;(out.onInput as (e: unknown) => void)({ target: { checked: true, type: 'checkbox' } })
-    expect(onValueChange).toHaveBeenLastCalledWith(expect.objectContaining({ value: true }))
-  })
-
-  it('binds payload.preventDefault to the event (a detached native method throws)', () => {
-    const onValueChange = vi.fn()
-    const onWheel = vi.fn()
-    const out = normalize({ onValueChange, onWheel })
-    // Fake event whose preventDefault asserts its `this`, like a native Event does.
-    const makeEvent = () => ({
-      target: { value: 'x', type: 'text' },
-      defaultPrevented: false,
-      preventDefault(this: { defaultPrevented: boolean }) {
-        this.defaultPrevented = true
-      },
-    })
-    const inputEvent = makeEvent()
-    ;(out.onInput as (e: unknown) => void)(inputEvent)
-    ;(onValueChange.mock.calls[0]![0] as { preventDefault: () => void }).preventDefault()
-    expect(inputEvent.defaultPrevented).toBe(true)
-
-    const wheelEvent = makeEvent()
-    ;(out.onWheel as (e: unknown) => void)(wheelEvent)
-    ;(onWheel.mock.calls[0]![0] as { preventDefault: () => void }).preventDefault()
-    expect(wheelEvent.defaultPrevented).toBe(true)
-  })
-
-  it('onWheel receives a WheelPayload with a neutral deltaUnit (deltaMode → enum)', () => {
-    const onWheel = vi.fn()
-    const out = normalize({ onWheel })
-    ;(out.onWheel as (e: unknown) => void)({ deltaX: 1, deltaY: 2, deltaZ: 0, deltaMode: 1 })
-    expect(onWheel).toHaveBeenCalledWith(
-      expect.objectContaining({ deltaX: 1, deltaY: 2, deltaZ: 0, deltaUnit: 'line' }),
-    )
-  })
-
-  it('onScroll / onScrollEnd receive a neutral ScrollPayload from currentTarget geometry', () => {
-    const onScroll = vi.fn()
-    const out = normalize({ onScroll })
-    ;(out.onScroll as (e: unknown) => void)({
-      currentTarget: {
-        scrollLeft: 5,
-        scrollTop: 50,
-        scrollWidth: 800,
-        scrollHeight: 1200,
-        clientWidth: 400,
-        clientHeight: 600,
-      },
-    })
-    expect(onScroll).toHaveBeenCalledWith({
-      offsetX: 5,
-      offsetY: 50,
-      contentWidth: 800,
-      contentHeight: 1200,
-      viewportWidth: 400,
-      viewportHeight: 600,
-    })
+    expect(onValueChange).toHaveBeenCalledWith(expect.objectContaining({ value: 'hi' }))
   })
 })
 

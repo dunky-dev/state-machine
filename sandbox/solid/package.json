@@ -14,8 +14,8 @@
     "@dunky.dev/state-machine-bindings": "workspace:^",
     "@dunky.dev/state-machine-utils": "workspace:^",
     "@sandbox/cmdk-core": "workspace:^",
-    "@solidjs/web": "^2.0.0-rc.0",
-    "solid-js": "^2.0.0-rc.0"
+    "@solidjs/web": "^2.0.0-rc.1",
+    "solid-js": "^2.0.0-rc.1"
   },
   "devDependencies": {
     "vite": "^8.0.14",

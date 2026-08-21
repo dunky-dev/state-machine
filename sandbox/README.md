@@ -10,6 +10,7 @@ produces.
 ```
 sandbox/
 +-- shared/      @sandbox/cmdk-core — the machine + connect() + commands (NO framework)
+|                + src/styles.css — the one stylesheet the React and Solid apps share
 +-- react/       Vite + React DOM     → normalize → onClick / aria-* / role
 +-- solid/       Vite + Solid         → normalize → onClick / aria-* / tabindex
 +-- opentui/     Bun + @opentui/react → normalize → onMouseDown / focusable / cells
@@ -23,9 +24,6 @@ through a React reconciler, so they share `@dunky.dev/react-state-machine`'s
 hook — the OpenTUI app is the clearest proof: it imports `useMachine` from the
 React binding and `normalize` from `@dunky.dev/opentui-state-machine`, exactly
 the "bring your own framework hook, pair it with the agnostic translator" model.
-Solid is the proof from the other side: `@dunky.dev/solid-state-machine` brings
-its own fine-grained `useMachine` — no React reconciler anywhere — and the same
-shared machine + `connect()` run unchanged.
 
 ## Run
 

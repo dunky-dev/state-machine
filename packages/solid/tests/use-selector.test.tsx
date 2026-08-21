@@ -91,6 +91,25 @@ describe('useSelector — value-deduped accessor', () => {
   })
 })
 
+describe('useSelector — function-typed selections', () => {
+  // Regression guard for the compute-form seed: Solid 2.0's createSignal
+  // treats a function first argument as a compute and CALLS it, so a selected
+  // callback passed as a plain value would be invoked and its return value
+  // stored. The accessor must hand back the function itself, by identity.
+  it('returns a selected function by identity, never invoking it', () => {
+    const m = makeMachine()
+    const handlers = [vi.fn(() => 'h0'), vi.fn(() => 'h1')]
+    const { result } = renderHook(() => useSelector(m, () => handlers[m.context.a]!))
+    expect(result()).toBe(handlers[0])
+
+    m.send({ type: 'incA' })
+    flush()
+    expect(result()).toBe(handlers[1])
+    expect(handlers[0]).not.toHaveBeenCalled()
+    expect(handlers[1]).not.toHaveBeenCalled()
+  })
+})
+
 describe('useSelector — custom isEqual for object selections', () => {
   it('uses the provided isEqual to dedup an object selection', () => {
     const m = makeMachine()
@@ -113,6 +132,21 @@ describe('useSelector — custom isEqual for object selections', () => {
     m.send({ type: 'incA' }) // {a} changed → update
     flush()
     expect(reads).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('useSelector — subscription follows the owner lifecycle', () => {
+  it('stops evaluating the selector once the owner is disposed', () => {
+    const m = makeMachine()
+    const selector = vi.fn(() => m.context.a)
+    const { result, cleanup } = renderHook(() => useSelector(m, selector))
+    expect(result()).toBe(0)
+
+    cleanup()
+    const evaluations = selector.mock.calls.length
+    m.send({ type: 'incA' }) // disposed reader → the machine must not re-evaluate it
+    flush()
+    expect(selector.mock.calls.length).toBe(evaluations)
   })
 })
 

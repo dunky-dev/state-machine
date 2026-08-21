@@ -1,11 +1,11 @@
 {
-  "name": "@dunky.dev/react-state-machine",
-  "version": "0.3.3",
+  "name": "@dunky.dev/state-machine-dom",
+  "version": "0.0.0",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dunky-dev/state-machine.git",
-    "directory": "packages/react"
+    "directory": "packages/dom"
   },
   "files": [
     "dist",
@@ -34,20 +34,6 @@
     "build": "tsdown"
   },
   "dependencies": {
-    "@dunky.dev/state-machine": "workspace:*",
-    "@dunky.dev/state-machine-dom": "workspace:*",
-    "@dunky.dev/state-machine-utils": "workspace:*"
-  },
-  "devDependencies": {
-    "@dunky.dev/state-machine-bindings": "workspace:*",
-    "@testing-library/react": "^16.1.0",
-    "@types/react": "^19.2.15",
-    "@types/react-dom": "^19.2.3",
-    "jsdom": "^29.1.1",
-    "react": "^19.2.6",
-    "react-dom": "^19.2.6"
-  },
-  "peerDependencies": {
-    "react": "*"
+    "@dunky.dev/state-machine-bindings": "workspace:*"
   }
 }

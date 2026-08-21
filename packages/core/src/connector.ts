@@ -1,3 +1,4 @@
+import { makeBroadcast } from './broadcast'
 import type { Connect, Connector, Machine } from './types'
 
 /**
@@ -45,10 +46,10 @@ export function connector<
     return cached
   }
 
-  const listeners = new Set<() => void>()
+  const broadcast = makeBroadcast()
   const wake = () => {
     dirty = true
-    for (const l of [...listeners]) l()
+    broadcast.notify()
   }
   const offWake = service.subscribe(wake)
 
@@ -71,8 +72,7 @@ export function connector<
       return snapshot()
     },
     subscribe(listener) {
-      listeners.add(listener)
-      return () => listeners.delete(listener)
+      return broadcast.add(listener)
     },
     select: service.select,
     setProps(next) {
@@ -86,7 +86,7 @@ export function connector<
       offStop()
       for (const off of reactionOffs) off()
       reactionOffs = []
-      listeners.clear()
+      broadcast.clear()
     },
   }
 }

@@ -1,14 +1,17 @@
 /**
- * Translate the machine layer's logical surface (ARIA-shaped, see
- * ACCESSIBILITY.md) to Solid DOM props. Mostly a mechanical `aria-` prefix;
- * the exceptions:
- * - `onPress` → `onClick` (the DOM activation event, incl. keyboard Enter/Space)
- * - `focusable` → `tabindex` 0/-1 (`false` must stay script-focusable)
- * - `disabled` → `aria-disabled` (stays in tab order + announces, per APG)
- * - `onValueChange`/`onWheel`/`onScroll(End)` payloads are adapted, never raw
- * Vs the React normalizer: Solid handlers receive NATIVE events,
- * `onValueChange` lands on `onInput` (Solid's `onChange` fires on commit), and
- * `tabindex` is lowercase.
+ * Translate the machine layer's logical surface to Solid DOM props.
+ *
+ * The DOM-shared half — the `aria-` attr projection and the payload adapters
+ * — lives in `@dunky.dev/state-machine-dom` (see its header for the shared
+ * decisions). This file adds only what is Solid's own:
+ * - `onValueChange` → `onInput`: Solid's per-change event (Solid's `onChange`
+ *   fires only on commit). Handlers receive NATIVE events, not synthetics —
+ *   the shared adapters read the same field names either way.
+ * - `onDoublePress` → `onDblClick` (Solid's DOM-cased prop).
+ * - `focusable` → `tabindex` 0 / -1 — lowercase (the real attribute), and not
+ *   a boolean: `false` still has to leave the element focusable in script.
+ * - ARIA boolean values are stringified: Solid 2.0 treats a boolean attribute
+ *   as presence/absence, but ARIA states are literal "true"/"false" tokens.
  */
 import type {
   AttrKey,
@@ -16,138 +19,22 @@ import type {
   HandlerKey,
   HandlerTargets,
 } from '@dunky.dev/state-machine-bindings'
+import {
+  DOM_ATTR_MAP,
+  DOM_HANDLER_MAP,
+  PAYLOAD_ADAPTERS,
+  type AnyEvent,
+} from '@dunky.dev/state-machine-dom'
 
 export const HANDLER_MAP: HandlerTargets = {
-  onPress: 'onClick',
-  onPointerEnter: 'onPointerEnter',
-  onPointerLeave: 'onPointerLeave',
-  onPointerMove: 'onPointerMove',
-  onPointerDown: 'onPointerDown',
-  onPointerUp: 'onPointerUp',
-  onPointerCancel: 'onPointerCancel',
-  onFocus: 'onFocus',
-  onBlur: 'onBlur',
-  onKeyDown: 'onKeyDown',
-  onKeyUp: 'onKeyUp',
-  // value-change + secondary/double activation + scroll/wheel. onValueChange/
-  // onWheel/onScroll/onScrollEnd additionally have their argument translated
-  // from the raw DOM event into the agnostic payload (see PAYLOAD_ADAPTERS).
+  ...DOM_HANDLER_MAP,
   onValueChange: 'onInput',
-  onContextMenu: 'onContextMenu',
   onDoublePress: 'onDblClick',
-  onWheel: 'onWheel',
-  onScroll: 'onScroll',
-  onScrollEnd: 'onScrollEnd',
-}
-
-// These payload shapes differ from the native event, so normalize wraps the
-// handler to hand the component the agnostic payload instead. (Pointer/keyboard
-// events already overlap their payload shapes and pass through unwrapped.)
-
-// DOM WheelEvent.deltaMode (0/1/2) → the neutral WheelPayload unit.
-const WHEEL_UNIT = ['pixel', 'line', 'page'] as const
-
-type AnyEvent = {
-  target?: { value?: unknown; checked?: unknown; type?: string }
-  currentTarget?: Record<string, number>
-  deltaX?: number
-  deltaY?: number
-  deltaZ?: number
-  deltaMode?: number
-  defaultPrevented?: boolean
-  preventDefault?: () => void
-}
-
-const PAYLOAD_ADAPTERS: Record<string, (e: AnyEvent) => unknown> = {
-  onValueChange: e => {
-    const t = e?.target
-    // checkbox/radio carry the boolean on `.checked`; everything else on `.value`.
-    const value = t && (t.type === 'checkbox' || t.type === 'radio') ? t.checked : t?.value
-    return { value, defaultPrevented: e?.defaultPrevented, preventDefault: boundPreventDefault(e) }
-  },
-  onWheel: e => ({
-    deltaX: e?.deltaX,
-    deltaY: e?.deltaY,
-    deltaZ: e?.deltaZ,
-    deltaUnit: WHEEL_UNIT[e?.deltaMode ?? 0] ?? 'pixel',
-    defaultPrevented: e?.defaultPrevented,
-    preventDefault: boundPreventDefault(e),
-  }),
-  onScroll: scrollPayload,
-  onScrollEnd: scrollPayload,
-}
-
-// Keep `this = event`: a detached native preventDefault throws "illegal invocation".
-function boundPreventDefault(e: AnyEvent): (() => void) | undefined {
-  const pd = e?.preventDefault
-  return pd && (() => pd.call(e))
-}
-
-function scrollPayload(e: AnyEvent): unknown {
-  const el = e?.currentTarget ?? {}
-  return {
-    offsetX: el.scrollLeft,
-    offsetY: el.scrollTop,
-    contentWidth: el.scrollWidth,
-    contentHeight: el.scrollHeight,
-    viewportWidth: el.clientWidth,
-    viewportHeight: el.clientHeight,
-  }
 }
 
 export const ATTR_MAP: AttrTargets = {
-  describedBy: 'aria-describedby',
-  labelledBy: 'aria-labelledby',
-  controls: 'aria-controls',
-  hasPopup: 'aria-haspopup',
-  expanded: 'aria-expanded',
-  selected: 'aria-selected',
-  disabled: 'aria-disabled',
-  hidden: 'aria-hidden',
-  modal: 'aria-modal',
+  ...DOM_ATTR_MAP,
   focusable: 'tabindex', // value transformed below
-  role: 'role',
-  id: 'id',
-
-  // labeling
-  label: 'aria-label',
-  // widget state ('mixed' tristate and the aria-current / aria-invalid enums
-  // pass through as-is; booleans are stringified in normalize below)
-  checked: 'aria-checked',
-  pressed: 'aria-pressed',
-  current: 'aria-current',
-  busy: 'aria-busy',
-  invalid: 'aria-invalid',
-  required: 'aria-required',
-  readOnly: 'aria-readonly',
-  // relationships
-  activeDescendant: 'aria-activedescendant',
-  errorMessage: 'aria-errormessage',
-  owns: 'aria-owns',
-  // value / range
-  valueMin: 'aria-valuemin',
-  valueMax: 'aria-valuemax',
-  valueNow: 'aria-valuenow',
-  valueText: 'aria-valuetext',
-  // structure / orientation
-  orientation: 'aria-orientation',
-  sort: 'aria-sort',
-  autoComplete: 'aria-autocomplete',
-  multiline: 'aria-multiline',
-  multiSelectable: 'aria-multiselectable',
-  level: 'aria-level',
-  posInSet: 'aria-posinset',
-  setSize: 'aria-setsize',
-  // grid / table
-  colCount: 'aria-colcount',
-  colIndex: 'aria-colindex',
-  colSpan: 'aria-colspan',
-  rowCount: 'aria-rowcount',
-  rowIndex: 'aria-rowindex',
-  rowSpan: 'aria-rowspan',
-  // live region
-  live: 'aria-live',
-  atomic: 'aria-atomic',
 }
 
 export type Bindings = Record<string, unknown>

@@ -169,6 +169,31 @@ describe('compose — combine', () => {
   })
 })
 
+describe('compose — manual dispose detaches from the group', () => {
+  it('stop() does not re-run a disposer already run by hand', () => {
+    // Real machines make the double-run invisible (removing a bus listener twice
+    // is a no-op), so spy on the member's unsubscribe directly.
+    let unsubs = 0
+    const fakeMember = () =>
+      ({
+        start: () => {},
+        stop: () => {},
+        subscribe: () => () => {
+          unsubs++
+        },
+      }) as unknown as ReturnType<typeof machine<'idle', object, { type: 'noop' }>>
+    const g = compose({ a: fakeMember(), b: fakeMember() })
+    g.start()
+    const offSync = g.sync(() => {})
+    const offCombine = g.combine(() => 0).subscribe(() => {})
+    offSync()
+    offCombine()
+    expect(unsubs).toBe(4) // one per member per subscription
+    g.stop()
+    expect(unsubs).toBe(4) // hand-run disposers left the registry — stop must not re-run them
+  })
+})
+
 // Regression coverage for the cross-region feedback the benchmark suite found
 // (see benchmark/tests/compose.ts NOTE — a sync rule that send()s downstream).
 // `sync` subscribes to EVERY member, including any it writes to, so a reaction

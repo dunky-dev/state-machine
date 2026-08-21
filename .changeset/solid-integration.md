@@ -15,7 +15,7 @@ applies Solid's `class` concat + single-object `style` merge. The same `connect`
 and machine config run unchanged across React, Solid, React Native, and OpenTUI.
 
 Targets Solid 2.0 as a first-class citizen: the peer range is `solid-js`
-`^2.0.0-rc.0`. Solid 1.x is not supported — 2.0 removed the surface a 1.x
+`^2.0.0-rc.1`. Solid 1.x is not supported — 2.0 removed the surface a 1.x
 bridge would stand on (`solid-js/store`, single-argument `createEffect`,
 `onMount`) and 1.x lacks the root exports this package imports, so, like the
 rest of the Solid ecosystem (router, TanStack, solid-primitives), the majors

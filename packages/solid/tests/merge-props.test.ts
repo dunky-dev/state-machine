@@ -66,6 +66,16 @@ describe('solid mergeProps', () => {
     const out = mergeProps({ id: 'a' }, { class: 'x' })
     expect(out.class).toBe('x')
   })
+
+  it('string consumer style falls through to library-wins (no merge)', () => {
+    const out = mergeProps({ style: 'color: red' }, { style: { color: 'blue' } })
+    expect(out.style).toEqual({ color: 'blue' })
+  })
+
+  it('returns the base merge when consumer is undefined', () => {
+    const out = mergeProps(undefined, { id: 'lib', class: 'x' })
+    expect(out).toEqual({ id: 'lib', class: 'x' })
+  })
 })
 
 describe('solid mergeProps typing', () => {

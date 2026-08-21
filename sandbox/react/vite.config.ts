@@ -13,6 +13,7 @@ export default defineConfig({
       '@dunky.dev/react-state-machine': resolve(__dirname, '../../packages/react/src'),
       '@dunky.dev/state-machine-utils': resolve(__dirname, '../../packages/shared/utils/src'),
       '@dunky.dev/state-machine-bindings': resolve(__dirname, '../../packages/shared/bindings/src'),
+      '@dunky.dev/state-machine-dom': resolve(__dirname, '../../packages/dom/src'),
       '@sandbox/cmdk-core': resolve(__dirname, '../shared/src'),
     },
   },
