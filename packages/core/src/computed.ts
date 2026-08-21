@@ -7,56 +7,89 @@ export interface ComputedHost<State extends string, Context, Computed> {
 }
 
 /**
- * Install computed getters on `target` with read-key tracking: each def records which
+ * Define computed getters on `target` with read-key tracking: each def records which
  * context/computed keys it read and recomputes only when one of those inputs changed.
- * Installs onto the SAME object the machine exposes as `this.computed` so computed→computed
+ * Defined onto the SAME object the machine exposes as `this.computed` so computed→computed
  * chains resolve in place.
  */
-export function installComputed<State extends string, Context extends object, Computed>(
+export function defineComputed<State extends string, Context extends object, Computed>(
   target: Computed,
   defs: ComputedDefs<State, Context, Computed>,
   host: ComputedHost<State, Context, Computed>,
 ): void {
+  // Dep keys are runtime strings, so all dep reads are string-indexed — widen once here
+  // instead of casting at every read site. The proxy target is inert (traps never touch it).
+  const contextOf = host.context as () => Record<string, unknown>
+  const computedOf = host.computed as () => Record<string, unknown>
+  const proxyTarget: Record<string, unknown> = {}
+
   for (const key in defs) {
     const k = key as keyof Computed
     const def = defs[k]
     let computedOnce = false
     let cachedValue: Computed[keyof Computed]
-    let ctxDeps: string[] = []
-    let computedDeps: string[] = []
-    let ctxSnapshot: Record<string, unknown> = {}
-    let computedSnapshot: Record<string, unknown> = {}
     let readState = false
     let stateSnapshot: State | undefined
 
-    // Tracking proxies built once per computed; each get records the key into the current read-set.
-    let ctxRead: Set<string> | null = null
-    let computedRead: Set<string> | null = null
-    // True during recompute so reading `params.state` records a state dependency.
+    // Parallel dep-key/dep-value buffers, reused across recomputes — a recompute
+    // allocates nothing. Values are captured AT read time inside the tracking
+    // proxies, so no post-pass re-reads (and re-validates) what was just computed.
+    const ctxDeps: string[] = []
+    const ctxVals: unknown[] = []
+    const computedDeps: string[] = []
+    const computedVals: unknown[] = []
+
+    // True during recompute so proxy reads record deps and `params.state` records
+    // a state dependency. Deps are few, so the includes() dedup beats a Set.
     let tracking = false
-    const trackedCtx = new Proxy({} as Record<string, unknown>, {
+    const trackedCtx = new Proxy(proxyTarget, {
       get: (_t, p: string) => {
-        ctxRead?.add(p)
-        return (host.context() as Record<string, unknown>)[p]
+        const value = contextOf()[p]
+        if (tracking && !ctxDeps.includes(p)) {
+          ctxDeps.push(p)
+          ctxVals.push(value)
+        }
+        return value
       },
     }) as Context
-    const trackedComputed = new Proxy({} as Record<string, unknown>, {
+
+    const trackedComputed = new Proxy(proxyTarget, {
       get: (_t, p: string) => {
-        computedRead?.add(p)
-        return (host.computed() as Record<string, unknown>)[p]
+        const value = computedOf()[p]
+        if (tracking && !computedDeps.includes(p)) {
+          computedDeps.push(p)
+          computedVals.push(value)
+        }
+        return value
       },
     }) as Computed
 
+    // The def params never change shape — build them once, not per recompute.
+    const params = {
+      context: trackedCtx,
+      computed: trackedComputed,
+      get state() {
+        if (tracking) readState = true
+        return host.state()
+      },
+    }
+
     const stale = (): boolean => {
       if (readState && stateSnapshot !== host.state()) return true
-      for (const dk of ctxDeps) {
-        if (!Object.is(ctxSnapshot[dk], (host.context() as Record<string, unknown>)[dk]))
-          return true
+      const ctx = contextOf()
+
+      let i = 0
+      while (i < ctxDeps.length) {
+        if (!Object.is(ctxVals[i], ctx[ctxDeps[i]!])) return true
+        i++
       }
+
       // Reading a computed dep resolves ITS staleness first — transitive changes surface here.
-      for (const dk of computedDeps) {
-        if (!Object.is(computedSnapshot[dk], (host.computed() as Record<string, unknown>)[dk]))
-          return true
+      const computed = computedOf()
+      i = 0
+      while (i < computedDeps.length) {
+        if (!Object.is(computedVals[i], computed[computedDeps[i]!])) return true
+        i++
       }
       return false
     }
@@ -65,36 +98,22 @@ export function installComputed<State extends string, Context extends object, Co
       enumerable: true,
       get: () => {
         if (computedOnce && !stale()) return cachedValue
-        const cr = new Set<string>()
-        const compr = new Set<string>()
-        ctxRead = cr
-        computedRead = compr
+        ctxDeps.length = 0
+        ctxVals.length = 0
+        computedDeps.length = 0
+        computedVals.length = 0
         readState = false
         tracking = true
+        let completed = false
         try {
-          cachedValue = def({
-            context: trackedCtx,
-            computed: trackedComputed,
-            get state() {
-              if (tracking) readState = true
-              return host.state()
-            },
-          }) as Computed[keyof Computed]
+          cachedValue = def(params) as Computed[keyof Computed]
+          completed = true
         } finally {
-          ctxRead = null
-          computedRead = null
           tracking = false
+          // A throwing def leaves the buffers half-filled — force the next read to recompute.
+          computedOnce = completed
         }
-        ctxDeps = [...cr]
-        computedDeps = [...compr]
         stateSnapshot = readState ? host.state() : undefined
-        ctxSnapshot = {}
-        for (const dk of ctxDeps) ctxSnapshot[dk] = (host.context() as Record<string, unknown>)[dk]
-        computedSnapshot = {}
-        for (const dk of computedDeps) {
-          computedSnapshot[dk] = (host.computed() as Record<string, unknown>)[dk]
-        }
-        computedOnce = true
         return cachedValue
       },
     })
