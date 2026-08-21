@@ -35,6 +35,7 @@
   },
   "dependencies": {
     "@dunky.dev/state-machine": "workspace:*",
+    "@dunky.dev/state-machine-dom": "workspace:*",
     "@dunky.dev/state-machine-utils": "workspace:*"
   },
   "devDependencies": {

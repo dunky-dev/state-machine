@@ -124,6 +124,12 @@ importers:
 
   packages/core: {}
 
+  packages/dom:
+    dependencies:
+      '@dunky.dev/state-machine-bindings':
+        specifier: workspace:*
+        version: link:../shared/bindings
+
   packages/native:
     dependencies:
       '@dunky.dev/react-state-machine':
@@ -159,6 +165,9 @@ importers:
       '@dunky.dev/state-machine':
         specifier: workspace:*
         version: link:../core
+      '@dunky.dev/state-machine-dom':
+        specifier: workspace:*
+        version: link:../dom
       '@dunky.dev/state-machine-utils':
         specifier: workspace:*
         version: link:../shared/utils
@@ -194,6 +203,9 @@ importers:
       '@dunky.dev/state-machine':
         specifier: workspace:*
         version: link:../core
+      '@dunky.dev/state-machine-dom':
+        specifier: workspace:*
+        version: link:../dom
       '@dunky.dev/state-machine-utils':
         specifier: workspace:*
         version: link:../shared/utils
