@@ -1,5 +1,46 @@
 # @dunky.dev/native-state-machine
 
+## 0.4.0
+
+### Minor Changes
+
+- [#62](https://github.com/dunky-dev/state-machine/pull/62) [`caafda4`](https://github.com/dunky-dev/state-machine/commit/caafda465663b2c2a64ce79a7e7c4a11e19f4360) Thanks [@ivanbanov](https://github.com/ivanbanov)! - The `modal` binding now reaches React Native instead of being dropped:
+  `normalize()` maps it to `aria-modal`, the web-aligned alias RN routes to
+  `accessibilityViewIsModal`.
+
+  ```tsx
+  normalize({ modal: true }); // { 'aria-modal': true }
+  ```
+
+  It was dropped on the assumption RN had no element-attr analog. It does —
+  `aria-modal` sits in the same alias block as `aria-hidden`, which this
+  normalizer already targets. The effect is iOS-only (VoiceOver stops reading
+  siblings of the modal surface); Android has no sibling-inerting equivalent, so
+  it degrades to a no-op there, the same per-platform fan-out `aria-hidden`
+  already relies on.
+
+  Without it, a dialog authored once in core announced as modal on the web and as
+  an ordinary view on native — the substrate-agnostic contract leaking a hole
+  exactly where a screen reader user would notice it.
+
+### Patch Changes
+
+- [#60](https://github.com/dunky-dev/state-machine/pull/60) [`c8e94e4`](https://github.com/dunky-dev/state-machine/commit/c8e94e42c2af112c61a4006ffd43a4b85729c258) Thanks [@ivanbanov](https://github.com/ivanbanov)! - Rolls back 0.4.0's translation-contract surface — it shipped by mistake.
+  `DROPPED_HANDLERS`/`DROPPED_ATTRS` are removed, and `HandlerTargets`/
+  `AttrTargets` are now the partial rename maps
+  (`Partial<Record<HandlerKey, string>>`) instead of exhaustive
+  null-accounting records.
+
+  What stays is the part that mattered: maps and drop sets are typed by the
+  real vocabulary keys (`HandlerKey`/`AttrKey`), so a typo'd or unknown entry
+  is a compile error instead of a silent leak.
+
+- Updated dependencies [[`e6caca8`](https://github.com/dunky-dev/state-machine/commit/e6caca8485fcdbb9b7afd4d5940781d4b1ce82e3), [`6deab75`](https://github.com/dunky-dev/state-machine/commit/6deab7569ee7854bb5b8b8efca611ef7e5db28ce), [`6deab75`](https://github.com/dunky-dev/state-machine/commit/6deab7569ee7854bb5b8b8efca611ef7e5db28ce), [`b70bedc`](https://github.com/dunky-dev/state-machine/commit/b70bedce257c1fedc0a5a47243ea9f56d211ade1), [`c8e94e4`](https://github.com/dunky-dev/state-machine/commit/c8e94e42c2af112c61a4006ffd43a4b85729c258), [`e6caca8`](https://github.com/dunky-dev/state-machine/commit/e6caca8485fcdbb9b7afd4d5940781d4b1ce82e3)]:
+  - @dunky.dev/react-state-machine@0.3.4
+  - @dunky.dev/state-machine-utils@0.4.0
+  - @dunky.dev/state-machine@0.3.3
+  - @dunky.dev/state-machine-bindings@0.4.1
+
 ## 0.3.3
 
 ### Patch Changes
