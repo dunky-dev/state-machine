@@ -1,76 +1,46 @@
+/**
+ * `composeHandlers` — the public handler-pair composition, the same function
+ * `mergeProps` applies to overlapping `on*` props. Consumer first, library
+ * after, with the consumer's `defaultPrevented` as the veto.
+ */
 import { describe, expect, it, vi } from 'vitest'
-import { composeHandlers } from '../src/utils/compose-handlers'
+import { composeHandlers } from '@dunky.dev/state-machine-utils'
 
 describe('composeHandlers', () => {
-  it('overwrites props with handlers when consumer has none', () => {
-    const handlers = { onClick: vi.fn() }
-    const props: Record<string, unknown> = { className: 'x' }
-
-    composeHandlers(handlers, props)
-
-    expect(props.onClick).toBe(handlers.onClick)
-    expect(props.className).toBe('x')
+  it('runs the consumer first, then the library handler', () => {
+    const order: string[] = []
+    const composed = composeHandlers(
+      () => order.push('consumer'),
+      () => order.push('library'),
+    )
+    composed({ defaultPrevented: false })
+    expect(order).toEqual(['consumer', 'library'])
   })
 
-  it('composes both handlers when both sides have onClick', () => {
-    const lib = vi.fn(() => 'lib')
-    const consumer = vi.fn(() => 'consumer')
-    const props: Record<string, unknown> = { onClick: consumer }
-
-    composeHandlers({ onClick: lib }, props)
-
-    const result = (props.onClick as () => unknown)()
-
-    expect(lib).toHaveBeenCalled()
-    expect(consumer).toHaveBeenCalled()
-    expect(result).toBe('consumer')
+  it('skips the library handler when the consumer prevented default (veto)', () => {
+    const library = vi.fn()
+    const composed = composeHandlers(
+      (e: unknown) => ((e as { defaultPrevented: boolean }).defaultPrevented = true),
+      library,
+    )
+    composed({ defaultPrevented: false })
+    expect(library).not.toHaveBeenCalled()
   })
 
-  it('library handler runs even if consumer returns undefined', () => {
-    const lib = vi.fn()
-    const consumer = vi.fn()
-    const props: Record<string, unknown> = { onClick: consumer }
-
-    composeHandlers({ onClick: lib }, props)
-    ;(props.onClick as () => void)()
-
-    expect(lib).toHaveBeenCalledTimes(1)
-    expect(consumer).toHaveBeenCalledTimes(1)
+  it('returns the library handler result (undefined when vetoed)', () => {
+    const composed = composeHandlers(
+      () => 'consumer',
+      () => 'library',
+    )
+    expect(composed({ defaultPrevented: false })).toBe('library')
+    expect(composed({ defaultPrevented: true })).toBeUndefined()
   })
 
-  it('caches composed wrappers for stable handler pairs', () => {
-    const lib = vi.fn()
-    const consumer = vi.fn()
-
-    const a: Record<string, unknown> = { onClick: consumer }
-    composeHandlers({ onClick: lib }, a)
-
-    const b: Record<string, unknown> = { onClick: consumer }
-    composeHandlers({ onClick: lib }, b)
-
-    expect(a.onClick).toBe(b.onClick)
-  })
-
-  it('does not affect unrelated keys', () => {
-    const handlers = { onClick: vi.fn() }
-    const props: Record<string, unknown> = {
-      id: 'btn',
-      className: 'x',
-      onClick: vi.fn(),
-    }
-
-    composeHandlers(handlers, props)
-
-    expect(props.id).toBe('btn')
-    expect(props.className).toBe('x')
-  })
-
-  it('mutates the props object in place', () => {
-    const handlers = { onClick: vi.fn() }
-    const props: Record<string, unknown> = {}
-
-    composeHandlers(handlers, props)
-
-    expect(props.onClick).toBe(handlers.onClick)
+  it('runs both when the first argument is not an event shape', () => {
+    const library = vi.fn()
+    const composed = composeHandlers(vi.fn(), library)
+    composed('plain-string')
+    composed()
+    expect(library).toHaveBeenCalledTimes(2)
   })
 })

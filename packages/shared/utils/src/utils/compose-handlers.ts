@@ -1,34 +1,18 @@
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyFn = (...args: any[]) => any
+type AnyHandler = (...args: unknown[]) => unknown
 
-const composedCache = new WeakMap<AnyFn, WeakMap<AnyFn, AnyFn>>()
-
-export function composeHandlers(
-  handlers: Record<string, unknown>,
-  props: Record<string, unknown>,
-): void {
-  for (const key in handlers) {
-    const internal = handlers[key] as AnyFn
-    const external = props[key]
-
-    if (typeof external === 'function') {
-      let innerMap = composedCache.get(internal)
-      if (!innerMap) {
-        innerMap = new WeakMap()
-        composedCache.set(internal, innerMap)
-      }
-      let composed = innerMap.get(external as AnyFn)
-      if (!composed) {
-        composed = (...args: unknown[]) => {
-          const internalResult = internal(...args)
-          const externalResult = (external as AnyFn)(...args)
-          return externalResult ?? internalResult
-        }
-        innerMap.set(external as AnyFn, composed)
-      }
-      props[key] = composed
-    } else {
-      props[key] = handlers[key]
-    }
+/**
+ * Chain a consumer handler before a library handler: the consumer runs first,
+ * and the library handler is skipped when the consumer prevented default — if
+ * the first argument looks like an event whose `defaultPrevented` is set, the
+ * chain stops there. This matches Radix/Ark conventions and is the exact
+ * composition `mergeProps` applies to overlapping `on*` props; exported for
+ * consumers that need to compose a single handler pair outside a prop merge.
+ */
+export function composeHandlers(consumer: AnyHandler, library: AnyHandler): AnyHandler {
+  return (...args) => {
+    consumer(...args)
+    const event = args[0] as { defaultPrevented?: boolean } | undefined
+    if (event && typeof event === 'object' && event.defaultPrevented) return
+    return library(...args)
   }
 }
