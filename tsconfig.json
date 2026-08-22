@@ -5,7 +5,6 @@
     "noEmit": true,
     "esModuleInterop": true,
     "isolatedModules": true,
-    "jsx": "react-jsx",
     "lib": ["dom", "dom.iterable", "esnext"],
     "module": "esnext",
     "moduleResolution": "bundler",
@@ -16,6 +15,7 @@
     "paths": {
       "@dunky.dev/state-machine": ["./packages/core/src"],
       "@dunky.dev/react-state-machine": ["./packages/react/src"],
+      "@dunky.dev/solid-state-machine": ["./packages/solid/src"],
       "@dunky.dev/native-state-machine": ["./packages/native/src"],
       "@dunky.dev/opentui-state-machine": ["./packages/opentui/src"],
       "@dunky.dev/state-machine-utils": ["./packages/shared/utils/src"],
@@ -23,6 +23,5 @@
     },
     "types": ["@types/node", "vitest/globals"]
   },
-  "include": ["./*.ts", "./packages"],
-  "exclude": ["**/node_modules", "**/dist"]
+  "include": ["*.ts"]
 }

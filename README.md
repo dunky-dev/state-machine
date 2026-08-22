@@ -24,14 +24,14 @@ transitions, same accessibility intent. Only the render differs.
           |   pure behavior — no render  |
           +---------------+--------------+
                           |  connect() → onPress · role · describedBy
-          +---------------+---------------+
-          v               v               v
-    +-----------+   +-----------+   +-----------+
-    | React DOM |   |   Native  |   |    TUI    |
-    | → onClick |   |→ Pressable|   | → keypress|
-    |  + aria-* |   |   + a11y  |   |  + cells  |
-    +-----------+   +-----------+   +-----------+
-     same behavior, byte-for-byte — only the render differs
+          +---------------+---------------+---------------+
+          v               v               v               v
+    +-----------+   +-----------+   +-----------+   +-----------+
+    | React DOM |   |   Solid   |   |   Native  |   |    TUI    |
+    | → onClick |   | → onClick |   |→ Pressable|   | → keypress|
+    |  + aria-* |   |  + aria-* |   |   + a11y  |   |  + cells  |
+    +-----------+   +-----------+   +-----------+   +-----------+
+         same behavior, byte-for-byte — only the render differs
 ```
 
 > **Status: experimental.** The engine (`packages/core`) is stable and tested. The

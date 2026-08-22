@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "jsx": "preserve",
+    "jsxImportSource": "@solidjs/web"
+  },
+  "include": ["src", "tests", "vitest.config.ts"],
+  "exclude": ["**/node_modules", "**/dist"]
+}

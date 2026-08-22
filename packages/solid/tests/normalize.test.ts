@@ -1,18 +1,19 @@
 /**
- * React DOM bindings translator — pure-logic tests (no DOM runtime needed).
+ * Solid DOM bindings translator — pure-logic tests (no DOM runtime needed).
  *
- * `normalize` maps the core's substrate-agnostic logical surface
- * (`@dunky.dev/state-machine`'s `EventBindings` + `AttrBindings`) to real
- * DOM/ARIA props. These tests pin the FULL vocabulary so every logical binding
- * has an explicit, asserted DOM target — nothing relies on accidental
- * pass-through.
+ * `normalize` maps the core's substrate-agnostic logical surface to real
+ * DOM/ARIA props as Solid's JSX expects them. These tests pin the FULL
+ * vocabulary so every logical binding has an explicit, asserted target. The
+ * differences from the React DOM normalizer are deliberate and pinned:
+ * `onValueChange → onInput`, `onDoublePress → onDblClick`, `focusable →
+ * tabindex` (lowercase).
  */
 import { describe, expect, it, vi } from 'vitest'
-import { normalize } from '@dunky.dev/react-state-machine'
+import { normalize } from '@dunky.dev/solid-state-machine'
 import { ATTR_MAP, HANDLER_MAP } from '../src/normalize'
 import { describeVocabularyAccounting } from '../../shared/bindings/tests/fixtures/vocabulary-accounting'
 
-describe('react normalize — handlers', () => {
+describe('solid normalize — handlers', () => {
   it('maps onPress to onClick (the DOM activation event)', () => {
     const onPress = vi.fn()
     expect(normalize({ onPress })).toEqual({ onClick: onPress })
@@ -43,7 +44,7 @@ describe('react normalize — handlers', () => {
   })
 })
 
-describe('react normalize — attributes', () => {
+describe('solid normalize — attributes', () => {
   it('maps the ARIA reference attrs (describedBy / labelledBy / controls)', () => {
     expect(normalize({ describedBy: 'd', labelledBy: 'l', controls: 'c' })).toEqual({
       'aria-describedby': 'd',
@@ -54,32 +55,37 @@ describe('react normalize — attributes', () => {
 
   it('maps hasPopup to aria-haspopup (string or boolean)', () => {
     expect(normalize({ hasPopup: 'menu' })).toEqual({ 'aria-haspopup': 'menu' })
-    expect(normalize({ hasPopup: true })).toEqual({ 'aria-haspopup': true })
+    expect(normalize({ hasPopup: true })).toEqual({ 'aria-haspopup': 'true' })
   })
 
-  it('maps the boolean state attrs to their aria-* equivalents', () => {
+  // Booleans stringify: Solid 2.0 renders a boolean attribute as presence/
+  // absence, but ARIA states are literal "true"/"false" tokens.
+  it('maps the boolean state attrs to their aria-* equivalents as string tokens', () => {
     expect(
       normalize({ expanded: true, selected: false, disabled: true, hidden: false, modal: true }),
     ).toEqual({
-      'aria-expanded': true,
-      'aria-selected': false,
-      'aria-disabled': true,
-      'aria-hidden': false,
-      'aria-modal': true,
+      'aria-expanded': 'true',
+      'aria-selected': 'false',
+      'aria-disabled': 'true',
+      'aria-hidden': 'false',
+      'aria-modal': 'true',
     })
   })
 
-  it('maps focusable to tabIndex (true → 0, false → -1)', () => {
-    expect(normalize({ focusable: true })).toEqual({ tabIndex: 0 })
-    expect(normalize({ focusable: false })).toEqual({ tabIndex: -1 })
+  it('maps focusable to tabindex (lowercase; true → 0, false → -1)', () => {
+    expect(normalize({ focusable: true })).toEqual({ tabindex: 0 })
+    expect(normalize({ focusable: false })).toEqual({ tabindex: -1 })
   })
 
   it('maps role and id straight through (same name)', () => {
     expect(normalize({ role: 'tooltip', id: 't:1' })).toEqual({ role: 'tooltip', id: 't:1' })
   })
 
-  it('passes unknown attrs through unchanged (e.g. data-state)', () => {
-    expect(normalize({ 'data-state': 'open' })).toEqual({ 'data-state': 'open' })
+  it('passes unknown attrs through unchanged (e.g. data-state, class)', () => {
+    expect(normalize({ 'data-state': 'open', class: 'x' })).toEqual({
+      'data-state': 'open',
+      class: 'x',
+    })
   })
 
   it('skips undefined values', () => {
@@ -87,36 +93,8 @@ describe('react normalize — attributes', () => {
   })
 })
 
-describe('react normalize — combined surface (trigger shape)', () => {
-  it('translates a realistic trigger binding set', () => {
-    const onPress = vi.fn()
-    const out = normalize({
-      id: 'menu:1:trigger',
-      role: 'button',
-      controls: 'menu:1:content',
-      hasPopup: 'menu',
-      expanded: true,
-      focusable: true,
-      onPress,
-      onKeyDown: vi.fn(),
-      'data-state': 'open',
-    })
-    expect(out).toMatchObject({
-      id: 'menu:1:trigger',
-      role: 'button',
-      'aria-controls': 'menu:1:content',
-      'aria-haspopup': 'menu',
-      'aria-expanded': true,
-      tabIndex: 0,
-      onClick: onPress,
-      'data-state': 'open',
-    })
-    expect(typeof out.onKeyDown).toBe('function')
-  })
-})
-
-describe('react normalize — expanded handler surface', () => {
-  it('maps each value-change / interaction handler to its DOM event prop', () => {
+describe('solid normalize — expanded handler surface', () => {
+  it('maps each value-change / interaction handler to its Solid DOM event prop', () => {
     const out = normalize({
       onValueChange: vi.fn(),
       onContextMenu: vi.fn(),
@@ -126,7 +104,7 @@ describe('react normalize — expanded handler surface', () => {
       onScrollEnd: vi.fn(),
     })
     expect(Object.keys(out).sort()).toEqual(
-      ['onChange', 'onContextMenu', 'onDoubleClick', 'onScroll', 'onScrollEnd', 'onWheel'].sort(),
+      ['onContextMenu', 'onDblClick', 'onInput', 'onScroll', 'onScrollEnd', 'onWheel'].sort(),
     )
   })
 
@@ -135,7 +113,7 @@ describe('react normalize — expanded handler surface', () => {
     const onDoublePress = vi.fn()
     const out = normalize({ onContextMenu, onDoublePress })
     expect(out.onContextMenu).toBe(onContextMenu)
-    expect(out.onDoubleClick).toBe(onDoublePress)
+    expect(out.onDblClick).toBe(onDoublePress)
   })
 
   // Payload construction is pinned once in @dunky.dev/state-machine-dom's own
@@ -143,12 +121,12 @@ describe('react normalize — expanded handler surface', () => {
   it('onValueChange receives the adapted ChangePayload, not the raw event', () => {
     const onValueChange = vi.fn()
     const out = normalize({ onValueChange })
-    ;(out.onChange as (e: unknown) => void)({ target: { value: 'hi', type: 'text' } })
+    ;(out.onInput as (e: unknown) => void)({ target: { value: 'hi', type: 'text' } })
     expect(onValueChange).toHaveBeenCalledWith(expect.objectContaining({ value: 'hi' }))
   })
 })
 
-describe('react normalize — expanded attribute surface', () => {
+describe('solid normalize — expanded attribute surface', () => {
   it('maps widget-state attrs to aria-*, preserving tristate/enum values', () => {
     expect(
       normalize({
@@ -162,12 +140,12 @@ describe('react normalize — expanded attribute surface', () => {
       }),
     ).toEqual({
       'aria-checked': 'mixed',
-      'aria-pressed': true,
+      'aria-pressed': 'true',
       'aria-current': 'page',
-      'aria-busy': true,
+      'aria-busy': 'true',
       'aria-invalid': 'spelling',
-      'aria-required': true,
-      'aria-readonly': false,
+      'aria-required': 'true',
+      'aria-readonly': 'false',
     })
   })
 
@@ -213,8 +191,8 @@ describe('react normalize — expanded attribute surface', () => {
       'aria-orientation': 'horizontal',
       'aria-sort': 'ascending',
       'aria-autocomplete': 'list',
-      'aria-multiline': true,
-      'aria-multiselectable': false,
+      'aria-multiline': 'true',
+      'aria-multiselectable': 'false',
       'aria-level': 2,
       'aria-posinset': 3,
       'aria-setsize': 10,
@@ -230,7 +208,7 @@ describe('react normalize — expanded attribute surface', () => {
   it('maps live-region attrs (off passes through as aria-live="off")', () => {
     expect(normalize({ live: 'off', atomic: true })).toEqual({
       'aria-live': 'off',
-      'aria-atomic': true,
+      'aria-atomic': 'true',
     })
   })
 
@@ -253,11 +231,11 @@ describe('react normalize — expanded attribute surface', () => {
       'aria-valuemax': 100,
       'aria-valuenow': 40,
       'aria-valuetext': '40%',
-      tabIndex: 0,
+      tabindex: 0,
     })
-    ;(out.onChange as (e: unknown) => void)({ target: { value: '50', type: 'range' } })
+    ;(out.onInput as (e: unknown) => void)({ target: { value: '50', type: 'range' } })
     expect(onValueChange).toHaveBeenCalledWith(expect.objectContaining({ value: '50' }))
   })
 })
 
-describeVocabularyAccounting('react', normalize, { map: HANDLER_MAP }, { map: ATTR_MAP })
+describeVocabularyAccounting('solid', normalize, { map: HANDLER_MAP }, { map: ATTR_MAP })
