@@ -9,9 +9,9 @@ import Install from '../../../components/install.astro'
 
 Targets Solid 2.0 (`solid-js` `^2.0.0-rc.1`) as a first-class citizen. Solid 1.x is not supported — 2.0 reworked the reactivity surface this bridge is built on, so, like the rest of the Solid ecosystem, the majors are version-split.
 
-The Solid package is a thin edge layer. Behavior lives in the core machine and the component's `connect` function; this package only adapts them to Solid: lifecycle, fine-grained reactivity, prop translation, and platform effects. **The machine itself is unchanged** — the same `createDialogConfig` and `connectDialog` that drive React run here.
+The Solid package is a thin edge layer. Behavior lives in the core machine and the component's `connect` function; this package only adapts them to Solid: lifecycle, fine-grained reactivity, prop translation, and platform effects. **The machine itself is unchanged** — the same `createDialogConfig` and `connectDialog` run here as on any other target.
 
-Unlike React, this is not a `useSyncExternalStore` bridge: the connector's snapshot is mirrored into a Solid **store**, so reading `api.isOpen` in JSX subscribes to exactly that field — only the markup that reads a changed field updates.
+The connector's snapshot is mirrored into a Solid **store**, so reading `api.isOpen` in JSX subscribes to exactly that field — only the markup that reads a changed field updates.
 
 ## `useMachine`
 
@@ -91,7 +91,7 @@ export const connectDialog: Connect<State, Context, Event, DialogProps, Api> = (
 export const dialogEffects = [onEscapeKey]
 ```
 
-So `useMachine` is the only Solid-specific piece: `createDialogConfig` is the machine definition, `connectDialog` is the snapshot-to-view-API mapping, and `dialogEffects` are the DOM listeners. This is the **same** `./dialog` module the [React page](/libs/react) imports — only the bridge differs. See [Setup](/api/setup) for configs and [Connector](/api/connector) for how `connect` works in depth.
+So `useMachine` is the only Solid-specific piece: `createDialogConfig` is the machine definition, `connectDialog` is the snapshot-to-view-API mapping, and `dialogEffects` are the DOM listeners. Every target imports the **same** `./dialog` module — only the bridge differs. See [Setup](/api/setup) for configs and [Connector](/api/connector) for how `connect` works in depth.
 
 ## `normalize`: bindings → DOM props
 
@@ -115,8 +115,8 @@ import { mergeProps, normalize } from '@dunky.dev/solid-state-machine'
 ```
 
 - **Event handlers are chained, consumer-first.** If the consumer calls `e.preventDefault()`, the component's handler is skipped — a clean veto.
-- **`class` is concatenated** with a space (Solid uses `class`, not `className`).
-- **`style` is merged into one object**, library winning on conflicting keys. Solid's `style` prop is a plain object, not React's array form — so styles merge rather than wrap.
+- **`class` is concatenated** with a space.
+- **`style` is merged into one object**, library winning on conflicting keys. Solid's `style` prop is a plain object, so styles merge rather than wrap.
 - **Everything else: component wins** (`id`, `role`, `aria-*`).
 
 Don't confuse this with Solid's own `mergeProps` from `solid-js` (which merges reactive prop objects). This one merges the consumer's props with the component's normalized bindings, with the handler-veto and `class`/`style` semantics above.
@@ -175,6 +175,6 @@ const onEscapeKey: Effect = [
 export const dialogEffects = [onEscapeKey]
 ```
 
-The tuple shape is **identical to every other target** — the same `./dialog` effects run on React and Solid. The deps are prop NAMES (typed `(keyof Props)[]`, so a typo is a compile error); the Solid bridge reads exactly those props inside the effect's `createEffect`, so Solid's auto-tracking re-subscribes only when one of them actually changes. The machine only receives `send({ type: 'close' })`; it has no idea a keyboard event exists.
+The tuple shape is **identical to every other target** — the same `./dialog` effects run everywhere. The deps are prop NAMES (typed `(keyof Props)[]`, so a typo is a compile error); the Solid bridge reads exactly those props inside the effect's `createEffect`, so Solid's auto-tracking re-subscribes only when one of them actually changes. The machine only receives `send({ type: 'close' })`; it has no idea a keyboard event exists.
 
 See [Effects](/api/effects) for the full mental model of where each type of effect lives.
