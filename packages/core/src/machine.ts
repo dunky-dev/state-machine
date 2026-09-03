@@ -8,7 +8,6 @@ import { makeSelection } from './selection'
 import { lookupOn, resolve } from './transitions'
 import type {
   Actions,
-  GuardArg,
   Machine,
   Select,
   Selection,
@@ -73,8 +72,8 @@ class MachineClass<
     this.computed = {} as Computed
     if (config.computed) {
       defineComputed(this.computed, config.computed, {
-        context: () => this.ctx,
-        computed: () => this.computed,
+        context: this.ctx,
+        computed: this.computed,
         state: () => this.stateValue,
       })
     }
@@ -82,8 +81,8 @@ class MachineClass<
     this.actionHost = {
       actions: config.implementations?.actions,
       guards: config.implementations?.guards,
-      context: () => this.ctx,
-      computed: () => this.computed,
+      context: this.ctx,
+      computed: this.computed,
       setContext: this.setContext,
       send: this.send,
     }
@@ -117,26 +116,6 @@ class MachineClass<
     this.broadcast.notify()
   }
 
-  // Guard params are built lazily — guardless transitions (the common case) never allocate them.
-  private resolverFor(event: Event): (guard: GuardArg<Context, Event, Computed>) => boolean {
-    let params: ReturnType<typeof makeGuardParams<Context, Event, Computed>> | undefined
-    return guard =>
-      (params ??= makeGuardParams(
-        this.ctx,
-        event,
-        this.computed,
-        this.config.implementations?.guards,
-      )).guard(guard)
-  }
-  // Fast-path: a single guardless object resolves to itself with no resolver or array allocated.
-  private selectTransition(
-    entry: ReturnType<typeof lookupOn<State, Context, Event, Computed>>,
-    event: Event,
-  ): Transition<State, Context, Event, Computed> | undefined {
-    if (entry === undefined) return undefined
-    if (typeof entry === 'object' && !Array.isArray(entry) && !entry.guard) return entry
-    return resolve(entry, this.resolverFor(event))
-  }
   private runActions(actions: Actions<Context, Event, Computed> | undefined, event: Event): void {
     runActions(this.actionHost, actions, event)
   }
@@ -181,7 +160,7 @@ class MachineClass<
         item()
         continue
       }
-      const t = this.selectTransition(lookupOn(this.config, this.stateValue, item.type), item)
+      const t = resolve(lookupOn(this.config, this.stateValue, item.type), item, this.actionHost)
       if (t) this.applyTransition(t, item)
     }
   }
@@ -201,7 +180,7 @@ class MachineClass<
   // Stale when the machine stopped or the state was exited (and maybe re-entered) since scheduling.
   private dispatchAfter(scheduledIn: State, key: string, event: Event, generation: number): void {
     if (!this.running || this.entryCounter !== generation) return
-    const t = this.selectTransition(this.config.states[scheduledIn].after?.[key], event)
+    const t = resolve(this.config.states[scheduledIn].after?.[key], event, this.actionHost)
     if (t) this.applyTransition(t, event)
   }
 
