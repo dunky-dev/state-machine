@@ -31,6 +31,9 @@ function tagsForStates<State extends string>(
   return tags
 }
 
+// One shared instance — the boot event carries no payload, so nothing needs a fresh object.
+const INIT_EVENT = Object.freeze({ type: MACHINE_INIT })
+
 class MachineClass<
   State extends string,
   Context extends object,
@@ -57,8 +60,6 @@ class MachineClass<
   startListeners: Set<() => void> | null = null
   stopListeners: Set<() => void> | null = null
   computed: Computed
-  setContext: (patch: Partial<Context>) => void
-  send: (event: Event) => void
   actionHost: ActionHost<Context, Event, Computed>
 
   constructor(config: TransitionConfig<State, Context, Event, Computed>) {
@@ -83,20 +84,18 @@ class MachineClass<
       guards: config.implementations?.guards,
       context: () => this.ctx,
       computed: () => this.computed,
-      setContext: p => this.setContext(p),
-      send: e => this.send(e),
+      setContext: this.setContext,
+      send: this.send,
     }
-
-    this.setContext = patch => {
-      if (!shouldPatch(this.ctx, patch)) return
-      Object.assign(this.ctx, patch) // in place — this.ctx identity never changes
-      this.notify()
-    }
-    this.send = event => this.doSend(event)
   }
 
-  private notify(): void {
+  setContext = (patch: Partial<Context>): void => {
+    if (!shouldPatch(this.ctx, patch)) return
+    Object.assign(this.ctx, patch) // in place — this.ctx identity never changes
     this.broadcast.notify()
+  }
+  send = (event: Event): void => {
+    this.enqueue(event)
   }
 
   get state(): State {
@@ -115,7 +114,7 @@ class MachineClass<
   private setState(next: State): void {
     if (next === this.stateValue) return
     this.stateValue = next
-    this.notify()
+    this.broadcast.notify()
   }
 
   // Guard params are built lazily — guardless transitions (the common case) never allocate them.
@@ -186,10 +185,6 @@ class MachineClass<
       if (t) this.applyTransition(t, item)
     }
   }
-  private doSend(event: Event): void {
-    this.enqueue(event)
-  }
-
   private resolveDelay(key: string, event: Event): number {
     const asNum = Number(key)
     if (!Number.isNaN(asNum)) return asNum
@@ -202,24 +197,12 @@ class MachineClass<
     }
     return fn(makeGuardParams(this.ctx, event, this.computed, this.config.implementations?.guards))
   }
+  // Runs as a queued job so the timer joins the run-to-completion queue like any send.
+  // Stale when the machine stopped or the state was exited (and maybe re-entered) since scheduling.
   private dispatchAfter(scheduledIn: State, key: string, event: Event, generation: number): void {
-    // Stale timer: machine stopped, moved to a different state, or re-entered the same state.
-    if (!this.running || this.stateValue !== scheduledIn || this.entryCounter !== generation) {
-      return
-    }
-    if (this.flushing) {
-      queueMicrotask(() => this.dispatchAfter(scheduledIn, key, event, generation))
-      return
-    }
+    if (!this.running || this.entryCounter !== generation) return
     const t = this.selectTransition(this.config.states[scheduledIn].after?.[key], event)
-    if (!t) return
-    this.flushing = true
-    try {
-      this.applyTransition(t, event)
-      this.drainQueue()
-    } finally {
-      this.flushing = false
-    }
+    if (t) this.applyTransition(t, event)
   }
 
   private startEffects(state: State, event: Event): void {
@@ -228,7 +211,10 @@ class MachineClass<
     if (after) {
       for (const key in after) {
         const ms = this.resolveDelay(key, event)
-        const id = setTimeout(() => this.dispatchAfter(state, key, event, generation), ms)
+        const id = setTimeout(
+          () => this.enqueue(() => this.dispatchAfter(state, key, event, generation)),
+          ms,
+        )
         this.stateCleanups.push(() => clearTimeout(id))
       }
     }
@@ -289,7 +275,7 @@ class MachineClass<
       // would be re-entrant. The `running` check at job time drops pending runs on stop().
       const off = this.makeSelection(() => source[key]).subscribe(() => {
         this.enqueue(() => {
-          if (this.running) this.runActions(actions, { type: MACHINE_INIT } as Event)
+          if (this.running) this.runActions(actions, INIT_EVENT as Event)
         })
       })
       this.watcherCleanups.push(off)
@@ -306,7 +292,7 @@ class MachineClass<
     this.startWatchers()
     // Boot the CURRENT state's effects — stop() doesn't reset stateValue, so a
     // restart (e.g. StrictMode mount→unmount→mount) may be in any state.
-    this.startEffects(this.stateValue, { type: MACHINE_INIT } as Event)
+    this.startEffects(this.stateValue, INIT_EVENT as Event)
     if (this.startListeners) for (const fn of this.startListeners) fn()
   }
   stop = (): void => {

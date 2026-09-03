@@ -64,10 +64,12 @@ export function runAction<Context extends object, Event, Computed>(
 ): void {
   if (isOneOf(action)) {
     const params = makeGuardParams(host.context(), event, host.computed(), host.guards)
-    const branch = action.branches.find(b =>
-      b.guard ? resolveGuard(b.guard, params, host.guards) : true,
-    )
-    if (branch) runActions(host, branch.actions, event)
+    for (const branch of action.branches) {
+      if (!branch.guard || resolveGuard(branch.guard, params, host.guards)) {
+        runActions(host, branch.actions, event)
+        return
+      }
+    }
     return
   }
   const named = action as Exclude<typeof action, OneOf<Context, Event, Computed>>
