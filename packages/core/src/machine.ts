@@ -1,7 +1,7 @@
 import { type ActionHost, runActions } from './actions'
 import { makeBroadcast } from './broadcast'
 import { defineComputed } from './computed'
-import { isDev, MACHINE_INIT, MAX_DRAIN } from './constants'
+import { isDev, MACHINE_INIT, MAX_FLUSH } from './constants'
 import { makeGuardParams } from './guards'
 import { shouldPatch } from './patch'
 import { makeSelection } from './selection'
@@ -135,23 +135,23 @@ class MachineClass<
       if (this.running) this.startEffects(next, event)
     }
   }
-  // Re-entrant enqueues (send from an action, watcher mid-transition) wait for the current drain.
+  // Re-entrant enqueues (send from an action, watcher mid-transition) wait for the current flush.
   private enqueue(item: Event | (() => void)): void {
     this.queue.push(item)
     if (this.flushing) return
     this.flushing = true
     try {
-      this.drainQueue()
+      this.flushQueue()
     } finally {
       this.flushing = false
     }
   }
-  private drainQueue(): void {
+  private flushQueue(): void {
     let ticks = 0
     while (this.queue.length) {
-      if (isDev && ++ticks > MAX_DRAIN) {
+      if (isDev && ++ticks > MAX_FLUSH) {
         throw new Error(
-          `[machine] one drain exceeded ${MAX_DRAIN} steps — feedback loop ` +
+          `[machine] one flush exceeded ${MAX_FLUSH} steps — feedback loop ` +
             '(e.g. a watcher writing the field it watches, or actions sending in a cycle)',
         )
       }
