@@ -22,25 +22,25 @@ export function connector<
 
   let cached: Api
   let dirty = true
-  const rebuild = (): Api =>
-    connect({
-      get state() {
-        return service.state
-      },
-      get context() {
-        return service.context
-      },
-      get computed() {
-        return service.computed
-      },
-      get props() {
-        return props
-      },
-      send: service.send,
-    })
+  // Built once — the getters read live values, so every rebuild can reuse the same object.
+  const connectArg = {
+    get state() {
+      return service.state
+    },
+    get context() {
+      return service.context
+    },
+    get computed() {
+      return service.computed
+    },
+    get props() {
+      return props
+    },
+    send: service.send,
+  }
   const snapshot = (): Api => {
     if (dirty) {
-      cached = rebuild()
+      cached = connect(connectArg)
       dirty = false
     }
     return cached
@@ -91,16 +91,17 @@ export function connector<
   }
 }
 
+// Runs on every render (setProps) — two for..in passes with a key counter, no key arrays.
 function shallowEqual(a: unknown, b: unknown): boolean {
   if (Object.is(a, b)) return true
   if (typeof a !== 'object' || a === null || typeof b !== 'object' || b === null) return false
-  const ak = Object.keys(a as object)
-  const bk = Object.keys(b as object)
-  if (ak.length !== bk.length) return false
-  for (const k of ak) {
-    if (!Object.is((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k])) {
-      return false
-    }
+  const left = a as Record<string, unknown>
+  const right = b as Record<string, unknown>
+  let extraKeys = 0
+  for (const k in left) {
+    if (!Object.is(left[k], right[k])) return false
+    extraKeys++
   }
-  return true
+  for (const _ in right) extraKeys--
+  return extraKeys === 0
 }

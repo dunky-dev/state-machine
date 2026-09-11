@@ -1,8 +1,9 @@
 import type { ComputedDefs } from './types'
 
+// `context` / `computed` are the live objects (stable identity); only state is read through a fn.
 export interface ComputedHost<State extends string, Context, Computed> {
-  context: () => Context
-  computed: () => Computed
+  context: Context
+  computed: Computed
   state: () => State
 }
 
@@ -19,8 +20,8 @@ export function defineComputed<State extends string, Context extends object, Com
 ): void {
   // Dep keys are runtime strings, so all dep reads are string-indexed — widen once here
   // instead of casting at every read site. The proxy target is inert (traps never touch it).
-  const contextOf = host.context as () => Record<string, unknown>
-  const computedOf = host.computed as () => Record<string, unknown>
+  const context = host.context as Record<string, unknown>
+  const computed = host.computed as Record<string, unknown>
   const proxyTarget: Record<string, unknown> = {}
 
   for (const key in defs) {
@@ -44,7 +45,7 @@ export function defineComputed<State extends string, Context extends object, Com
     let tracking = false
     const trackedCtx = new Proxy(proxyTarget, {
       get: (_t, p: string) => {
-        const value = contextOf()[p]
+        const value = context[p]
         if (tracking && !ctxDeps.includes(p)) {
           ctxDeps.push(p)
           ctxVals.push(value)
@@ -55,7 +56,7 @@ export function defineComputed<State extends string, Context extends object, Com
 
     const trackedComputed = new Proxy(proxyTarget, {
       get: (_t, p: string) => {
-        const value = computedOf()[p]
+        const value = computed[p]
         if (tracking && !computedDeps.includes(p)) {
           computedDeps.push(p)
           computedVals.push(value)
@@ -76,16 +77,14 @@ export function defineComputed<State extends string, Context extends object, Com
 
     const stale = (): boolean => {
       if (readState && stateSnapshot !== host.state()) return true
-      const ctx = contextOf()
 
       let i = 0
       while (i < ctxDeps.length) {
-        if (!Object.is(ctxVals[i], ctx[ctxDeps[i]!])) return true
+        if (!Object.is(ctxVals[i], context[ctxDeps[i]!])) return true
         i++
       }
 
       // Reading a computed dep resolves ITS staleness first — transitive changes surface here.
-      const computed = computedOf()
       i = 0
       while (i < computedDeps.length) {
         if (!Object.is(computedVals[i], computed[computedDeps[i]!])) return true
