@@ -1,0 +1,129 @@
+---
+// A modal that shows one machine's source, scrollable, on a dark surface.
+// Open it from any element carrying `data-open-dialog="<id>"`; the one
+// delegated listener below serves every instance on the page.
+import { Code } from '@astrojs/starlight/components'
+
+interface Props {
+  id: string
+  title: string
+  code: string
+}
+const { id, title, code } = Astro.props
+---
+
+<dialog id={id} class="code-dialog" aria-labelledby={`${id}-title`}>
+  <div class="code-dialog-head">
+    <span id={`${id}-title`} class="code-dialog-title">{title}</span>
+    <button type="button" class="code-dialog-close" aria-label="Close" data-close-dialog>×</button>
+  </div>
+  <div class="code-dialog-body">
+    <Code code={code.trim()} lang="ts" />
+  </div>
+</dialog>
+
+<script>
+  document.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement
+    const opener = target.closest<HTMLElement>('[data-open-dialog]')
+    if (opener) {
+      const dialog = document.getElementById(opener.dataset.openDialog!) as HTMLDialogElement | null
+      dialog?.showModal()
+      return
+    }
+    // the close button, or a click on the backdrop (the <dialog> itself, since
+    // its children cover the whole box)
+    if (target.closest('[data-close-dialog]') || target instanceof HTMLDialogElement) {
+      target.closest('dialog')?.close()
+    }
+  })
+</script>
+
+<!-- is:global: Expressive Code's markup is generated outside Astro's scope
+     hash, so scoped selectors wouldn't reach its <pre>. -->
+<style is:global>
+  .code-dialog {
+    width: min(60rem, 92vw);
+    max-height: 85vh;
+    /* Tailwind's preflight zeroes every margin, which drops the UA's
+       `margin: auto` that centers a modal dialog */
+    margin: auto;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 1rem;
+    background: #1f272b;
+    color: #f2fffc;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    /* flex column so the head stays put and only the body scrolls */
+    flex-direction: column;
+  }
+  .code-dialog[open] {
+    display: flex;
+  }
+  .code-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(4px);
+  }
+  .code-dialog-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.65rem 0.75rem 0.65rem 1.25rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(242, 255, 252, 0.55);
+  }
+  .code-dialog-close {
+    padding: 0 0.5rem;
+    font-size: 1.25rem;
+    line-height: 1;
+    color: inherit;
+    background: transparent;
+    border: none;
+    border-radius: 0.5rem;
+    cursor: pointer;
+  }
+  .code-dialog-close:hover {
+    color: #f2fffc;
+    background: rgba(255, 255, 255, 0.08);
+  }
+  .code-dialog-body {
+    overflow: auto;
+    min-height: 0;
+  }
+  .code-dialog-body .expressive-code {
+    margin: 0;
+    font-size: 12px;
+  }
+  /* on a non-Starlight page EC's <pre> background falls back to transparent
+     (its --ec-frm-edBg points at Starlight vars that don't exist here) */
+  .code-dialog-body .expressive-code .frame pre {
+    background: #273136;
+    border: 0;
+    border-radius: 0;
+  }
+
+  /* light theme: Expressive Code switches to its light syntax theme off
+     :root[data-theme='light'], so the surfaces follow */
+  :root[data-theme='light'] .code-dialog {
+    background: #f6f7f9;
+    color: #16161a;
+    border-color: #e7e7ec;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
+  }
+  :root[data-theme='light'] .code-dialog-head {
+    border-bottom-color: rgba(0, 0, 0, 0.08);
+    color: rgba(22, 22, 26, 0.6);
+  }
+  :root[data-theme='light'] .code-dialog-close:hover {
+    color: #16161a;
+    background: rgba(0, 0, 0, 0.06);
+  }
+  :root[data-theme='light'] .code-dialog-body .expressive-code .frame pre {
+    background: #eef0f4;
+  }
+</style>
