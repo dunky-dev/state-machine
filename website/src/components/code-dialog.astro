@@ -106,4 +106,24 @@ const { id, title, code } = Astro.props
     border: 0;
     border-radius: 0;
   }
+
+  /* light theme: Expressive Code switches to its light syntax theme off
+     :root[data-theme='light'], so the surfaces follow */
+  :root[data-theme='light'] .code-dialog {
+    background: #f6f7f9;
+    color: #16161a;
+    border-color: #e7e7ec;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
+  }
+  :root[data-theme='light'] .code-dialog-head {
+    border-bottom-color: rgba(0, 0, 0, 0.08);
+    color: rgba(22, 22, 26, 0.6);
+  }
+  :root[data-theme='light'] .code-dialog-close:hover {
+    color: #16161a;
+    background: rgba(0, 0, 0, 0.06);
+  }
+  :root[data-theme='light'] .code-dialog-body .expressive-code .frame pre {
+    background: #eef0f4;
+  }
 </style>

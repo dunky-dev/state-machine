@@ -24,11 +24,21 @@ const shareOnX = `https://twitter.com/intent/tweet?text=${encodeURIComponent(sha
 ---
 
 <!doctype html>
-<!-- data-theme="dark" pins Expressive Code to its dark syntax theme so the
-     homepage's code blocks render on a dark surface everywhere. -->
-<html lang="en" data-theme="dark">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
+    <!-- Resolve the theme before first paint (no flash). Same localStorage key
+         as Starlight, so picking a theme here or in the docs applies to both.
+         Expressive Code keys its light/dark syntax theme off this attribute. -->
+    <script is:inline>
+      const stored = localStorage.getItem("starlight-theme");
+      document.documentElement.dataset.theme =
+        stored === "light" || stored === "dark"
+          ? stored
+          : matchMedia("(prefers-color-scheme: light)").matches
+            ? "light"
+            : "dark";
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Dunky: a state machine built for performance</title>
     <link
@@ -63,7 +73,11 @@ const shareOnX = `https://twitter.com/intent/tweet?text=${encodeURIComponent(sha
         >
           <!-- brand lockup: Dunky wordmark logo + STATE-MACHINE eyebrow. -->
           <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <img src={`${base}logo/logo.svg`} alt="Dunky" class="h-12" />
+            <img
+              src={`${base}logo/logo.svg`}
+              alt="Dunky"
+              class="h-12 dark:invert"
+            />
             <span class="select-none" aria-hidden="true">/</span>
             <span class="mt-2 font-mono text-lg font-semibold uppercase">
               State&#8209;Machine
@@ -132,7 +146,7 @@ const shareOnX = `https://twitter.com/intent/tweet?text=${encodeURIComponent(sha
               id="install-copy"
               type="button"
               aria-label="Copy install command"
-              class="-mr-1 ml-1 shrink-0 rounded-md p-1.5 text-muted transition-colors hover:bg-black/5 hover:text-fg"
+              class="-mr-1 ml-1 shrink-0 rounded-md p-1.5 text-muted transition-colors hover:bg-fg/10 hover:text-fg"
             >
               ⧉
             </button>
@@ -1424,7 +1438,7 @@ const shareOnX = `https://twitter.com/intent/tweet?text=${encodeURIComponent(sha
         bottom: 0;
         right: 0;
         left: -100vw;
-        background: #f5f5f5;
+        background: var(--color-panel);
         z-index: 0;
         border-radius: 0 16px 16px;
       }
@@ -1451,6 +1465,33 @@ const shareOnX = `https://twitter.com/intent/tweet?text=${encodeURIComponent(sha
           inset 0 1px 0 rgba(255, 255, 255, 0.5),
           0 1px 2px rgba(0, 0, 0, 0.04),
           0 40px 80px -48px rgba(0, 0, 0, 0.3);
+      }
+      /* dark theme: the near-black cards need an edge to separate from the
+         dark page, and the black bands need a seam. */
+      :root[data-theme="dark"] .showcase {
+        background: color-mix(in srgb, var(--color-fg) 5%, var(--color-bg));
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.08),
+          0 40px 80px -48px rgba(0, 0, 0, 0.8);
+      }
+      :root[data-theme="dark"] .cassette {
+        border-color: #3d4452;
+      }
+      :root[data-theme="dark"] .console {
+        outline: 1px solid #4a515f;
+      }
+      :root[data-theme="dark"] .lab-demo {
+        border-color: rgba(255, 255, 255, 0.22);
+      }
+      :root[data-theme="dark"] .cable {
+        stroke: #e6e8ee;
+      }
+      :root[data-theme="dark"] .cable-plug {
+        fill: #e6e8ee;
+      }
+      :root[data-theme="dark"] .origin-section {
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       }
       @media (min-width: 1024px) {
         .showcase {
@@ -1606,7 +1647,7 @@ const shareOnX = `https://twitter.com/intent/tweet?text=${encodeURIComponent(sha
          CONTRIBUTE SECTION
          ==================================================================== */
       .contrib-section {
-        background-color: white;
+        background-color: var(--color-bg);
         padding: 6rem 1.5rem 7rem;
         text-align: center;
         border-top: 1px solid var(--color-border);
