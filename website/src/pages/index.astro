@@ -4,7 +4,7 @@ import Footer from "../components/footer.astro";
 import Analytics from "@vercel/analytics/astro";
 import SpeedInsights from "@vercel/speed-insights/astro";
 import "../styles/global.css";
-import { Code } from "@astrojs/starlight/components";
+import CodeDialog from "../components/code-dialog.astro";
 import pacmanSrc from "../snippets/pacman.code.ts?raw";
 import tradingSrc from "../snippets/trading-panel.code.ts?raw";
 import whiteboardSrc from "../snippets/whiteboard.code.ts?raw";
@@ -188,8 +188,8 @@ const shareOnX = `https://twitter.com/intent/tweet?text=${encodeURIComponent(sha
           </div>
         </section>
 
-        <!-- FAST MACHINES: the machine configs behind the live demo. Left 60%
-             (row 3) so the game slides down the right 40% past the snippets. -->
+        <!-- FAST MACHINES: the machine configs behind the live demo, behind a
+             "See machine code" dialog. Left 60% (row 3). -->
         <section
           class="order-3 xl:col-span-3 xl:col-start-1 xl:row-start-3 mt-8 xl:mt-24"
           aria-label="The Dunky machines behind the demo"
@@ -210,11 +210,13 @@ const shareOnX = `https://twitter.com/intent/tweet?text=${encodeURIComponent(sha
           </div>
 
           <!-- the pacman demo's machines (pacman · ghost · board + the compose
-               that unites them), rendered with Starlight's <Code> (Expressive
-               Code) so the syntax theme matches the docs everywhere. -->
-          <div class="ide-card">
-            <Code code={pacmanSrc.trim()} lang="ts" />
-          </div>
+               that unites them), opened in a scrollable dialog -->
+          <button
+            type="button"
+            class="rounded-xl border border-border bg-bg/60 px-6 py-3 font-semibold text-fg transition-colors hover:border-fg"
+            data-open-dialog="pacman-code">See machine code</button
+          >
+          <CodeDialog id="pacman-code" title="pacman.ts" code={pacmanSrc} />
         </section>
 
         <!-- RIGHT cell (~40%): the LIVE machine panel, spanning ALL THREE grid
@@ -648,28 +650,12 @@ const shareOnX = `https://twitter.com/intent/tweet?text=${encodeURIComponent(sha
             </div>
           </div>
 
-          <!-- accordion: machine code -->
-          <div class="trade-accordion">
-            <button
-              class="trade-accordion-trigger"
-              type="button"
-              aria-expanded="false"
-              aria-controls="trade-code-panel"
-              id="trade-code-toggle"
+          <div class="lab-code-bar">
+            <button class="lab-code-btn" type="button" data-open-dialog="trading-code"
+              >View code</button
             >
-              <span>machine code</span>
-              <span class="trade-accordion-chevron" aria-hidden="true">▸</span>
-            </button>
-            <div
-              class="trade-accordion-panel"
-              id="trade-code-panel"
-              role="region"
-              aria-labelledby="trade-code-toggle"
-              hidden
-            >
-              <Code code={tradingSrc.trim()} lang="ts" />
-            </div>
           </div>
+          <CodeDialog id="trading-code" title="trading-panel.ts" code={tradingSrc} />
         </div>
 
         <!-- col 3: WHITEBOARD, 10 cursors + 2 sticky notes, autonomous -->
@@ -686,28 +672,12 @@ const shareOnX = `https://twitter.com/intent/tweet?text=${encodeURIComponent(sha
             </div>
           </div>
 
-          <!-- accordion: machine code -->
-          <div class="trade-accordion">
-            <button
-              class="trade-accordion-trigger"
-              type="button"
-              aria-expanded="false"
-              aria-controls="wb-code-panel"
-              id="wb-code-toggle"
+          <div class="lab-code-bar">
+            <button class="lab-code-btn" type="button" data-open-dialog="whiteboard-code"
+              >View code</button
             >
-              <span>machine code</span>
-              <span class="trade-accordion-chevron" aria-hidden="true">▸</span>
-            </button>
-            <div
-              class="trade-accordion-panel"
-              id="wb-code-panel"
-              role="region"
-              aria-labelledby="wb-code-toggle"
-              hidden
-            >
-              <Code code={whiteboardSrc.trim()} lang="ts" />
-            </div>
           </div>
+          <CodeDialog id="whiteboard-code" title="whiteboard.ts" code={whiteboardSrc} />
         </div>
       </div>
     </section>
@@ -1305,17 +1275,6 @@ const shareOnX = `https://twitter.com/intent/tweet?text=${encodeURIComponent(sha
             });
           });
 
-        // accordion
-        const tradeToggle = document.getElementById("trade-code-toggle")!;
-        const tradePanel = document.getElementById("trade-code-panel")!;
-        tradeToggle.addEventListener("click", () => {
-          const open = tradeToggle.getAttribute("aria-expanded") === "true";
-          tradeToggle.setAttribute("aria-expanded", String(!open));
-          tradePanel.hidden = open;
-          tradeToggle.querySelector(".trade-accordion-chevron")!.textContent =
-            open ? "▸" : "▾";
-        });
-
         renderTrade();
       }
 
@@ -1405,18 +1364,6 @@ const shareOnX = `https://twitter.com/intent/tweet?text=${encodeURIComponent(sha
           el.style.top = m.context.y + "%";
         });
 
-        // accordion
-        const wbToggle = document.getElementById("wb-code-toggle")!;
-        const wbPanel = document.getElementById("wb-code-panel")!;
-        wbToggle.addEventListener("click", () => {
-          const open = wbToggle.getAttribute("aria-expanded") === "true";
-          wbToggle.setAttribute("aria-expanded", String(!open));
-          wbPanel.hidden = open;
-          wbToggle.querySelector(".trade-accordion-chevron")!.textContent = open
-            ? "▸"
-            : "▾";
-        });
-
         wbBadge.textContent = "live";
       }
 
@@ -1435,9 +1382,8 @@ const shareOnX = `https://twitter.com/intent/tweet?text=${encodeURIComponent(sha
       });
     </script>
 
-    <!-- is:global so we can style the Expressive Code (<Code>) output, whose
-         markup is generated outside Astro's scope hash, scoped selectors
-         wouldn't match it. -->
+    <!-- is:global so we can style the elements the script injects at runtime
+         (cursors, stickies, wires), which never get Astro's scope hash. -->
     <style is:global>
       /* feature band: dark background that bleeds to the LEFT viewport edge
          while the content stays aligned with the rest of the left column. The
@@ -1740,17 +1686,6 @@ const shareOnX = `https://twitter.com/intent/tweet?text=${encodeURIComponent(sha
       .dark-card .panel-head {
         border-bottom: 1px solid #3a4449;
         color: #6b7678;
-      }
-
-      /* IDE card: the pacman machines as one Expressive Code block on a dark
-         surface. On a non-Starlight page EC's `pre` background falls back to
-         transparent (its --ec-frm-edBg points at Starlight gray vars that don't
-         exist here), so paint the dark code surface explicitly. */
-      .ide-card .expressive-code {
-        margin: 0;
-      }
-      .ide-card .expressive-code .frame pre {
-        background: #273136;
       }
 
       /* live state table, fixed layout so columns never reflow as values tick */
@@ -2492,15 +2427,14 @@ const shareOnX = `https://twitter.com/intent/tweet?text=${encodeURIComponent(sha
         filter: brightness(1.14);
       }
 
-      /* ---- ACCORDION (shared by both demos) ---- */
-      .trade-accordion {
+      /* ---- "View code" bar at the foot of each demo ---- */
+      .lab-code-bar {
         border-top: 1px solid rgba(255, 255, 255, 0.07);
       }
-      .trade-accordion-trigger {
+      .lab-code-btn {
         width: 100%;
         display: flex;
         align-items: center;
-        justify-content: space-between;
         padding: 0.65rem 1.25rem;
         font-family: var(--font-mono);
         font-size: 10px;
@@ -2513,31 +2447,8 @@ const shareOnX = `https://twitter.com/intent/tweet?text=${encodeURIComponent(sha
         cursor: pointer;
         transition: color 0.15s;
       }
-      .trade-accordion-trigger:hover {
+      .lab-code-btn:hover {
         color: rgba(242, 255, 252, 0.65);
-      }
-      .trade-accordion-chevron {
-        font-size: 9px;
-        transition: transform 0.2s;
-      }
-      .trade-accordion-panel {
-        padding: 0;
-      }
-      /* the accordion's <Code> (Expressive Code) fills the panel edge-to-edge,
-         squared off so it docks flush into the demo card. */
-      .trade-accordion-panel .expressive-code {
-        margin: 0;
-        font-size: 11px;
-      }
-      /* dock the light code panel flush into the dark demo card: square the top
-         (it meets the "machine code" bar), round only the bottom, drop side
-         borders so it spans edge-to-edge. */
-      .trade-accordion-panel .expressive-code .frame pre {
-        background: #273136;
-        border-radius: 0 0 0.9rem 0.9rem;
-        border-left: 0;
-        border-right: 0;
-        border-bottom: 0;
       }
 
       /* ---- WHITEBOARD DEMO ---- */
