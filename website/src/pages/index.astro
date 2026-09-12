@@ -213,7 +213,7 @@ const shareOnX = `https://twitter.com/intent/tweet?text=${encodeURIComponent(sha
                that unites them), opened in a scrollable dialog -->
           <button
             type="button"
-            class="rounded-xl border border-border bg-bg/60 px-6 py-3 font-semibold text-fg transition-colors hover:border-fg"
+            class="code-cta"
             data-open-dialog="pacman-code">See machine code</button
           >
           <CodeDialog id="pacman-code" title="pacman.ts" code={pacmanSrc} />
@@ -1385,6 +1385,32 @@ const shareOnX = `https://twitter.com/intent/tweet?text=${encodeURIComponent(sha
     <!-- is:global so we can style the elements the script injects at runtime
          (cursors, stickies, wires), which never get Astro's scope hash. -->
     <style is:global>
+      /* "See machine code": soft pink CTA with a soft real shadow; pressing
+         nudges it down a touch. */
+      .code-cta {
+        padding: 0.8rem 1.6rem;
+        font-weight: 600;
+        color: #fff;
+        background: linear-gradient(180deg, #ee7fb3 0%, #de5f9a 100%);
+        border: 1px solid #d0528b;
+        border-radius: 0.8rem;
+        cursor: pointer;
+        box-shadow:
+          0 1px 2px rgba(208, 82, 139, 0.25),
+          0 6px 14px rgba(208, 82, 139, 0.22);
+        transition:
+          transform 0.08s ease,
+          box-shadow 0.08s ease,
+          filter 0.15s ease;
+      }
+      .code-cta:hover {
+        filter: brightness(1.07);
+      }
+      .code-cta:active {
+        transform: translateY(1px);
+        box-shadow: 0 1px 2px rgba(208, 82, 139, 0.25);
+      }
+
       /* feature band: dark background that bleeds to the LEFT viewport edge
          while the content stays aligned with the rest of the left column. The
          .band-left-bg layer paints from the content's left edge out to -100vw. */
