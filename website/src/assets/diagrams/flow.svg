@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="flow" width="1000" height="320" viewBox="0 0 1000 320" role="img" aria-labelledby="flow-title flow-desc">
+  <title id="flow-title">How Dunky works</title>
+  <desc id="flow-desc">Four stages from agnostic to substrate. Dunky, the engine that runs machines, powers. The machine, states plus events plus logic, decides. The binding, a neutral wire of agnostic events and attributes, connects. The behavior, a live feature on DOM, TUI, or React Native, appears.</desc>
+  <style>
+    /* Static twin of flow-animated.svg, frozen in its fully lit state. Same
+       `flow-` prefix and Starlight theme variables, so it can be inlined too. */
+    .flow {
+      --flow-bg: var(--sl-color-bg, #17191d);
+      --flow-card: var(--sl-color-bg-nav, #23262e);
+      --flow-edge: var(--sl-color-gray-5, #353841);
+      --flow-title: var(--sl-color-white, #ffffff);
+      --flow-text: var(--sl-color-gray-2, #c2c4c8);
+      --flow-from: var(--sl-color-text-accent, #c5bdf9);
+      --flow-to: #22c5d3;
+      display: block;
+      width: 100%;
+      height: auto;
+      font-family: var(--sl-font, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif);
+    }
+    /* the brand cyan is too light to read on white */
+    :root[data-theme='light'] .flow { --flow-to: #0a7f8a; }
+
+    .flow-bg { fill: var(--flow-bg); }
+    .flow-stop-from { stop-color: var(--flow-from); }
+    .flow-stop-to { stop-color: var(--flow-to); }
+    .flow-mono { font-family: var(--sl-font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace); }
+    .flow-label { font-size: 13px; font-weight: 600; letter-spacing: 0.16em; }
+    .flow-from { fill: var(--flow-from); }
+    .flow-to { fill: var(--flow-to); }
+    .flow-wire { stroke: var(--flow-edge); stroke-width: 1.5; stroke-dasharray: 2 6; }
+    .flow-arrows { fill: none; stroke: url(#flow-spectrum); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .flow-box { fill: var(--flow-card); stroke: url(#flow-spectrum); stroke-width: 1.5; }
+    .flow-box-on { fill: url(#flow-spectrum); fill-opacity: 0.06; }
+    .flow-emoji { font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif; font-size: 34px; }
+    .flow-title { font-size: 24px; font-weight: 700; fill: var(--flow-title); }
+    .flow-desc { font-size: 17px; fill: var(--flow-text); }
+    .flow-verb { font-size: 17px; fill: url(#flow-spectrum); }
+  </style>
+  <defs>
+    <linearGradient id="flow-spectrum" gradientUnits="userSpaceOnUse" x1="36" y1="0" x2="964" y2="0">
+      <stop offset="0" class="flow-stop-from"/>
+      <stop offset="1" class="flow-stop-to"/>
+    </linearGradient>
+    <path id="flow-star" d="M0 -1 Q0 0 1 0 Q0 0 0 1 Q0 0 -1 0 Q0 0 0 -1 Z"/>
+  </defs>
+
+  <rect class="flow-bg" width="1000" height="320" rx="16"/>
+
+  <text class="flow-mono flow-label flow-from" x="36" y="36">AGNOSTIC</text>
+  <text class="flow-mono flow-label flow-to" x="964" y="36" text-anchor="end">SUBSTRATE</text>
+  <line x1="124" y1="32" x2="858" y2="32" stroke="url(#flow-spectrum)" stroke-width="2" stroke-linecap="round"/>
+  <polygon class="flow-to" points="858,27 867,32 858,37"/>
+
+  <line class="flow-wire" x1="131" y1="166" x2="869" y2="166"/>
+  <g class="flow-arrows">
+    <polyline points="246,158 254,166 246,174"/><polyline points="255,158 263,166 255,174"/>
+    <polyline points="492,158 500,166 492,174"/><polyline points="501,158 509,166 501,174"/>
+    <polyline points="738,158 746,166 738,174"/><polyline points="747,158 755,166 747,174"/>
+  </g>
+
+  <g>
+    <rect class="flow-box" x="36" y="74" width="190" height="184" rx="12"/>
+    <rect class="flow-box" x="282" y="74" width="190" height="184" rx="12"/>
+    <rect class="flow-box" x="528" y="74" width="190" height="184" rx="12"/>
+    <rect class="flow-box" x="774" y="74" width="190" height="184" rx="12"/>
+  </g>
+  <g class="flow-box-on">
+    <rect x="36" y="74" width="190" height="184" rx="12"/>
+    <rect x="282" y="74" width="190" height="184" rx="12"/>
+    <rect x="528" y="74" width="190" height="184" rx="12"/>
+    <rect x="774" y="74" width="190" height="184" rx="12"/>
+  </g>
+
+  <g class="flow-to">
+    <use href="#flow-star" transform="translate(958 70) scale(11)"/>
+    <use href="#flow-star" transform="translate(950 272) scale(7)"/>
+    <use href="#flow-star" transform="translate(786 66) scale(7)"/>
+  </g>
+
+  <g text-anchor="middle">
+    <text class="flow-emoji" x="109" y="122">🫏</text>
+    <text class="flow-emoji" x="153" y="122">⚙️</text>
+    <text class="flow-title" x="131" y="162">dunky</text>
+    <text class="flow-desc" x="131" y="190">the engine</text>
+    <text class="flow-desc" x="131" y="212">that runs</text>
+    <text class="flow-desc" x="131" y="234">machines</text>
+
+    <text class="flow-emoji" x="377" y="122">🧠</text>
+    <text class="flow-title" x="377" y="162">machine</text>
+    <text class="flow-desc" x="377" y="190">states +</text>
+    <text class="flow-desc" x="377" y="212">events +</text>
+    <text class="flow-desc" x="377" y="234">logic</text>
+
+    <text class="flow-emoji" x="623" y="122">🔌</text>
+    <text class="flow-title" x="623" y="162">binding</text>
+    <text class="flow-desc" x="623" y="190">neutral wire</text>
+    <text class="flow-desc" x="623" y="212">agnostic</text>
+    <text class="flow-desc" x="623" y="234">events/attrs</text>
+
+    <text class="flow-emoji" x="869" y="122">✨</text>
+    <text class="flow-title" x="869" y="162">behavior</text>
+    <text class="flow-desc" x="869" y="190">live feature</text>
+    <text class="flow-desc" x="869" y="212">on DOM /</text>
+    <text class="flow-desc" x="869" y="234">TUI / RN</text>
+
+    <g class="flow-mono">
+      <text class="flow-verb" x="131" y="292">powers</text>
+      <text class="flow-verb" x="377" y="292">decides</text>
+      <text class="flow-verb" x="623" y="292">connects</text>
+      <text class="flow-verb" x="869" y="292">appears</text>
+    </g>
+  </g>
+</svg>

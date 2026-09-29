@@ -17,28 +17,6 @@ layer plugs it into a runtime.
 The same machine drives any render in a JS runtime. Same states, same
 transitions, same accessibility intent. Only the render differs.
 
-```
-          +------------------------------+
-          |      ONE STATE MACHINE       |
-          |   states · events · context  |
-          |   pure behavior — no render  |
-          +---------------+--------------+
-                          |  connect() → onPress · role · describedBy
-          +---------------+---------------+---------------+
-          v               v               v               v
-    +-----------+   +-----------+   +-----------+   +-----------+
-    | React DOM |   |   Solid   |   |   Native  |   |    TUI    |
-    | → onClick |   | → onClick |   |→ Pressable|   | → keypress|
-    |  + aria-* |   |  + aria-* |   |   + a11y  |   |  + cells  |
-    +-----------+   +-----------+   +-----------+   +-----------+
-         same behavior, byte-for-byte — only the render differs
-```
-
-> **Status: experimental.** The engine (`packages/core`) is stable and tested. The
-> target bridges are NOT production-ready yet.
->
-> This is an in-progress exploration.
-
 ## The challenge
 
 ### Truly agnostic
@@ -76,18 +54,7 @@ engine is built for it:
 The machine's behavior flows out through a few thin layers until it reaches real
 elements — the left two are agnostic, the right three are per-target:
 
-```
-AGNOSTIC                                                            SUBSTRATE
-    🫏 ⚙️       -->        🧠        -->       🔌         -->       ✨
-+--------------+     +--------------+     +--------------+     +--------------+
-|   dunky      |     |   machine    |     |   binding    |     |  behavior    |
-|              |     |              |     |              |     |              |
-|  the engine  |     | states +     |     | neutral wire |     | live feature |
-|  that runs   |     | events +     |     | agnostic     |     | on DOM /     |
-|  machines    |     | logic        |     | events/attrs |     | TUI / RN     |
-+--------------+     +--------------+     +--------------+     +--------------+
-   powers              decides              connects             appears
-```
+![How Dunky works, from agnostic to substrate: the dunky engine powers, the machine decides, the binding connects, the behavior appears](./website/src/assets/diagrams/flow-animated.svg)
 
 - **core** — the state-machine engine. Pure behavior: states, transitions,
   context, effects. Knows nothing about a renderer.
