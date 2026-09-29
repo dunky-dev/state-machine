@@ -1,5 +1,13 @@
 # @dunky.dev/native-state-machine
 
+## 0.4.1
+
+### Patch Changes
+
+- Updated dependencies [[`ff3368c`](https://github.com/dunky-dev/state-machine/commit/ff3368cf23844be30df6895e6204194a5133b9a4), [`ff3368c`](https://github.com/dunky-dev/state-machine/commit/ff3368cf23844be30df6895e6204194a5133b9a4)]:
+  - @dunky.dev/state-machine@0.3.4
+  - @dunky.dev/react-state-machine@0.3.5
+
 ## 0.4.0
 
 ### Minor Changes

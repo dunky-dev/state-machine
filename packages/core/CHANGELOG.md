@@ -1,5 +1,26 @@
 # @dunky.dev/state-machine
 
+## 0.3.4
+
+### Patch Changes
+
+- [#71](https://github.com/dunky-dev/state-machine/pull/71) [`ff3368c`](https://github.com/dunky-dev/state-machine/commit/ff3368cf23844be30df6895e6204194a5133b9a4) Thanks [@ivanbanov](https://github.com/ivanbanov)! - Internal cleanup of the core machine. `after` timers now dispatch through
+  the same run-to-completion queue as `send`, instead of running their own
+  copy of the flush cycle; the stale-timer check keeps only the entry
+  generation, which already covers "state exited" and "state re-entered".
+  `send` and `setContext` are plain bound fields (no pass-through hops), the
+  boot event is one shared frozen object, and `oneOf` picks its branch with
+  a loop instead of `find`. No behavior change for consumers.
+
+- [#71](https://github.com/dunky-dev/state-machine/pull/71) [`ff3368c`](https://github.com/dunky-dev/state-machine/commit/ff3368cf23844be30df6895e6204194a5133b9a4) Thanks [@ivanbanov](https://github.com/ivanbanov)! - Fewer allocations on the send path. A single action or transition entry is
+  run directly instead of being wrapped in a one-item array per event; guard
+  params are built only when a guard is actually met; the action and computed
+  hosts hold the live context and computed objects instead of reading them
+  through getter functions; the connector builds its snapshot argument once
+  and compares props without allocating key arrays. Single-event throughput
+  is up about 7% and state churn about 10% on the benchmark suite. No
+  behavior change for consumers.
+
 ## 0.3.3
 
 ### Patch Changes
