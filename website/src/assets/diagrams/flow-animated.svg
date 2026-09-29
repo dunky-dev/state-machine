@@ -4,26 +4,38 @@
   <style>
     /* Inlined on the docs site, this sheet is global: every selector and
        keyframe is `flow-` prefixed. Colors read Starlight's theme variables so
-       the diagram follows the site toggle; the fallbacks are Starlight's dark
-       palette, for when the file is opened on its own. */
+       the diagram follows the site toggle; the fallbacks are Starlight's
+       palettes, picked by the OS setting when the file is shown on its own
+       (e.g. the README). The brand cyan is too light to read on white, so
+       light uses a darker one. */
     .flow {
-      --flow-bg: var(--sl-color-bg, #17191d);
-      --flow-card: var(--sl-color-bg-nav, #23262e);
-      --flow-edge: var(--sl-color-gray-5, #353841);
-      --flow-title: var(--sl-color-white, #ffffff);
-      --flow-text: var(--sl-color-gray-2, #c2c4c8);
-      --flow-muted: var(--sl-color-gray-4, #55585f);
-      --flow-from: var(--sl-color-text-accent, #c5bdf9);
-      --flow-to: #22c5d3;
+      --flow-card: var(--sl-color-bg-nav, #f6f7f9);
+      --flow-edge: var(--sl-color-gray-5, #c1c3c8);
+      --flow-title: var(--sl-color-white, #17181c);
+      --flow-text: var(--sl-color-gray-2, #353841);
+      --flow-muted: var(--sl-color-gray-4, #888c96);
+      --flow-from: var(--sl-color-text-accent, #5b4ae0);
+      --flow-to: #0a7f8a;
       display: block;
       width: 100%;
       height: auto;
       font-family: var(--sl-font, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif);
     }
-    /* the brand cyan is too light to read on white */
+    @media (prefers-color-scheme: dark) {
+      .flow {
+        --flow-card: var(--sl-color-bg-nav, #23262e);
+        --flow-edge: var(--sl-color-gray-5, #353841);
+        --flow-title: var(--sl-color-white, #ffffff);
+        --flow-text: var(--sl-color-gray-2, #c1c3c8);
+        --flow-muted: var(--sl-color-gray-4, #555962);
+        --flow-from: var(--sl-color-text-accent, #c5bdf9);
+        --flow-to: #22c5d3;
+      }
+    }
+    /* on the site, the toggle wins over the OS setting */
     :root[data-theme='light'] .flow { --flow-to: #0a7f8a; }
+    :root[data-theme='dark'] .flow { --flow-to: #22c5d3; }
 
-    .flow-bg { fill: var(--flow-bg); }
     .flow-stop-from { stop-color: var(--flow-from); }
     .flow-stop-to { stop-color: var(--flow-to); }
     .flow-mono { font-family: var(--sl-font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace); }
@@ -128,7 +140,6 @@
     <path id="flow-star" d="M0 -1 Q0 0 1 0 Q0 0 0 1 Q0 0 -1 0 Q0 0 0 -1 Z"/>
   </defs>
 
-  <rect class="flow-bg" width="1000" height="320" rx="16"/>
 
   <text class="flow-mono flow-label flow-from" x="36" y="36">AGNOSTIC</text>
   <text class="flow-mono flow-label flow-to" x="964" y="36" text-anchor="end">SUBSTRATE</text>
