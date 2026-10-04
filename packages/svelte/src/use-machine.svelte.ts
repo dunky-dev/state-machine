@@ -1,137 +1,82 @@
-/// <reference types="svelte" />
+import { untrack } from 'svelte'
 import { connector, machine, type Connect, type TransitionConfig } from '@dunky.dev/state-machine'
 
 /**
- * One substrate-specific effect, declared as a plain setup/teardown function
- * plus the prop names it depends on:
- *
- *   const escape: ComponentEffect<Machine, Props> = [
- *     (machine, props) => { ...addEventListener...; return () => ...remove... },
- *     ['closeOnEscape', 'onEscapeKeyDown'], // re-run when these props change
- *   ]
- *
- * The author writes no Svelte. The deps are prop NAMES (typed `(keyof Props)[]`,
- * so typos are compile errors); the bridge turns them into a tracked `$effect`
- * so the effect re-subscribes only when one of those props actually changes —
- * not on every change, never stale. `machine` is always an implicit dep.
- *
- * Identical in shape to the React `ComponentEffect` — what changes is only how
- * `useMachine` runs it (a Svelte `$effect`, not a React `useEffect`).
+ * One substrate-specific effect: a setup/teardown function plus the prop names
+ * that re-run it. The tuple shape is identical across every target, so a
+ * component's effects are authored once; `deps` are prop names (typed, so
+ * typos are compile errors) — the authored list is the whole re-run contract.
  */
 export type ComponentEffect<Machine, Props> = [
   effect: (machine: Machine, props: Props) => (() => void) | void,
   deps: (keyof Props)[],
 ]
 
-type Service<
-  State extends string,
-  Context extends object,
-  Event extends { type: string },
-  Computed,
-> = ReturnType<typeof machine<State, Context, Event, Computed>>
-
 /**
- * The one generic Svelte bridge. Every component's generated api calls this with
- * the agnostic pieces — a config factory and the connect — plus the component's
- * substrate effects and a GETTER for the resolved props:
- *
- *   const view = useMachine(tooltipMachineConfig, connectTooltip, tooltipEffects, () => props)
- *   // then in markup: <button {...normalize(view.api.triggerProps)}>
- *
- * It: builds the machine from the props' first read, wraps it in a connector,
- * starts on mount / stops on unmount (the connector's reactions follow the
- * machine's lifecycle automatically), keeps props fresh via setProps, runs the
- * component's prop-dependent effects (Escape, etc. — one `$effect` each, keyed on
- * their named prop deps), and exposes the connector's stable snapshot through a
- * `$state`-backed `api` getter so reading `view.api` in markup re-renders only on
- * a real change. Returns the connect() api + the running machine.
- *
- * The machine is built ONCE (from the first props read); later prop changes flow
- * through setProps — recreating would lose state.
- *
- * Props are passed as a GETTER (`() => props`) rather than a value: Svelte props
- * are reactive bindings, and a getter lets the bridge read their current form
- * inside its effects. This is the Svelte analogue of React's per-render `props`
- * argument; there is no `setProps` call in the component file.
+ * The generic Svelte bridge: builds the machine + connector once, mirrors the
+ * connector's snapshot into `api`, runs the lifecycle and the component's
+ * effects. Call it while a component initializes; `props` is a getter
+ * (`() => props`) so later changes keep flowing in.
  */
 export function useMachine<
   State extends string,
   Context extends object,
   Event extends { type: string },
-  Props,
+  Props extends object,
   Api,
   Computed = Record<string, never>,
 >(
   createConfig: (props: Props) => TransitionConfig<State, Context, Event, Computed>,
   connect: Connect<State, Context, Event, Props, Api, Computed>,
-  effects: ComponentEffect<Service<State, Context, Event, Computed>, Props>[],
-  getProps: () => Props,
-): { readonly api: Api; readonly machine: Service<State, Context, Event, Computed> } {
-  // Build machine + connector once. The first props read seeds context + the
-  // initial state. (Plain locals, not `$state`: their identity never changes, so
-  // there's nothing to track — only the snapshot below is reactive.)
-  const service = machine(createConfig(getProps()))
-  const connection = connector(service, connect, getProps())
+  effects: ComponentEffect<ReturnType<typeof machine<State, Context, Event, Computed>>, Props>[],
+  props: () => Props,
+): {
+  readonly api: Api
+  readonly machine: ReturnType<typeof machine<State, Context, Event, Computed>>
+} {
+  // Seed with a plain copy, never the live props proxy: setProps value-dedups,
+  // and a held proxy would compare equal to itself and never wake.
+  const initialProps = { ...props() }
+  const service = machine(createConfig(initialProps))
+  const connection = connector(service, connect, initialProps)
 
-  // The reactive cell the markup reads. Seeded with the connector's initial
-  // snapshot (already correct from the props above) and reassigned on every
-  // connector notify; reading `view.api` therefore re-renders only on a real
-  // change — the connector memoizes, so the identity is stable between changes.
-  let snapshot = $state(connection.snapshot)
+  // Raw: the connector already memoizes the snapshot; a deep proxy would only
+  // copy it and change its identity.
+  let api = $state.raw(connection.snapshot)
+  // A pre-effect runs synchronously here (and never on the server), so this
+  // listens before a child's mount effect — which runs first — can send.
+  $effect.pre(() => connection.subscribe(() => (api = connection.snapshot)))
 
-  // Keep consumer props fresh (controlled flags, callbacks). `getProps()` reads
-  // the component's reactive props, so this effect re-runs whenever they change;
-  // setProps value-dedups, so an unchanged read doesn't churn the snapshot.
-  $effect(() => {
-    connection.setProps(getProps())
-  })
+  // The spread reads every prop, so any change re-runs this; setProps value-dedups.
+  $effect(() => connection.setProps({ ...props() }))
 
-  // Lifecycle: boot on setup, tear down on destroy, and bridge the connector's
-  // notifications into `snapshot`. One untracked `$effect` (it reads no reactive
-  // state, so it runs once and never re-runs); Svelte calls the returned cleanup
-  // on destroy. The connector wired its reactions to the machine's start/stop,
-  // so start()/stop() is all the bridge needs.
-  //
-  // We deliberately do NOT call connection.destroy() here: the connector shares
-  // this component's lifetime with the machine, so they're GC'd together, and
-  // destroy() is one-way — keeping it out leaves the standalone-connector path
-  // (callers who build a connector outside this pattern) free to use it.
-  $effect(() => {
-    const unsubscribe = connection.subscribe(() => {
-      snapshot = connection.snapshot
-    })
-    service.start()
-    return () => {
-      unsubscribe()
-      service.stop()
-    }
-  })
+  // No connection.destroy(): connector and machine share this component's
+  // lifetime and are GC'd together; destroy() is for standalone connectors.
+  $effect(() =>
+    untrack(() => {
+      service.start()
+      return () => service.stop()
+    }),
+  )
 
-  // Component effects — the prop-dependent platform listeners (Escape, a
-  // ResizeObserver) the machine can't own. One `$effect` per entry. Each touches
-  // its named `deps` (the same allowlist React used for its manual dep array,
-  // kept here for API parity) so they're the reactive reads runes tracks, then
-  // runs the setup — so the effect re-runs when one of those prop values changes
-  // and NOT on an unrelated machine change. Returning the setup's teardown lets
-  // Svelte clean it up on re-run / destroy.
+  // One effect per entry, re-run only when a named dep's VALUE changes: a
+  // $derived per dep dedups it whatever the getter reads to build the props.
+  // The body runs untracked, so a prop it merely reads never becomes a dep.
   for (const [fn, deps] of effects) {
+    const depValues = deps.map(key => {
+      const value = $derived(props()[key])
+      return () => value
+    })
     $effect(() => {
-      const props = getProps()
-      // Touch the named deps so this effect tracks exactly them. (Whether this
-      // narrows tracking depends on the getter: with `() => props` over reactive
-      // `$props`, each `props[key]` is a tracked read; with `() => ({ ...subset })`
-      // the getter already scoped what's reactive.)
-      for (const key of deps) void props[key]
-      return fn(service, props)
+      for (const read of depValues) read()
+      return untrack(() => fn(service, props()))
     })
   }
 
   return {
     get api() {
-      return snapshot
+      return api
     },
-    get machine() {
-      return service
-    },
+    machine: service,
   }
 }

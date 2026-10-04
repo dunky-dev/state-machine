@@ -6,7 +6,7 @@ import { defineConfig } from 'vitest/config'
 // root workspace carries no Svelte dependencies.
 export default defineConfig({
   // svelteTesting(): Svelte's client build under jsdom + cleanup between tests.
-  plugins: [svelte(), svelteTesting()],
+  plugins: [svelte({ configFile: false }), svelteTesting()],
   test: {
     name: 'svelte',
     globals: false,
