@@ -3,6 +3,8 @@
   // don't typecheck), so this is the only thing that catches type errors here.
   "extends": "../tsconfig.json",
   "compilerOptions": {
+    // the base sets no `jsx` (it's per-project); the benchmark is React-flavored
+    "jsx": "react-jsx",
     // paths in `extends` resolve relative to THIS file, so redeclare them
     "paths": {
       "@dunky.dev/state-machine": ["../packages/core/src"],

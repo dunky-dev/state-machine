@@ -26,7 +26,8 @@ const cmdkShortcut: ComponentEffect<CommandPaletteMachine, CommandPaletteProps> 
 
 // The DOM renderer. It owns ZERO interaction logic — `useMachine` runs the shared
 // machine, `connect` produces logical bindings, and `normalize` turns them into
-// DOM props (onPress→onClick, role/aria-*, etc). The component is just markup.
+// DOM props (onPress→onClick, role/aria-*, etc). The component is just markup;
+// the look lives in the stylesheet shared with the Solid app.
 export function CommandPalette(props: CommandPaletteProps) {
   const { api } = useMachine(
     commandPaletteMachineConfig,
@@ -44,22 +45,22 @@ export function CommandPalette(props: CommandPaletteProps) {
 
   return (
     <div>
-      <button type='button' style={styles.trigger} onClick={() => api.setOpen(true)}>
-        Search… <kbd style={styles.kbd}>⌘K</kbd>
+      <button type='button' className='cmdk-trigger' onClick={() => api.setOpen(true)}>
+        Search… <kbd className='cmdk-kbd'>⌘K</kbd>
       </button>
 
       {api.open && (
-        <div style={styles.backdrop} onClick={() => api.setOpen(false)}>
-          <div style={styles.panel} onClick={e => e.stopPropagation()}>
+        <div className='cmdk-backdrop' onClick={() => api.setOpen(false)}>
+          <div className='cmdk-panel' onClick={e => e.stopPropagation()}>
             <input
               ref={inputRef}
               {...normalize(api.parts.input)}
               value={api.query}
               placeholder='Type a command…'
-              style={styles.input}
+              className='cmdk-input'
             />
-            <ul {...normalize(api.parts.root)} style={styles.list}>
-              {api.results.length === 0 && <li style={styles.empty}>No results</li>}
+            <ul {...normalize(api.parts.root)} className='cmdk-list'>
+              {api.results.length === 0 && <li className='cmdk-empty'>No results</li>}
               {api.results.map((command, index) => {
                 const itemProps = normalize(api.parts.getItemProps(command, index))
                 const selected = command.id === api.activeId
@@ -67,10 +68,10 @@ export function CommandPalette(props: CommandPaletteProps) {
                   <li
                     key={command.id}
                     {...itemProps}
-                    style={{ ...styles.item, ...(selected ? styles.itemActive : null) }}
+                    className={selected ? 'cmdk-item is-active' : 'cmdk-item'}
                   >
                     <span>{command.label}</span>
-                    {command.hint && <kbd style={styles.kbd}>{command.hint}</kbd>}
+                    {command.hint && <kbd className='cmdk-kbd'>{command.hint}</kbd>}
                   </li>
                 )
               })}
@@ -80,71 +81,4 @@ export function CommandPalette(props: CommandPaletteProps) {
       )}
     </div>
   )
-}
-
-const styles: Record<string, React.CSSProperties> = {
-  trigger: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    minWidth: 300,
-    alignItems: 'center',
-    gap: 8,
-    padding: '10px 14px',
-    fontSize: 14,
-    color: '#5b6172',
-    background: '#fff',
-    border: '1px solid rgba(13,15,22,0.12)',
-    borderRadius: 10,
-    cursor: 'pointer',
-  },
-  kbd: {
-    fontFamily: 'ui-monospace, monospace',
-    fontSize: 11,
-    color: '#8990a0',
-    background: 'rgba(13,15,22,0.05)',
-    border: '1px solid rgba(13,15,22,0.08)',
-    borderRadius: 6,
-    padding: '2px 6px',
-  },
-  backdrop: {
-    position: 'fixed',
-    inset: 0,
-    background: 'rgba(13,15,22,0.35)',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-    paddingTop: '14vh',
-  },
-  panel: {
-    width: 'min(560px, 92vw)',
-    background: '#fff',
-    borderRadius: 14,
-    boxShadow: '0 24px 64px rgba(13,15,22,0.28)',
-    overflow: 'hidden',
-  },
-  input: {
-    width: '100%',
-    minWidth: 300,
-    boxSizing: 'border-box',
-    padding: '18px 20px',
-    fontSize: 16,
-    border: 'none',
-    borderBottom: '1px solid rgba(13,15,22,0.08)',
-    outline: 'none',
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
-  },
-  list: { listStyle: 'none', margin: 0, padding: 8, maxHeight: 320, overflowY: 'auto' },
-  item: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '10px 12px',
-    borderRadius: 8,
-    fontSize: 14,
-    color: '#1c1e26',
-    cursor: 'pointer',
-  },
-  itemActive: { background: 'rgba(91,115,255,0.12)', color: '#3142c4' },
-  empty: { padding: '16px 12px', color: '#8990a0', fontSize: 14 },
 }

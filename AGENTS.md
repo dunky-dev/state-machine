@@ -5,9 +5,9 @@ repo. This file is the canonical entry point: read it first, every time.
 
 This is Dunky's state-machine monorepo: UI behavior authored once as
 plain TypeScript state machines (`packages/core`), rendered anywhere
-through thin per-substrate targets (`react`, `vue`, `native`, `opentui`), with
-a benchmark suite, per-substrate sandboxes, and the docs website
-alongside.
+through thin per-substrate targets (`react`, `solid`, `vue`, `native`,
+`opentui`), with a benchmark suite, per-substrate sandboxes, and the
+docs website alongside.
 
 ## Preflight
 
@@ -24,12 +24,12 @@ editing files in that scope — it overrides anything here for that scope
 
 ## Scopes
 
-| Scope     | Path          | What it is                                                                              |
-| --------- | ------------- | --------------------------------------------------------------------------------------- |
-| Packages  | `packages/**` | The core machine, substrate targets (react, vue, native, opentui), and shared internals |
-| Benchmark | `benchmark/`  | Perf suite comparing against competitor libraries                                       |
-| Sandbox   | `sandbox/`    | Per-substrate demo apps for manual verification                                         |
-| Website   | `website/`    | The docs site                                                                           |
+| Scope     | Path          | What it is                                                                                     |
+| --------- | ------------- | ---------------------------------------------------------------------------------------------- |
+| Packages  | `packages/**` | The core machine, substrate targets (react, solid, vue, native, opentui), and shared internals |
+| Benchmark | `benchmark/`  | Perf suite comparing against competitor libraries                                              |
+| Sandbox   | `sandbox/`    | Per-substrate demo apps for manual verification                                                |
+| Website   | `website/`    | The docs site                                                                                  |
 
 Some changes are cross-scope: a change in `core/` may need follow-up in
 the targets, sandboxes, and docs — and vice versa. Check what else your
@@ -106,6 +106,17 @@ TEST; if not, ship it!
 
 ## Code
 
+### Principles
+
+Every change is held to these four, in this order — simplest thing that
+works, written once, built only when needed, behaving as promised:
+
+| Principle | Meaning                                                                                                                                                      |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **KISS**  | Keep it simple. Prefer the plain solution over the clever one; complexity must earn its keep with a need the simple version can't meet.                      |
+| **DRY**   | Don't repeat yourself. A rule two places must agree on is written once and shared — duplication is where the copies drift apart.                             |
+| **YAGNI** | You aren't gonna need it. Build for the requirement in front of you, not the one imagined; speculative machinery is deleted-on-sight, not kept just in case. |
+
 ### Naming
 
 Descriptive names everywhere. Short names are fine for local variables
@@ -136,6 +147,13 @@ need the same machine config or helper, define it once at the top, not
 inside each `it()`. Reusable multi-file fixtures go in
 `tests/fixtures/` — anything shared across test files lives there, not
 inlined or duplicated.
+
+## Accessibility
+
+Accessibility is referenced, not improvised — the external specs are the
+contract, and the API is cross-matched against them.
+[`ACCESSIBILITY.md`](./ACCESSIBILITY.md) is the reference: read it before
+designing a public API.
 
 ## Versioning
 

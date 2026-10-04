@@ -1,0 +1,238 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="flow" width="1000" height="320" viewBox="0 0 1000 320" role="img" aria-labelledby="flow-title flow-desc">
+  <title id="flow-title">How Dunky works</title>
+  <desc id="flow-desc">A signal flows left to right, from agnostic to substrate, through four stages. Dunky, the engine that runs machines, powers. The machine, states plus events plus logic, decides. The binding, a neutral wire of agnostic events and attributes, connects. The behavior, a live feature on DOM, TUI, or React Native, appears.</desc>
+  <style>
+    /* Inlined on the docs site, this sheet is global: every selector and
+       keyframe is `flow-` prefixed. Colors read Starlight's theme variables so
+       the diagram follows the site toggle; the fallbacks are Starlight's
+       palettes, picked by the OS setting when the file is shown on its own
+       (e.g. the README). The brand cyan is too light to read on white, so
+       light uses a darker one. */
+    .flow {
+      --flow-card: var(--sl-color-bg-nav, #f6f7f9);
+      --flow-edge: var(--sl-color-gray-5, #c1c3c8);
+      --flow-title: var(--sl-color-white, #17181c);
+      --flow-text: var(--sl-color-gray-2, #353841);
+      --flow-muted: var(--sl-color-gray-4, #888c96);
+      --flow-from: var(--sl-color-text-accent, #5b4ae0);
+      --flow-to: #0a7f8a;
+      display: block;
+      width: 100%;
+      height: auto;
+      font-family: var(--sl-font, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif);
+    }
+    @media (prefers-color-scheme: dark) {
+      .flow {
+        --flow-card: var(--sl-color-bg-nav, #23262e);
+        --flow-edge: var(--sl-color-gray-5, #353841);
+        --flow-title: var(--sl-color-white, #ffffff);
+        --flow-text: var(--sl-color-gray-2, #c1c3c8);
+        --flow-muted: var(--sl-color-gray-4, #555962);
+        --flow-from: var(--sl-color-text-accent, #c5bdf9);
+        --flow-to: #22c5d3;
+      }
+    }
+    /* on the site, the toggle wins over the OS setting */
+    :root[data-theme='light'] .flow { --flow-to: #0a7f8a; }
+    :root[data-theme='dark'] .flow { --flow-to: #22c5d3; }
+
+    .flow-stop-from { stop-color: var(--flow-from); }
+    .flow-stop-to { stop-color: var(--flow-to); }
+    .flow-mono { font-family: var(--sl-font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace); }
+    .flow-label { font-size: 13px; font-weight: 600; letter-spacing: 0.16em; }
+    .flow-from { fill: var(--flow-from); }
+    .flow-to { fill: var(--flow-to); }
+    .flow-wire { stroke: var(--flow-edge); stroke-width: 1.5; stroke-dasharray: 2 6; }
+    .flow-arrows { fill: none; stroke: var(--flow-edge); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .flow-arrows-on { stroke: url(#flow-spectrum); }
+    .flow-box { fill: var(--flow-card); stroke: var(--flow-edge); stroke-width: 1.5; }
+    .flow-box-on { fill: url(#flow-spectrum); fill-opacity: 0.06; stroke: url(#flow-spectrum); stroke-width: 1.5; }
+    .flow-emoji { font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif; font-size: 34px; }
+    .flow-dim { opacity: 0.35; }
+    .flow-title { font-size: 24px; font-weight: 700; fill: var(--flow-title); }
+    .flow-desc { font-size: 17px; fill: var(--flow-text); }
+    .flow-verb { font-size: 17px; fill: var(--flow-muted); }
+    .flow-verb-on { fill: url(#flow-spectrum); }
+
+    /* One 7s cycle: the signal leaves the engine, each stage lights up as the
+       signal reaches it and stays lit, then everything fades and restarts. */
+    .flow-lit { animation: 7s ease-in-out infinite; }
+    .flow-lit-1 { animation-name: flow-lit-1; }
+    .flow-lit-2 { animation-name: flow-lit-2; }
+    .flow-lit-3 { animation-name: flow-lit-3; }
+    .flow-lit-4 { animation-name: flow-lit-4; }
+    @keyframes flow-lit-1 { 0% { opacity: 0; } 4%, 86% { opacity: 1; } 93%, 100% { opacity: 0; } }
+    @keyframes flow-lit-2 { 0%, 17% { opacity: 0; } 23%, 86% { opacity: 1; } 93%, 100% { opacity: 0; } }
+    @keyframes flow-lit-3 { 0%, 36% { opacity: 0; } 42%, 86% { opacity: 1; } 93%, 100% { opacity: 0; } }
+    @keyframes flow-lit-4 { 0%, 55% { opacity: 0; } 61%, 86% { opacity: 1; } 93%, 100% { opacity: 0; } }
+
+    /* Card-center to card-center; the jump back is hidden behind the cards. */
+    .flow-signal { fill: var(--flow-from); animation: flow-travel 7s linear infinite; }
+    @keyframes flow-travel {
+      0%, 7% { transform: translateX(0); }
+      64%, 100% { transform: translateX(738px); }
+    }
+
+    /* Each card bumps as the signal enters it. Same 7s period, so a delay
+       keeps it in step with the rest. */
+    .flow-card, .flow-spin, .flow-hop, .flow-think, .flow-plug, .flow-pop, .flow-star {
+      transform-box: fill-box;
+      transform-origin: center;
+    }
+    .flow-card { animation: flow-bump 7s ease-out infinite; }
+    .flow-card-2 { animation-delay: 1.3s; }
+    .flow-card-3 { animation-delay: 2.64s; }
+    .flow-card-4 { animation-delay: 3.97s; }
+    @keyframes flow-bump { 0% { transform: scale(1); } 3% { transform: scale(1.035); } 8%, 100% { transform: scale(1); } }
+
+    /* powers: the donkey hops and the gear turns while the engine is on */
+    .flow-hop { animation: flow-hop 7s ease-out infinite; }
+    @keyframes flow-hop {
+      0% { transform: translateY(0); }
+      3% { transform: translateY(-6px); }
+      6% { transform: translateY(0); }
+      8% { transform: translateY(-2px); }
+      10%, 100% { transform: translateY(0); }
+    }
+    .flow-spin { animation: flow-spin 7s linear infinite; }
+    @keyframes flow-spin { 0%, 4% { transform: rotate(0deg); } 86%, 100% { transform: rotate(720deg); } }
+
+    /* decides: the brain pulses twice */
+    .flow-think { animation: flow-think 7s ease-in-out infinite; }
+    @keyframes flow-think {
+      0%, 19% { transform: scale(1); }
+      21.5% { transform: scale(1.18); }
+      24% { transform: scale(1); }
+      26.5% { transform: scale(1.1); }
+      29%, 100% { transform: scale(1); }
+    }
+
+    /* connects: the plug snaps in when the signal arrives, and out on reset */
+    .flow-plug { animation: flow-plug 7s ease-out infinite; }
+    @keyframes flow-plug {
+      0%, 37% { transform: translate(-6px, 6px); }
+      40% { transform: translate(1px, -1px); }
+      42%, 86% { transform: translate(0, 0); }
+      93%, 100% { transform: translate(-6px, 6px); }
+    }
+
+    /* appears: the sparkles pop, then twinkle around the card */
+    .flow-pop { animation: flow-pop 7s ease-out infinite; }
+    @keyframes flow-pop {
+      0%, 56% { transform: scale(1); }
+      58.5% { transform: scale(1.35); }
+      61%, 100% { transform: scale(1); }
+    }
+    .flow-star { animation: flow-twinkle 1.4s ease-in-out infinite; }
+    .flow-star-2 { animation-delay: -0.5s; }
+    .flow-star-3 { animation-delay: -0.9s; }
+    @keyframes flow-twinkle { 0%, 100% { transform: scale(0.3); opacity: 0.2; } 50% { transform: scale(1); opacity: 1; } }
+
+    @media (prefers-reduced-motion: reduce) {
+      .flow * { animation: none !important; }
+    }
+  </style>
+  <defs>
+    <linearGradient id="flow-spectrum" gradientUnits="userSpaceOnUse" x1="36" y1="0" x2="964" y2="0">
+      <stop offset="0" class="flow-stop-from"/>
+      <stop offset="1" class="flow-stop-to"/>
+    </linearGradient>
+    <path id="flow-star" d="M0 -1 Q0 0 1 0 Q0 0 0 1 Q0 0 -1 0 Q0 0 0 -1 Z"/>
+  </defs>
+
+
+  <text class="flow-mono flow-label flow-from" x="36" y="36">AGNOSTIC</text>
+  <text class="flow-mono flow-label flow-to" x="964" y="36" text-anchor="end">SUBSTRATE</text>
+  <line x1="124" y1="32" x2="858" y2="32" stroke="url(#flow-spectrum)" stroke-width="2" stroke-linecap="round"/>
+  <polygon class="flow-to" points="858,27 867,32 858,37"/>
+
+  <line class="flow-wire" x1="131" y1="166" x2="869" y2="166"/>
+  <g class="flow-arrows">
+    <polyline points="246,158 254,166 246,174"/><polyline points="255,158 263,166 255,174"/>
+    <polyline points="492,158 500,166 492,174"/><polyline points="501,158 509,166 501,174"/>
+    <polyline points="738,158 746,166 738,174"/><polyline points="747,158 755,166 747,174"/>
+  </g>
+  <g class="flow-arrows flow-arrows-on">
+    <g class="flow-lit flow-lit-2"><polyline points="246,158 254,166 246,174"/><polyline points="255,158 263,166 255,174"/></g>
+    <g class="flow-lit flow-lit-3"><polyline points="492,158 500,166 492,174"/><polyline points="501,158 509,166 501,174"/></g>
+    <g class="flow-lit flow-lit-4"><polyline points="738,158 746,166 738,174"/><polyline points="747,158 755,166 747,174"/></g>
+  </g>
+
+  <circle class="flow-signal" cx="131" cy="166" r="4"/>
+
+  <g text-anchor="middle">
+    <g class="flow-card flow-card-1">
+      <rect class="flow-box" x="36" y="74" width="190" height="184" rx="12"/>
+      <rect class="flow-box-on flow-lit flow-lit-1" x="36" y="74" width="190" height="184" rx="12"/>
+      <g class="flow-hop">
+        <text class="flow-emoji flow-dim" x="109" y="122">🫏</text>
+        <text class="flow-emoji flow-lit flow-lit-1" x="109" y="122">🫏</text>
+      </g>
+      <g class="flow-spin">
+        <text class="flow-emoji flow-dim" x="153" y="122">⚙️</text>
+        <text class="flow-emoji flow-lit flow-lit-1" x="153" y="122">⚙️</text>
+      </g>
+      <text class="flow-title" x="131" y="162">dunky</text>
+      <text class="flow-desc" x="131" y="190">the engine</text>
+      <text class="flow-desc" x="131" y="212">that runs</text>
+      <text class="flow-desc" x="131" y="234">machines</text>
+    </g>
+
+    <g class="flow-card flow-card-2">
+      <rect class="flow-box" x="282" y="74" width="190" height="184" rx="12"/>
+      <rect class="flow-box-on flow-lit flow-lit-2" x="282" y="74" width="190" height="184" rx="12"/>
+      <g class="flow-think">
+        <text class="flow-emoji flow-dim" x="377" y="122">🧠</text>
+        <text class="flow-emoji flow-lit flow-lit-2" x="377" y="122">🧠</text>
+      </g>
+      <text class="flow-title" x="377" y="162">machine</text>
+      <text class="flow-desc" x="377" y="190">states +</text>
+      <text class="flow-desc" x="377" y="212">events +</text>
+      <text class="flow-desc" x="377" y="234">logic</text>
+    </g>
+
+    <g class="flow-card flow-card-3">
+      <rect class="flow-box" x="528" y="74" width="190" height="184" rx="12"/>
+      <rect class="flow-box-on flow-lit flow-lit-3" x="528" y="74" width="190" height="184" rx="12"/>
+      <g class="flow-plug">
+        <text class="flow-emoji flow-dim" x="623" y="122">🔌</text>
+        <text class="flow-emoji flow-lit flow-lit-3" x="623" y="122">🔌</text>
+      </g>
+      <text class="flow-title" x="623" y="162">binding</text>
+      <text class="flow-desc" x="623" y="190">neutral wire</text>
+      <text class="flow-desc" x="623" y="212">agnostic</text>
+      <text class="flow-desc" x="623" y="234">events/attrs</text>
+    </g>
+
+    <g class="flow-card flow-card-4">
+      <rect class="flow-box" x="774" y="74" width="190" height="184" rx="12"/>
+      <rect class="flow-box-on flow-lit flow-lit-4" x="774" y="74" width="190" height="184" rx="12"/>
+      <g class="flow-pop">
+        <text class="flow-emoji flow-dim" x="869" y="122">✨</text>
+        <text class="flow-emoji flow-lit flow-lit-4" x="869" y="122">✨</text>
+      </g>
+      <text class="flow-title" x="869" y="162">behavior</text>
+      <text class="flow-desc" x="869" y="190">live feature</text>
+      <text class="flow-desc" x="869" y="212">on DOM /</text>
+      <text class="flow-desc" x="869" y="234">TUI / RN</text>
+    </g>
+
+    <g class="flow-mono">
+      <text class="flow-verb" x="131" y="292">powers</text>
+      <text class="flow-verb" x="377" y="292">decides</text>
+      <text class="flow-verb" x="623" y="292">connects</text>
+      <text class="flow-verb" x="869" y="292">appears</text>
+      <text class="flow-verb flow-verb-on flow-lit flow-lit-1" x="131" y="292">powers</text>
+      <text class="flow-verb flow-verb-on flow-lit flow-lit-2" x="377" y="292">decides</text>
+      <text class="flow-verb flow-verb-on flow-lit flow-lit-3" x="623" y="292">connects</text>
+      <text class="flow-verb flow-verb-on flow-lit flow-lit-4" x="869" y="292">appears</text>
+    </g>
+  </g>
+
+  <!-- the CSS scale would replace a transform attribute, so position on a wrapper -->
+  <g class="flow-to flow-lit flow-lit-4">
+    <g transform="translate(958 70) scale(11)"><use href="#flow-star" class="flow-star"/></g>
+    <g transform="translate(950 272) scale(7)"><use href="#flow-star" class="flow-star flow-star-2"/></g>
+    <g transform="translate(786 66) scale(7)"><use href="#flow-star" class="flow-star flow-star-3"/></g>
+  </g>
+</svg>

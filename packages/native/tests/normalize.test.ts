@@ -101,6 +101,12 @@ describe('native normalize — attributes', () => {
     expect(normalize({ hidden: true })).toEqual({ 'aria-hidden': true })
   })
 
+  it('maps modal to aria-modal', () => {
+    // RN routes aria-modal to accessibilityViewIsModal (iOS); Android has no
+    // sibling-inerting equivalent, so it degrades to a no-op there.
+    expect(normalize({ modal: true })).toEqual({ 'aria-modal': true })
+  })
+
   it('omits accessibilityState entirely when no a11y-state keys are present', () => {
     const out = normalize({ role: 'menu' })
     expect('accessibilityState' in out).toBe(false)
@@ -142,13 +148,9 @@ describe('native normalize — combined surface (tooltip content shape)', () => 
 })
 
 describe('native normalize — DOM-ARIA-only attrs are dropped', () => {
-  it('drops controls / hasPopup / modal (no RN element-attr analog)', () => {
-    const out = normalize({ controls: 'menu:1:content', hasPopup: 'menu', modal: true })
+  it('drops controls / hasPopup (no RN element-attr analog)', () => {
+    const out = normalize({ controls: 'menu:1:content', hasPopup: 'menu' })
     expect(out).toEqual({})
-  })
-
-  it('does not leak modal as an invalid RN prop', () => {
-    expect('modal' in normalize({ modal: true })).toBe(false)
   })
 
   it('drops the ARIA attrs RN has no slot for', () => {

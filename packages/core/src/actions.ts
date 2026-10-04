@@ -48,11 +48,12 @@ export function isOneOf<Context extends object, Event, Computed>(
   )
 }
 
+// `context` / `computed` are the live objects — their identity never changes, so no getter.
 export interface ActionHost<Context extends object, Event, Computed> {
   actions: Record<string, Action<Context, Event, Computed>> | undefined
   guards: Record<string, Guard<Context, Event, Computed>> | undefined
-  context: () => Context
-  computed: () => Computed
+  context: Context
+  computed: Computed
   setContext: (patch: Partial<Context>) => void
   send: (event: Event) => void
 }
@@ -63,11 +64,13 @@ export function runAction<Context extends object, Event, Computed>(
   event: Event,
 ): void {
   if (isOneOf(action)) {
-    const params = makeGuardParams(host.context(), event, host.computed(), host.guards)
-    const branch = action.branches.find(b =>
-      b.guard ? resolveGuard(b.guard, params, host.guards) : true,
-    )
-    if (branch) runActions(host, branch.actions, event)
+    const params = makeGuardParams(host.context, event, host.computed, host.guards)
+    for (const branch of action.branches) {
+      if (!branch.guard || resolveGuard(branch.guard, params, host.guards)) {
+        runActions(host, branch.actions, event)
+        return
+      }
+    }
     return
   }
   const named = action as Exclude<typeof action, OneOf<Context, Event, Computed>>
@@ -79,11 +82,11 @@ export function runAction<Context extends object, Event, Computed>(
     return
   }
   fn({
-    context: host.context(),
+    context: host.context,
     setContext: host.setContext,
     event,
     send: host.send,
-    computed: host.computed(),
+    computed: host.computed,
   })
 }
 
@@ -93,6 +96,6 @@ export function runActions<Context extends object, Event, Computed>(
   event: Event,
 ): void {
   if (!actions) return
-  const list = Array.isArray(actions) ? actions : [actions]
-  for (const action of list) runAction(host, action, event)
+  if (!Array.isArray(actions)) return runAction(host, actions, event)
+  for (const action of actions) runAction(host, action, event)
 }

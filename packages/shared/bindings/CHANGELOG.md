@@ -1,5 +1,19 @@
 # @dunky.dev/state-machine-bindings
 
+## 0.4.1
+
+### Patch Changes
+
+- [#60](https://github.com/dunky-dev/state-machine/pull/60) [`c8e94e4`](https://github.com/dunky-dev/state-machine/commit/c8e94e42c2af112c61a4006ffd43a4b85729c258) Thanks [@ivanbanov](https://github.com/ivanbanov)! - Rolls back 0.4.0's translation-contract surface — it shipped by mistake.
+  `DROPPED_HANDLERS`/`DROPPED_ATTRS` are removed, and `HandlerTargets`/
+  `AttrTargets` are now the partial rename maps
+  (`Partial<Record<HandlerKey, string>>`) instead of exhaustive
+  null-accounting records.
+
+  What stays is the part that mattered: maps and drop sets are typed by the
+  real vocabulary keys (`HandlerKey`/`AttrKey`), so a typo'd or unknown entry
+  is a compile error instead of a silent leak.
+
 ## 0.4.0
 
 ### Minor Changes

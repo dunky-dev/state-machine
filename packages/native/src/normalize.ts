@@ -27,11 +27,12 @@
  * - No hover — pointer move/enter/leave/cancel are dropped.
  * - `onContextMenu` → `onLongPress`; `onDoublePress`/`onWheel` dropped (no RN analog).
  * - `expanded`/`selected`/`disabled`/`checked`/`busy` fold into `accessibilityState`.
- * - `hidden` → `aria-hidden`: the web-aligned alias RN fans out per platform.
+ * - `hidden` → `aria-hidden` and `modal` → `aria-modal`: web-aligned aliases RN
+ *   fans out per platform.
  * - `valueMin`/`valueMax`/`valueNow`/`valueText` fold into `accessibilityValue`.
  * - `live` → `accessibilityLiveRegion`; `'off'` → `'none'`.
- * - `controls`/`hasPopup`/`modal`/`describedBy` and most ARIA-only attrs are
- *   dropped (`describedBy`: RN has no describe-by-reference slot).
+ * - `controls`/`hasPopup`/`describedBy` and most ARIA-only attrs are dropped
+ *   (`describedBy`: RN has no describe-by-reference slot).
  * - `role` passes through unchanged: RN's web-aligned `role` prop takes the
  *   full ARIA vocabulary and degrades gracefully, while the legacy
  *   `accessibilityRole` enum throws natively on Android for values outside
@@ -79,6 +80,9 @@ export const ATTR_MAP: AttrTargets = {
   // per platform (accessibilityElementsHidden on iOS, no-hide-descendants on
   // Android) — accessibilityState has no hidden slot.
   hidden: 'aria-hidden',
+  // Same alias block as aria-hidden; RN routes it to accessibilityViewIsModal,
+  // which is iOS-only — Android has no sibling-inerting equivalent to fan out to.
+  modal: 'aria-modal',
   role: 'role', // the web-aligned prop — never the legacy accessibilityRole enum (throws)
   // `focusable` and `live` are special-cased in normalize(): the value is
   // transformed (coerced boolean + `accessible`; ARIA 'off' → RN 'none').
@@ -89,7 +93,6 @@ export const ATTR_DROP: ReadonlySet<string> = new Set<AttrKey>([
   'describedBy',
   'controls',
   'hasPopup',
-  'modal',
   'pressed',
   'current',
   'invalid',

@@ -1,5 +1,32 @@
 # @dunky.dev/state-machine-utils
 
+## 0.4.0
+
+### Minor Changes
+
+- [#66](https://github.com/dunky-dev/state-machine/pull/66) [`6deab75`](https://github.com/dunky-dev/state-machine/commit/6deab7569ee7854bb5b8b8efca611ef7e5db28ce) Thanks [@ivanbanov](https://github.com/ivanbanov)! - Remove the dead exports: the positioning module (`Placement`, `Side`,
+  `PositioningOptions`, `placementToSide`, `pickSide`), `memo`, and
+  `composeHandlers`. Nothing in the repo ever consumed them — `mergeProps`
+  composes handlers through its own private helper, and positioning was
+  speculative vocabulary for floating components that don't exist yet.
+  `mergeProps` is now the package's whole surface. Minor (not patch) because
+  the symbols were publicly exported: any external import of them breaks.
+  Positioning will come back designed against a real floating component when
+  one lands.
+
+- [#66](https://github.com/dunky-dev/state-machine/pull/66) [`6deab75`](https://github.com/dunky-dev/state-machine/commit/6deab7569ee7854bb5b8b8efca611ef7e5db28ce) Thanks [@ivanbanov](https://github.com/ivanbanov)! - Export `composeHandlers` — the handler-pair composition `mergeProps` has
+  always applied to overlapping `on*` props, now public: the consumer handler
+  runs first, and the library handler is skipped when the consumer prevented
+  default (the first argument's `defaultPrevented`, per Radix/Ark conventions).
+  No behavior change anywhere — `mergeProps` calls the same function; it was
+  just private before.
+
+  ```ts
+  import { composeHandlers } from "@dunky.dev/state-machine-utils";
+
+  const onClick = composeHandlers(consumerOnClick, libraryOnClick);
+  ```
+
 ## 0.3.2
 
 ### Patch Changes

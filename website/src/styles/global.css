@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 
+/* `dark:` follows the data-theme attribute, not the OS preference */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
 @theme {
   --font-mono:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Roboto Mono', 'Droid Sans Mono',
@@ -18,6 +21,19 @@
   color-scheme: light;
 }
 
+/* Dark palette. `data-theme` is set by the inline head script from the same
+   localStorage key Starlight uses, so the home page and the docs share one
+   theme. Tailwind's `bg-bg`, `text-fg`, ... read these vars. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  /* lifted off pure black so the black demo cards still read as cards */
+  --color-bg: #1a1d25;
+  --color-panel: #252932;
+  --color-fg: #f4f6f9;
+  --color-muted: #aab0bb;
+  --color-border: #383e4b;
+}
+
 body {
   color: var(--color-fg);
   /* Premium white backdrop: soft colored glows (violet / cyan / warm) float over
@@ -28,6 +44,12 @@ body {
     radial-gradient(60rem 42rem at 8% 4rem, rgba(34, 197, 211, 0.26), transparent 62%),
     radial-gradient(64rem 44rem at 50% 120%, rgba(240, 130, 80, 0.22), transparent 60%);
   background-attachment: fixed;
+}
+:root[data-theme='dark'] body {
+  background-image:
+    radial-gradient(70rem 46rem at 82% -10rem, rgba(109, 92, 240, 0.22), transparent 64%),
+    radial-gradient(60rem 42rem at 8% 4rem, rgba(34, 197, 211, 0.12), transparent 62%),
+    radial-gradient(64rem 44rem at 50% 120%, rgba(240, 130, 80, 0.1), transparent 60%);
 }
 
 /* Prose styling for the MDX docs body (the layout wraps content in .prose-doc). */

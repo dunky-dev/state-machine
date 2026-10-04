@@ -49,7 +49,7 @@ Do not proceed to Step 3 unless the user says yes.
 
 ## Step 3 — update the results (only on a yes)
 
-Three files carry benchmark numbers. Update all three in one pass:
+Four files carry benchmark numbers. Update all four in one pass:
 
 ### A. `benchmark/README.md` — full tables (source of truth)
 
@@ -83,16 +83,15 @@ The core README carries short prose claims ("up to ~8× the event throughput",
 headline ratio clearly crossed a round number (e.g. throughput drops from ~8× to
 ~6×, or memory from ~33× to ~25×). Don't churn it for a rounding wobble.
 
-Relevant lines to check:
+Relevant line to check:
 
-- The `### Performance` section prose claim ("up to ~8× the event throughput").
-- The memory comparison claim ("~33×" in the `## How it compares` diff table footnotes).
+- The `### Performance` section prose claim ("up to ~N× the event throughput").
+  (There is no memory-ratio claim in this file — verify with a grep for `×`
+  rather than assuming this list is complete.)
 
-### C. `website/src/pages/benchmark.mdx` — headline table + section numbers
+### C. `website/src/content/docs/benchmark.mdx` — headline table + section numbers
 
-The website benchmark page at
-`/Users/ivanbanov/dev/dunky-dev/.worktrees/website/website/src/pages/benchmark.mdx`
-carries:
+The website benchmark page (at that path from the repo root) carries:
 
 1. **The headline table** — event throughput ops/s, memory 2-field and 64-field
    KB/machine. Update all three Dunky / XState / Zag cells.
@@ -103,7 +102,14 @@ carries:
 
 Apply the same K/M notation rules as `benchmark/README.md`.
 
-### After updating all three
+### D. root `README.md` — the "Fast at scale" headline table
+
+The repo root README's performance section carries a small three-row
+table (event throughput, memory 2-field, memory 64-field) plus a `→` prose line with ratio claims. Update
+the table cells and recheck both ratios against the fresh figures — same K/M
+notation rules.
+
+### After updating all four
 
 - Re-read each edited file's tables to confirm markdown pipes still line up.
 - Run `pnpm format` at the repo root so formatting matches the repo style.
