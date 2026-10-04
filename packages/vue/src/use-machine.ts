@@ -75,17 +75,25 @@ export function useMachine<
   const resume = () => {
     if (stopEffects) return
     service.start()
-    stopEffects = effects.map(([fn, deps]) =>
-      watch(
+    stopEffects = effects.map(([fn, deps]) => {
+      // The first run is direct, not `immediate`: before Vue 3.5.x an immediate watcher
+      // over an empty source never fires.
+      let cleanup = fn(service, toValue(props)) || undefined
+      // An array of getters is compared dep by dep, so no other prop can trigger a re-run;
+      // `post` lets the re-run see the DOM already patched with the props that caused it.
+      const stop = watch(
         deps.map(key => () => toValue(props)[key]),
-        (_next, _prev, onCleanup) => {
-          const cleanup = fn(service, toValue(props))
-          if (cleanup) onCleanup(cleanup)
+        () => {
+          cleanup?.()
+          cleanup = fn(service, toValue(props)) || undefined
         },
-        // `post`: a re-run sees the DOM already patched with the props that triggered it.
-        { immediate: true, flush: 'post' },
-      ),
-    )
+        { flush: 'post' },
+      )
+      return () => {
+        stop()
+        cleanup?.()
+      }
+    })
   }
   const pause = () => {
     service.stop()
