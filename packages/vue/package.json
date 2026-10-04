@@ -39,9 +39,9 @@
   },
   "devDependencies": {
     "@dunky.dev/state-machine-bindings": "workspace:*",
-    "@vue/test-utils": "^2.4.6",
+    "@vue/test-utils": "^2.5.1",
     "jsdom": "^29.1.1",
-    "vue": "^3.5.13"
+    "vue": "^3.5.43"
   },
   "peerDependencies": {
     "vue": "^3"
