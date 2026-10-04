@@ -55,7 +55,7 @@ describe('useSelector', () => {
         selected.push(value)
         return value
       },
-      isEqual: (x: { a: number }, y: { a: number }) => x.a === y.a,
+      isEqual: (x: unknown, y: unknown) => (x as { a: number }).a === (y as { a: number }).a,
       onread,
     })
 

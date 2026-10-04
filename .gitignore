@@ -4,6 +4,7 @@ dist
 .DS_Store
 *.log
 .vite
+.svelte-kit
 *.tsbuildinfo
 .expo
 

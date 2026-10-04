@@ -1,4 +1,4 @@
-<script lang="ts" generics="T">
+<script lang="ts">
   import { useSelector } from '@dunky.dev/svelte-state-machine'
   import Sender from './sender.svelte'
   import type { CountersMachine } from './counters'
@@ -13,11 +13,11 @@
   }: {
     machine: CountersMachine
     // The selector closes over `wanted`, the way a leaf's selector closes over its props.
-    pick: (machine: CountersMachine, wanted: number) => T
+    pick: (machine: CountersMachine, wanted: number) => unknown
     wanted?: number
-    isEqual?: (a: T, b: T) => boolean
+    isEqual?: (a: unknown, b: unknown) => boolean
     // Called with every value the reader observes, once per wake.
-    onread?: (value: T) => void
+    onread?: (value: unknown) => void
     sendOnMount?: { type: 'incA' }
   } = $props()
 

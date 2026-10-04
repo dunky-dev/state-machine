@@ -10,11 +10,10 @@ export default defineConfig({
   // benchmark/website packages — so for this layout an explicit list is the clean
   // choice. Keep in sync with the publish set in .changeset/config.json.
   //
-  // `packages/svelte` is intentionally absent: it ships its `src` uncompiled so
-  // the consumer's Svelte compiler can process its runes (`.svelte.ts`) modules —
-  // tsdown doesn't run the Svelte compiler, and pre-compiling would strip the
-  // runes the downstream build needs to see. Its `exports` point straight at
-  // `src` (no `dist`), so it has no build step here.
+  // `packages/svelte` is absent on purpose: the root `build` script runs its own
+  // `svelte-package` build. Its runes modules must reach the consumer's Svelte
+  // compiler as `.svelte.js` files — bundled into a plain `index.js`, the
+  // compiler would never see them and `$state` would be an undefined global.
   workspace: [
     'packages/core',
     'packages/dom',

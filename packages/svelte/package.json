@@ -8,19 +8,28 @@
     "directory": "packages/svelte"
   },
   "files": [
+    "dist",
     "src"
   ],
   "type": "module",
   "sideEffects": false,
-  "main": "./src/index.ts",
   "types": "./src/index.ts",
-  "svelte": "./src/index.ts",
   "exports": {
-    ".": {
-      "types": "./src/index.ts",
-      "svelte": "./src/index.ts",
-      "default": "./src/index.ts"
-    }
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "svelte": "./dist/index.js"
+      }
+    },
+    "access": "public"
+  },
+  "scripts": {
+    "build": "svelte-package -i src -o dist && publint",
+    "typecheck": "svelte-check --tsconfig ./tsconfig.json --output human --fail-on-warnings"
   },
   "dependencies": {
     "@dunky.dev/state-machine": "workspace:*",
@@ -29,10 +38,13 @@
     "@dunky.dev/state-machine-utils": "workspace:*"
   },
   "devDependencies": {
+    "@sveltejs/package": "^3.0.0",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@testing-library/svelte": "^5.4.2",
     "jsdom": "^29.1.1",
     "svelte": "^5.57.1",
+    "svelte-check": "^4.7.6",
+    "typescript": "^6.0.3",
     "vite": "^8.3.2",
     "vitest": "^4.1.7"
   },
