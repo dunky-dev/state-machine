@@ -1,220 +1,303 @@
 // @vitest-environment jsdom
-// `useMachine` — the Vue bridge composable: build once, start/stop with the
-// mount lifecycle, keep props fresh, run dep-keyed effects, reactive snapshot.
-import { defineComponent, h, nextTick, type PropType } from 'vue'
-import { mount } from '@vue/test-utils'
+/**
+ * `useMachine` — the Vue bridge composable. Pins the contract the README
+ * documents: build ONCE in setup, start after mount and stop before unmount,
+ * keep props fresh via a shallow setProps, run the connector's reactions with
+ * the latest callbacks, run each ComponentEffect post-mount as its own
+ * dep-keyed effect (React's effect order), and pause everything while a
+ * <KeepAlive> holds the component deactivated (React's <Activity>).
+ */
+import { defineComponent, h, KeepAlive, nextTick, ref, Suspense, type PropType } from 'vue'
+import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import {
-  act as write,
-  machine,
-  makeReaction,
-  type Connect,
-  type TransitionConfig,
-} from '@dunky.dev/state-machine'
 import { type ComponentEffect, useMachine } from '@dunky.dev/vue-state-machine'
+import {
+  connectToggle,
+  createToggleConfig,
+  type ToggleApi,
+  type ToggleMachine,
+  type ToggleProps,
+} from './fixtures/toggle'
 
-type ToggleState = 'closed' | 'open'
-interface ToggleCtx {
-  count: number
-}
-type ToggleEvent = { type: 'toggle' }
+type Effect = ComponentEffect<ToggleMachine, ToggleProps>
 
-interface ToggleProps {
-  label?: string
-  onOpenChange?: (open: boolean) => void
-}
-
-const createConfig =
-  (): ((props: ToggleProps) => TransitionConfig<ToggleState, ToggleCtx, ToggleEvent>) => () => ({
-    initial: 'closed',
-    context: { count: 0 },
-    states: {
-      closed: {
-        on: { toggle: { target: 'open', actions: write($ => ({ count: $.context.count + 1 })) } },
-      },
-      open: { on: { toggle: { target: 'closed' } } },
-    },
-  })
-
-type ToggleApi = {
-  open: boolean
-  label: string | undefined
-  count: number
-  toggle: () => void
+// `default: undefined`: Vue casts an absent Boolean prop to `false`, which the
+// core would read as a real value.
+const toggleProps = {
+  label: String,
+  defaultOpen: { type: Boolean, default: undefined },
+  onOpenChange: Function as PropType<(open: boolean) => void>,
 }
 
-const connect: Connect<ToggleState, ToggleCtx, ToggleEvent, ToggleProps, ToggleApi> = ({
-  state,
-  context,
-  props,
-  send,
-}) => ({
-  open: state === 'open',
-  label: props.label,
-  count: context.count,
-  toggle: () => send({ type: 'toggle' }),
+afterEach(() => {
+  vi.clearAllMocks()
+  document.body.innerHTML = ''
 })
 
-const reaction = makeReaction<ToggleState, ToggleCtx, ToggleEvent, ToggleProps>()
-connect.reactions = [
-  reaction(
-    m => m.state === 'open',
-    (open, props) => props.onOpenChange?.(open),
-  ),
-]
-
-type ToggleMachine = ReturnType<typeof machine<ToggleState, ToggleCtx, ToggleEvent>>
-const noEffects: ComponentEffect<ToggleMachine, ToggleProps>[] = []
-
-afterEach(() => vi.clearAllMocks())
-
-function harness(
-  props: ToggleProps,
-  effects: ComponentEffect<ToggleMachine, ToggleProps>[] = noEffects,
-) {
-  const sink: { api?: ToggleApi; machine?: ToggleMachine } = {}
+// `log` records the machine lifecycle next to whatever the effects record, so
+// the tests can assert the relative order.
+function harness(effects: Effect[] = [], log: string[] = []) {
+  const sink: { api?: ToggleApi; machine?: ToggleMachine; renders: number } = { renders: 0 }
   const Comp = defineComponent({
-    props: {
-      label: { type: String, required: false },
-      onOpenChange: { type: Function as PropType<(open: boolean) => void>, required: false },
-    },
-    setup(p) {
-      const { api, machine: m } = useMachine(createConfig(), connect, effects, p as ToggleProps)
-      sink.machine = m
+    props: toggleProps,
+    setup(props) {
+      const { api, machine } = useMachine(createToggleConfig, connectToggle, effects, props)
+      machine.onStart(() => log.push('start'))
+      machine.onStop(() => log.push('stop'))
+      sink.machine = machine
       return () => {
         sink.api = api.value
-        return h('div', { 'data-testid': 'label' }, api.value.label ?? '∅')
+        sink.renders++
+        return h('div', { id: 'toggle-root' }, api.value.label ?? '∅')
       }
     },
   })
-  return { sink, Comp, props }
+  return { sink, Comp, log }
 }
 
+// Records the effect's runs and cleanups into the same log as the lifecycle.
+const loggingEffect = (log: string[], deps: (keyof ToggleProps)[] = []): Effect => [
+  () => {
+    log.push('effect')
+    return () => log.push('cleanup')
+  },
+  deps,
+]
+
 describe('useMachine — lifecycle', () => {
-  it('returns { api, machine }: api is the connect() output, machine is the running service', () => {
-    const { sink, Comp, props } = harness({ label: 'hi' })
-    mount(Comp, { props })
+  it('returns { api, machine }: api is a ref of the connect() output, machine the service', () => {
+    const { sink, Comp } = harness()
+    mount(Comp, { props: { label: 'hi' } })
     expect(sink.api).toMatchObject({ open: false, label: 'hi', count: 0 })
-    expect(typeof sink.api!.toggle).toBe('function')
     expect(typeof sink.machine!.send).toBe('function')
   })
 
-  it('starts the machine on mount and stops it on unmount', async () => {
-    const { sink, Comp, props } = harness({})
-    const wrapper = mount(Comp, { props })
-    sink.api!.toggle()
-    await nextTick()
-    expect(sink.api!.open).toBe(true)
-    expect(() => wrapper.unmount()).not.toThrow()
+  it('starts the machine after mount and stops it on unmount', () => {
+    const { Comp, log } = harness()
+    const wrapper = mount(Comp)
+    expect(log).toEqual(['start'])
+    wrapper.unmount()
+    expect(log).toEqual(['start', 'stop'])
   })
 
-  it('reflects snapshot changes in the reactive api', async () => {
-    const { sink, Comp, props } = harness({})
-    mount(Comp, { props })
+  it('re-renders when the snapshot changes', async () => {
+    const { sink, Comp } = harness()
+    mount(Comp)
+    const before = sink.renders
     sink.api!.toggle()
     await nextTick()
-    expect(sink.api!.open).toBe(true)
-    expect(sink.api!.count).toBe(1)
+    expect(sink.renders).toBeGreaterThan(before)
+    expect(sink.api).toMatchObject({ open: true, count: 1 })
   })
 })
 
 describe('useMachine — build once', () => {
   it('builds the machine ONCE: state survives prop changes (no rebuild)', async () => {
-    const { sink, Comp } = harness({ label: 'a' })
+    const { sink, Comp } = harness()
     const wrapper = mount(Comp, { props: { label: 'a' } })
     sink.api!.toggle() // → open, count 1
     await nextTick()
-    expect(sink.api!.open).toBe(true)
 
-    await wrapper.setProps({ label: 'b' }) // prop change must NOT rebuild/reset state
-    expect(sink.api!.open).toBe(true)
-    expect(sink.api!.count).toBe(1)
-    expect(sink.api!.label).toBe('b') // but the new prop IS reflected
+    await wrapper.setProps({ label: 'b' }) // a prop change must NOT rebuild/reset state
+    expect(sink.api).toMatchObject({ open: true, count: 1, label: 'b' })
   })
 })
 
 describe('useMachine — props freshness via setProps', () => {
-  it('flows later prop changes into the snapshot (setProps, not rebuild)', async () => {
-    const { sink, Comp } = harness({ label: 'first' })
+  it('flows later prop changes into the snapshot', async () => {
+    const { sink, Comp } = harness()
     const wrapper = mount(Comp, { props: { label: 'first' } })
-    expect(sink.api!.label).toBe('first')
     await wrapper.setProps({ label: 'second' })
     expect(sink.api!.label).toBe('second')
   })
 
-  it('value-dedups: an equal-valued prop update does not churn the snapshot', async () => {
-    const { sink, Comp } = harness({ label: 'x' })
+  it('value-dedups: an equal-valued prop update keeps the snapshot identity', async () => {
+    const { sink, Comp } = harness()
     const wrapper = mount(Comp, { props: { label: 'x' } })
-    const snap1 = sink.api
-    await wrapper.setProps({ label: 'x' }) // same value
-    expect(sink.api).toBe(snap1) // stable identity → no recompute
+    const before = sink.api
+    await wrapper.setProps({ label: 'x' })
+    expect(sink.api).toBe(before)
+  })
+
+  it('reactions call the latest prop callback', async () => {
+    const first = vi.fn()
+    const second = vi.fn()
+    const { sink, Comp } = harness()
+    const wrapper = mount(Comp, { props: { onOpenChange: first } })
+    await wrapper.setProps({ onOpenChange: second })
+    sink.api!.toggle()
+    expect(second).toHaveBeenCalledWith(true)
+    expect(first).not.toHaveBeenCalled()
+  })
+
+  it('never walks into prop values — setProps is shallow, and so is the props watch', async () => {
+    const reads = vi.fn()
+    const nested = {
+      get deep() {
+        reads()
+        return 1
+      },
+    }
+    const label = ref('a')
+    const Comp = defineComponent({
+      setup() {
+        // A getter is a valid props source too (MaybeRefOrGetter).
+        const props = () => ({ label: label.value, nested }) as ToggleProps
+        const { api } = useMachine(createToggleConfig, connectToggle, [], props)
+        return () => h('div', api.value.label)
+      },
+    })
+    const wrapper = mount(Comp)
+    label.value = 'b'
+    await nextTick()
+    expect(wrapper.text()).toBe('b')
+    expect(reads).not.toHaveBeenCalled()
+  })
+
+  it('hands props over exactly as Vue resolved them — an absent Boolean arrives as false', () => {
+    let seen: Record<string, unknown> | undefined
+    const Comp = defineComponent({
+      props: { ...toggleProps, plain: Boolean },
+      setup(props) {
+        const effects: Effect[] = [[(_machine, p) => void (seen = { ...p }), []]]
+        useMachine(createToggleConfig, connectToggle, effects, props)
+        return () => null
+      },
+    })
+    mount(Comp)
+    // `plain` shows the cast; `defaultOpen` shows the `default: undefined` fix.
+    expect(seen).toMatchObject({ plain: false, defaultOpen: undefined })
   })
 })
 
 describe('useMachine — reactions follow the machine lifecycle', () => {
-  it('fires the connect reaction (onOpenChange) when state flips while mounted', async () => {
+  it('fires the connect reaction while mounted, never after unmount', () => {
     const onOpenChange = vi.fn()
-    const { sink, Comp } = harness({ onOpenChange })
-    mount(Comp, { props: { onOpenChange } })
+    const { sink, Comp } = harness()
+    const wrapper = mount(Comp, { props: { onOpenChange } })
     expect(onOpenChange).not.toHaveBeenCalled() // not on subscribe
     sink.api!.toggle()
-    await nextTick()
-    expect(onOpenChange).toHaveBeenCalledWith(true)
+    expect(onOpenChange).toHaveBeenLastCalledWith(true)
+
+    // Unmount stops the machine, which unhooks the reactions: a send may still
+    // transition, but the callback must not fire.
+    wrapper.unmount()
     sink.api!.toggle()
-    await nextTick()
-    expect(onOpenChange).toHaveBeenCalledWith(false)
+    expect(onOpenChange).toHaveBeenCalledOnce()
   })
 })
 
 describe('useMachine — component effects', () => {
-  it('runs each ComponentEffect as its own effect (setup on mount, cleanup on unmount)', () => {
-    const setup = vi.fn()
-    const cleanup = vi.fn()
-    const effects: ComponentEffect<ToggleMachine, ToggleProps>[] = [[() => (setup(), cleanup), []]]
-    const { Comp } = harness({}, effects)
-    const wrapper = mount(Comp, { props: {} })
-    expect(setup).toHaveBeenCalledOnce()
-    expect(cleanup).not.toHaveBeenCalled()
-    wrapper.unmount()
-    expect(cleanup).toHaveBeenCalledOnce()
-  })
-
-  it('re-runs an effect ONLY when one of its named prop deps changes', async () => {
-    const fn = vi.fn(() => () => {})
-    const effects: ComponentEffect<ToggleMachine, ToggleProps>[] = [[fn, ['label']]]
-    const { Comp } = harness({ label: 'a' }, effects)
-    const wrapper = mount(Comp, { props: { label: 'a' } })
-    expect(fn).toHaveBeenCalledTimes(1)
-
-    await wrapper.setProps({ label: 'a' }) // dep unchanged → no re-run
-    expect(fn).toHaveBeenCalledTimes(1)
-
-    await wrapper.setProps({ label: 'b' }) // dep changed → re-run
-    expect(fn).toHaveBeenCalledTimes(2)
-  })
-
-  it('does NOT re-run an effect when a NON-dep prop changes', async () => {
-    const fn = vi.fn(() => () => {})
-    const effects: ComponentEffect<ToggleMachine, ToggleProps>[] = [[fn, ['label']]]
-    const { Comp } = harness({ label: 'a' }, effects)
-    const wrapper = mount(Comp, { props: { label: 'a', onOpenChange: () => {} } })
-    expect(fn).toHaveBeenCalledTimes(1)
-    await wrapper.setProps({ label: 'a', onOpenChange: () => {} }) // new fn identity, label same
-    expect(fn).toHaveBeenCalledTimes(1)
-  })
-
-  it('receives (machine, props) and can read live machine state', () => {
-    let seenOpen: boolean | undefined
-    const effects: ComponentEffect<ToggleMachine, ToggleProps>[] = [
+  it('runs each effect after mount, once the machine has started', () => {
+    const log: string[] = []
+    let rendered: Element | null = null
+    const effects: Effect[] = [
       [
-        m => {
-          seenOpen = m.matches('open')
+        () => {
+          rendered = document.getElementById('toggle-root')
+          log.push('effect')
         },
         [],
       ],
     ]
-    const { Comp } = harness({}, effects)
-    mount(Comp, { props: {} })
-    expect(seenOpen).toBe(false)
+    const { Comp } = harness(effects, log)
+    mount(Comp, { attachTo: document.body })
+    expect(log).toEqual(['start', 'effect'])
+    expect(rendered).not.toBeNull()
+  })
+
+  it('re-runs an effect ONLY when one of its named prop deps changes', async () => {
+    const fn = vi.fn()
+    const { Comp } = harness([[fn, ['label']]])
+    const wrapper = mount(Comp, { props: { label: 'a' } })
+    expect(fn).toHaveBeenCalledOnce()
+
+    await wrapper.setProps({ label: 'a', onOpenChange: () => {} }) // dep equal, non-dep changed
+    expect(fn).toHaveBeenCalledOnce()
+
+    await wrapper.setProps({ label: 'b' })
+    expect(fn).toHaveBeenCalledTimes(2)
+  })
+
+  it('does NOT re-run when the effect body reads a prop outside its deps', async () => {
+    // The authored deps list is the whole re-run contract, as with React's dep
+    // array: a prop the body merely reads must not become a hidden dependency.
+    const fn = vi.fn((_machine: ToggleMachine, props: ToggleProps) => void props.label)
+    const { Comp } = harness([[fn, []]])
+    const wrapper = mount(Comp, { props: { label: 'a' } })
+    await wrapper.setProps({ label: 'b' })
+    expect(fn).toHaveBeenCalledOnce()
+  })
+
+  it('runs the previous cleanup BEFORE re-running on a dep change', async () => {
+    const log: string[] = []
+    const { Comp } = harness([loggingEffect(log, ['label'])], log)
+    const wrapper = mount(Comp, { props: { label: 'a' } })
+    await wrapper.setProps({ label: 'b' })
+    expect(log).toEqual(['start', 'effect', 'cleanup', 'effect'])
+  })
+
+  it('re-runs after the DOM reflects the dep change', async () => {
+    const seen: (string | null | undefined)[] = []
+    const effects: Effect[] = [
+      [() => void seen.push(document.getElementById('toggle-root')?.textContent), ['label']],
+    ]
+    const { Comp } = harness(effects)
+    const wrapper = mount(Comp, { props: { label: 'a' }, attachTo: document.body })
+    await wrapper.setProps({ label: 'b' })
+    expect(seen).toEqual(['a', 'b'])
+  })
+
+  it('cleans up on unmount, after the machine stops', () => {
+    const log: string[] = []
+    const { Comp } = harness([loggingEffect(log)], log)
+    mount(Comp).unmount()
+    expect(log).toEqual(['start', 'effect', 'stop', 'cleanup'])
+  })
+})
+
+describe('useMachine — <KeepAlive> pauses like React <Activity>', () => {
+  it('stops the machine and its effects while deactivated, resumes them with state intact', async () => {
+    const log: string[] = []
+    const { sink, Comp } = harness([loggingEffect(log)], log)
+    const shown = ref(true)
+    const Other = defineComponent({ render: () => h('span') })
+    mount(defineComponent({ render: () => h(KeepAlive, null, [shown.value ? h(Comp) : h(Other)]) }))
+    expect(log).toEqual(['start', 'effect']) // onActivated also fires on first mount: no double start
+    sink.api!.toggle() // → open, count 1
+
+    shown.value = false
+    await nextTick()
+    expect(log).toEqual(['start', 'effect', 'stop', 'cleanup'])
+
+    shown.value = true
+    await nextTick()
+    expect(log).toEqual(['start', 'effect', 'stop', 'cleanup', 'start', 'effect'])
+    expect(sink.api).toMatchObject({ open: true, count: 1 })
+  })
+})
+
+describe('useMachine — async setup', () => {
+  it('starts under <Suspense> when called before the first await', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => {}) // Vue's "experimental" notice
+    const log: string[] = []
+    const Async = defineComponent({
+      async setup() {
+        const props: ToggleProps = {}
+        const { api, machine } = useMachine(
+          createToggleConfig,
+          connectToggle,
+          [loggingEffect(log)],
+          props,
+        )
+        machine.onStart(() => log.push('start'))
+        await Promise.resolve()
+        return () => h('div', String(api.value.open))
+      },
+    })
+    const wrapper = mount(defineComponent({ render: () => h(Suspense, null, () => h(Async)) }))
+    await flushPromises()
+    expect(wrapper.text()).toBe('false')
+    expect(log).toEqual(['start', 'effect'])
   })
 })
