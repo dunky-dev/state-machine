@@ -1,7 +1,0 @@
-{
-  // Aggregator config: `tsc -b` typechecks all real projects (root + benchmark)
-  // in one pass. They stay separate because benchmark needs its own `types`
-  // (react-dom/jsdom) resolved from benchmark/node_modules. See `typecheck` script.
-  "files": [],
-  "references": [{ "path": "./tsconfig.json" }, { "path": "./benchmark/tsconfig.json" }]
-}

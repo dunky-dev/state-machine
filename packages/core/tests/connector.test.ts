@@ -87,6 +87,19 @@ describe('connector', () => {
     expect(fn).toHaveBeenCalledTimes(1)
   })
 
+  it('a listener unsubscribed mid-notify does not fire in that pass', () => {
+    const { m, c } = setup()
+    const calls: string[] = []
+    let offB = () => {}
+    c.subscribe(() => {
+      calls.push('a')
+      offB() // removes b while the wake pass is still iterating
+    })
+    offB = c.subscribe(() => calls.push('b'))
+    m.send({ type: 'inc' })
+    expect(calls).toEqual(['a']) // unsubscribing is final, even mid-pass
+  })
+
   it('props are reactive — setProps recomputes the snapshot and wakes subscribers', () => {
     const { c } = setup({ label: 'one' })
     const fn = vi.fn()

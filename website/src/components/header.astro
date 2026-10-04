@@ -36,19 +36,39 @@ const { revealOnScroll = false } = Astro.props
         class="text-white/70 transition-colors hover:text-white">GitHub</a
       >
       <button
-        id="nav-toggle"
-        aria-label="Open navigation"
-        aria-expanded="false"
-        aria-controls="sidebar"
-        class="flex h-8 w-8 flex-col items-center justify-center gap-[5px] rounded text-white md:hidden"
+        id="theme-toggle"
+        type="button"
+        aria-label="Toggle color theme"
+        class="flex h-8 w-8 items-center justify-center rounded text-white/70 transition-colors hover:text-white"
       >
-        <span class="block h-px w-5 bg-current transition-all duration-200"></span>
-        <span class="block h-px w-5 bg-current transition-all duration-200"></span>
-        <span class="block h-px w-5 bg-current transition-all duration-200"></span>
+        <!-- sun shows in dark mode, moon in light mode (see style below) -->
+        <svg class="theme-icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+        </svg>
+        <svg class="theme-icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"></path>
+        </svg>
       </button>
     </nav>
   </div>
 </header>
+
+<script>
+  // Flip the theme and persist it under Starlight's key so the docs follow.
+  document.getElementById('theme-toggle')!.addEventListener('click', () => {
+    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'
+    document.documentElement.dataset.theme = next
+    localStorage.setItem('starlight-theme', next)
+  })
+</script>
+
+<style is:global>
+  :root[data-theme='dark'] .theme-icon-moon,
+  :root:not([data-theme='dark']) .theme-icon-sun {
+    display: none;
+  }
+</style>
 
 {
   revealOnScroll && (

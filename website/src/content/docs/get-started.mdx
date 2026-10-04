@@ -3,20 +3,11 @@ title: Get started
 description: Define a behavior once. Render it anywhere.
 ---
 
+import FlowDiagram from '../../assets/diagrams/flow-animated.svg'
+
 **A state machine, designed for UIs.** Every interface starts as a description: _open/closed, hovered, dragging, on this event, go there._ That description is pure intent, and it rarely changes. What changes is the code you write to express it, tangled into whatever framework you happen to be using. Dunky turns the description into the thing that actually runs: an agnostic machine that holds the behavior and nothing else, portable everywhere JavaScript does, and built for heavy load.
 
-```
-     AGNOSTIC                                                     SUBSTRATE
-          🫏 ⚙️      >>      🧠        >>      🔌        >>     ✨
-     ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-     │   dunky      │  │   machine    │  │   binding    │  │  behavior    │
-     │              │  │              │  │              │  │              │
-     │  the engine  │  │ states +     │  │ neutral wire │  │ live feature │
-     │  that runs   │  │ events +     │  │ agnostic     │  │ on DOM /     │
-     │  machines    │  │ logic        │  │ events/attrs │  │ TUI / RN     │
-     └──────────────┘  └──────────────┘  └──────────────┘  └──────────────┘
-         powers            decides           connects          appears
-```
+<FlowDiagram />
 
 ## How did it all end up here?
 
@@ -52,7 +43,7 @@ Dunky splits the problem into three independent layers:
 | ------------ | ---------------------------------------------- | ----------------------- |
 | **Behavior** | `@dunky.dev/state-machine`                     | _What_ a component does |
 | **Styles**   | `@dunky.dev/style-engine`                      | _How_ it looks          |
-| **Render**   | `@dunky.dev/state-machine-react` (and friends) | _Where_ it renders      |
+| **Render**   | `@dunky.dev/react-state-machine` (and friends) | _Where_ it renders      |
 
 You're here for layer one.
 

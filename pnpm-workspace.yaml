@@ -7,3 +7,7 @@ packages:
 allowBuilds:
   esbuild: true
   sharp: true
+minimumReleaseAgeExclude:
+  - '@solidjs/signals@2.0.0-rc.1'
+  - '@solidjs/web@2.0.0-rc.1'
+  - solid-js@2.0.0-rc.1

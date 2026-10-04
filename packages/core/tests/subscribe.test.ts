@@ -119,6 +119,12 @@ const counter = () =>
   })
 
 describe('select(fn) — function form', () => {
+  it('the select facade is a stable identity across accesses', () => {
+    const m = counter()
+    // consumers may capture it, destructure it, or pass it to dependency arrays
+    expect(m.select).toBe(m.select)
+  })
+
   it('.value reads the current selected value', () => {
     const m = counter()
     const len = m.select(() => m.context.items.length)
@@ -356,5 +362,40 @@ describe('reentrancy — subscribing/unsubscribing during a notify', () => {
     calls.length = 0
     m.send({ type: 'inc' })
     expect(calls).toEqual(['a'])
+  })
+
+  it('a nested notify does not resurrect a listener removed in the outer pass', () => {
+    let set!: (patch: Partial<{ n: number }>) => void
+    const m = machine<'idle', { n: number }, { type: 'inc' }>({
+      initial: 'idle',
+      context: { n: 0 },
+      states: {
+        idle: {
+          effects: [
+            ({ setContext }) => {
+              set = setContext
+            },
+          ],
+          on: { inc: { actions: [({ context, setContext }) => setContext({ n: context.n + 1 })] } },
+        },
+      },
+    })
+    m.start()
+    const calls: string[] = []
+    let offB = () => {}
+    let nested = false
+    m.subscribe(() => {
+      calls.push('a')
+      if (!nested) {
+        nested = true
+        offB()
+        set({ n: 99 }) // nested notify while the outer pass is still iterating
+      }
+    })
+    offB = m.subscribe(() => calls.push('b'))
+    m.send({ type: 'inc' })
+    // A fires in the outer pass and again in the nested one; B was removed
+    // before the nested notify and must not fire in either.
+    expect(calls).toEqual(['a', 'a'])
   })
 })

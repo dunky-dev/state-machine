@@ -191,7 +191,7 @@ method names it exposes.
 
 ### Run-to-completion
 
-- Dispatching an event **enqueues** it; the queue is drained one item at a
+- Dispatching an event **enqueues** it; the queue is flushed one item at a
   time. An event dispatched from inside an action, effect, or watcher is
   appended and processed after the current item finishes — never
   interleaved. The state graph is never observed mid-transition.

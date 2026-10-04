@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest'
-import { mergeProps } from '@dunky.dev/state-machine-native'
+import { describe, expect, expectTypeOf, it, vi } from 'vitest'
+import { mergeProps } from '@dunky.dev/native-state-machine'
 
 describe('mergeProps', () => {
   it('inherits handler composition from the agnostic base', () => {
@@ -41,5 +41,18 @@ describe('mergeProps', () => {
     // last-wins (the agnostic base) applies, no concatenation.
     const out = mergeProps({ className: 'a' }, { className: 'b' })
     expect(out.className).toBe('b')
+  })
+})
+
+describe('mergeProps typing', () => {
+  it('preserves a typed consumer through the style merge', () => {
+    interface PressableLikeProps {
+      style?: unknown
+      onPress?: () => void
+    }
+    const consumer: PressableLikeProps = { style: { opacity: 1 } }
+    const out = mergeProps(consumer, { style: { opacity: 0.5 } })
+    expectTypeOf(out).toExtend<PressableLikeProps>()
+    expect(out.style).toEqual([{ opacity: 1 }, { opacity: 0.5 }])
   })
 })

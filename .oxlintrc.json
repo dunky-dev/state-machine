@@ -13,6 +13,7 @@
   ],
   "rules": {
     "eslint/arrow-body-style": ["error", "as-needed"],
+    "eslint/no-unused-vars": "error",
     "import/newline-after-import": "error",
     "unicorn/filename-case": [
       "error",

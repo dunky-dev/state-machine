@@ -445,28 +445,30 @@ export function createGame(): Game {
 
   const caught = (px: number, py: number, gx: number, gy: number) => px === gx && py === gy
 
-  // Did we already reset the ghost/board for the current death? Prevents the
-  // per-tick reset that flips the ghost back to `roaming` (re-showing it) while
-  // pacman is still dead — that's what put the skull AND the ghost on the board
-  // together. We hold everything frozen during `dead`, then reset ONCE the tick
-  // pacman has revived, so the whole board comes back in sync.
-  let resetPending = false
+  // Pacman's `dead` state revives itself (after-timer or a manual `revive`).
+  // The ghost and board are reset in that same notification, so the skull,
+  // the hidden ghost, and the eaten board never coexist with a revived pacman:
+  // one render frame flips all three back to the start together.
+  let holdTick = false
+  let resetting = false // the resets below re-enter this reaction; run them once
+  group.sync(() => {
+    if (resetting || pacman.state !== 'eating' || board.state !== 'caught') return
+    resetting = true
+    ghost.send({ type: 'reset' })
+    board.send({ type: 'reset' })
+    resetting = false
+    holdTick = true
+  })
 
   const tick = (forced?: Dir) => {
-    // While dead, freeze: pacman shows the skull, the ghost stays `stopped`
-    // (hidden). The `after` timer on the dead state auto-revives pacman; we just
-    // mark that a ghost/board reset is owed for when it comes back.
-    if (pacman.state === 'dead') {
-      resetPending = true
-      return
-    }
+    // While dead, freeze: pacman shows the skull, the ghost stays hidden.
+    if (pacman.state === 'dead') return
 
-    // First tick after revival: bring the ghost and board back together, in sync
-    // with the freshly-revived pacman.
-    if (resetPending) {
-      resetPending = false
-      ghost.send({ type: 'reset' })
-      board.send({ type: 'reset' })
+    // The first tick after a revive is skipped so the fresh board sits on
+    // screen for a beat before pacman moves off the start cell.
+    if (holdTick) {
+      holdTick = false
+      return
     }
 
     // SNAPSHOT old positions: ctx is a live reference (the engine mutates it in

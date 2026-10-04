@@ -1,0 +1,15 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.json" },
+    { "path": "./packages/core" },
+    { "path": "./packages/dom" },
+    { "path": "./packages/react" },
+    { "path": "./packages/solid" },
+    { "path": "./packages/native" },
+    { "path": "./packages/opentui" },
+    { "path": "./packages/shared/utils" },
+    { "path": "./packages/shared/bindings" },
+    { "path": "./benchmark" }
+  ]
+}

@@ -17,28 +17,6 @@ layer plugs it into a runtime.
 The same machine drives any render in a JS runtime. Same states, same
 transitions, same accessibility intent. Only the render differs.
 
-```
-          +------------------------------+
-          |      ONE STATE MACHINE       |
-          |   states · events · context  |
-          |   pure behavior — no render  |
-          +---------------+--------------+
-                          |  connect() → onPress · role · describedBy
-          +---------------+---------------+
-          v               v               v
-    +-----------+   +-----------+   +-----------+
-    | React DOM |   |   Native  |   |    TUI    |
-    | → onClick |   |→ Pressable|   | → keypress|
-    |  + aria-* |   |   + a11y  |   |  + cells  |
-    +-----------+   +-----------+   +-----------+
-     same behavior, byte-for-byte — only the render differs
-```
-
-> **Status: experimental.** The engine (`packages/core`) is stable and tested. The
-> target bridges are NOT production-ready yet.
->
-> This is an in-progress exploration.
-
 ## The challenge
 
 ### Truly agnostic
@@ -60,13 +38,13 @@ canvas board, a game HUD. There the cost of each transition and the memory per
 machine, multiplied by thousands, is what decides whether you hold the frame. The
 engine is built for it:
 
-| At scale (thousands of machines) |     Dunky | XState |     Zag |
-| -------------------------------- | --------: | -----: | ------: |
-| Event throughput (ops/s)         | **7.2 M** |  897 K |   n/a ᵃ |
-| Memory / machine, 2-field (KB)   |   **3.6** |    3.6 |     9.1 |
-| Memory / machine, 64-field (KB)  |   **4.1** |    4.1 | **134** |
+| At scale (thousands of machines) |      Dunky | XState |     Zag |
+| -------------------------------- | ---------: | -----: | ------: |
+| Event throughput (ops/s)         | **11.6 M** |  1.6 M |   n/a ᵃ |
+| Memory / machine, 2-field (KB)   |    **3.9** |    3.6 |     8.9 |
+| Memory / machine, 64-field (KB)  |    **4.4** |    4.1 | **134** |
 
-→ **~8× XState's throughput**, on par with XState for memory but at least **3× lighter than Zag** — and the gap widens as context grows, because memory stays ~flat in field count (no per-field cell). ᵃ Zag uses async ops, so a synchronous ops/s loop can't time it. Full methodology + per-scenario tables in the
+→ **~7× XState's throughput**, on par with XState for memory but at least **2× lighter than Zag** — and the gap widens as context grows, because memory stays ~flat in field count (no per-field cell). ᵃ Zag uses async ops, so a synchronous ops/s loop can't time it. Full methodology + per-scenario tables in the
 **[benchmark README](./benchmark/README.md)**.
 
 **▶ [Try the live benchmark demo](https://dunky.dev/state-machine/benchmark/demo)** — watch all three engines run in your browser.
@@ -76,18 +54,7 @@ engine is built for it:
 The machine's behavior flows out through a few thin layers until it reaches real
 elements — the left two are agnostic, the right three are per-target:
 
-```
-AGNOSTIC                                                            SUBSTRATE
-    🫏 ⚙️       -->        🧠        -->       🔌         -->       ✨
-+--------------+     +--------------+     +--------------+     +--------------+
-|   dunky      |     |   machine    |     |   binding    |     |  behavior    |
-|              |     |              |     |              |     |              |
-|  the engine  |     | states +     |     | neutral wire |     | live feature |
-|  that runs   |     | events +     |     | agnostic     |     | on DOM /     |
-|  machines    |     | logic        |     | events/attrs |     | TUI / RN     |
-+--------------+     +--------------+     +--------------+     +--------------+
-   powers              decides              connects             appears
-```
+![How Dunky works, from agnostic to substrate: the dunky engine powers, the machine decides, the binding connects, the behavior appears](./website/src/assets/diagrams/flow-animated.svg)
 
 - **core** — the state-machine engine. Pure behavior: states, transitions,
   context, effects. Knows nothing about a renderer.
@@ -105,6 +72,7 @@ The full layered model and the "the machine never sees props" rule are in:
 - **[`ARCHITECTURE.md`](./ARCHITECTURE.md)** — the big-picture map and the layered model.
 - **[`packages/core/README.md`](./packages/core/README.md)** — the state machine engine and its full API.
 - **[`benchmark/README.md`](./benchmark/README.md)** — what's measured, the methodology, and results vs. XState & Zag.
+- **[`ACCESSIBILITY.md`](./ACCESSIBILITY.md)** — the external specs every package answers to.
 - **[`AGENTS.md`](./AGENTS.md)** — the contributor / agent contract.
 
 ## Inspiration & prior art

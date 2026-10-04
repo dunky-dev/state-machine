@@ -1,5 +1,65 @@
 # @dunky.dev/state-machine-utils
 
+## 0.4.0
+
+### Minor Changes
+
+- [#66](https://github.com/dunky-dev/state-machine/pull/66) [`6deab75`](https://github.com/dunky-dev/state-machine/commit/6deab7569ee7854bb5b8b8efca611ef7e5db28ce) Thanks [@ivanbanov](https://github.com/ivanbanov)! - Remove the dead exports: the positioning module (`Placement`, `Side`,
+  `PositioningOptions`, `placementToSide`, `pickSide`), `memo`, and
+  `composeHandlers`. Nothing in the repo ever consumed them — `mergeProps`
+  composes handlers through its own private helper, and positioning was
+  speculative vocabulary for floating components that don't exist yet.
+  `mergeProps` is now the package's whole surface. Minor (not patch) because
+  the symbols were publicly exported: any external import of them breaks.
+  Positioning will come back designed against a real floating component when
+  one lands.
+
+- [#66](https://github.com/dunky-dev/state-machine/pull/66) [`6deab75`](https://github.com/dunky-dev/state-machine/commit/6deab7569ee7854bb5b8b8efca611ef7e5db28ce) Thanks [@ivanbanov](https://github.com/ivanbanov)! - Export `composeHandlers` — the handler-pair composition `mergeProps` has
+  always applied to overlapping `on*` props, now public: the consumer handler
+  runs first, and the library handler is skipped when the consumer prevented
+  default (the first argument's `defaultPrevented`, per Radix/Ark conventions).
+  No behavior change anywhere — `mergeProps` calls the same function; it was
+  just private before.
+
+  ```ts
+  import { composeHandlers } from "@dunky.dev/state-machine-utils";
+
+  const onClick = composeHandlers(consumerOnClick, libraryOnClick);
+  ```
+
+## 0.3.2
+
+### Patch Changes
+
+- [#53](https://github.com/dunky-dev/state-machine/pull/53) [`ff68b45`](https://github.com/dunky-dev/state-machine/commit/ff68b45343293a5f11bba6b032a6f89edf64c83e) Thanks [@ivanbanov](https://github.com/ivanbanov)! - Ship the `src` folder in the published packages, alongside `dist`. The
+  READMEs point at source files for the full binding mappings (e.g.
+  `./src/normalize.ts`), and those links were dead on the npm page because
+  only `dist` was published. The sources are small, plain TypeScript, so the
+  readable reference now travels with the package; the build outputs and the
+  `exports` map are unchanged.
+
+## 0.3.1
+
+## 0.3.0
+
+### Minor Changes
+
+- [#51](https://github.com/dunky-dev/state-machine/pull/51) [`a37c088`](https://github.com/dunky-dev/state-machine/commit/a37c088a542e32857efcb1aef226d0ebf34e689d) Thanks [@ivanbanov](https://github.com/ivanbanov)! - `mergeProps` is generic over the consumer's props: a framework prop type (an
+  interface without an index signature — `PressableProps`, `ComponentProps<'div'>`)
+  now passes in and comes back out cast-free. Behavior is unchanged; the merged
+  bag still carries the library's bindings, typed as the consumer's props (the
+  `Object.assign` convention), so the JSX spread stays clean.
+
+  ```tsx
+  // before
+  const merged = mergeProps(
+    props as Record<string, unknown>,
+    bindings
+  ) as PressableProps;
+  // after
+  const merged = mergeProps(props, bindings);
+  ```
+
 ## 0.2.0
 
 ## 0.1.0
@@ -19,15 +79,15 @@
   **⚡️ Blazing fast.** Design systems and complex UIs can run hundreds of live machines at once. Dunky is tuned for exactly that load. [See the benchmark →](https://github.com/dunky-dev/state-machine/tree/main/benchmark#readme)
 
   ```ts
-  import { setup } from '@dunky.dev/state-machine'
+  import { setup } from "@dunky.dev/state-machine";
 
   const toggle = setup({
-    initial: 'off',
+    initial: "off",
     states: {
-      off: { on: { TOGGLE: 'on' } },
-      on: { on: { TOGGLE: 'off' } },
+      off: { on: { TOGGLE: "on" } },
+      on: { on: { TOGGLE: "off" } },
     },
-  })
+  });
   ```
 
   This is our first public release (`0.1.0`). The engine is stable and tested; the target bridges are early and evolving. Come kick the tires, watch the live benchmark, and tell us where it breaks.

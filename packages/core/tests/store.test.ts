@@ -42,6 +42,26 @@ describe('createStore', () => {
     expect(store.isOpen('y')).toBe(false)
   })
 
+  it('set() produces a fresh state identity (a useSyncExternalStore snapshot signal)', () => {
+    const store = createStore({ count: 0 })
+    const before = store.get()
+    store.set({ count: 1 })
+    expect(store.get()).not.toBe(before) // identity change IS the re-render signal
+  })
+
+  it('a listener unsubscribed mid-notify does not fire in that pass', () => {
+    const store = createStore({ count: 0 })
+    const calls: string[] = []
+    let offB = () => {}
+    store.subscribe(() => {
+      calls.push('a')
+      offB()
+    })
+    offB = store.subscribe(() => calls.push('b'))
+    store.set({ count: 1 })
+    expect(calls).toEqual(['a'])
+  })
+
   it('no-op set (same shallow values) does NOT notify (Object.is dedup)', () => {
     // set shallow-equal-dedups: writing the same value is a no-op, no wake.
     const store = createStore({ n: 5 })

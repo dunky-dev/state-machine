@@ -2,12 +2,9 @@ import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { svelteTesting } from '@testing-library/svelte/vite'
 import { defineConfig } from 'vitest/config'
 
-// Two projects. The default one keeps the original plain-node setup for every
-// package (the react tests opt into jsdom per-file via `// @vitest-environment
-// jsdom`, which needs no plugin since esbuild handles JSX). The `svelte` project
-// is scoped to packages/svelte and brings the Svelte compiler (so `.svelte` test
-// components and `.svelte.ts` runes modules are transformed) plus jsdom, which
-// `@testing-library/svelte` renders into.
+// Two projects: the Solid tests need vite-plugin-solid's JSX transform, which
+// must not rewrite the React `.tsx` tests. The solid project lives with its
+// package so the root carries no Solid dependencies.
 export default defineConfig({
   test: {
     projects: [
@@ -16,10 +13,11 @@ export default defineConfig({
           name: 'default',
           globals: false,
           environment: 'node',
-          include: ['**/*.test.{ts,tsx}'],
-          exclude: ['**/node_modules/**', '**/dist/**', 'packages/svelte/**'],
+          include: ['packages/**/tests/**/*.test.{ts,tsx}'],
+          exclude: ['**/node_modules/**', '**/dist/**', 'packages/solid/**', 'packages/svelte/**'],
         },
       },
+      './packages/solid/vitest.config.ts',
       {
         // `svelteTesting()` compiles the testing-library helpers themselves
         // (their own `.svelte.js`) and resolves Svelte's browser/client build so

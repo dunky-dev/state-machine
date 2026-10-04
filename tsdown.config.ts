@@ -17,7 +17,9 @@ export default defineConfig({
   // `src` (no `dist`), so it has no build step here.
   workspace: [
     'packages/core',
+    'packages/dom',
     'packages/react',
+    'packages/solid',
     'packages/native',
     'packages/opentui',
     'packages/shared/utils',

@@ -24,12 +24,12 @@ The host
                                |
 +-----------------------------------------------------------------------+
 |  shared/utils                                                         |
-|  Cross-target helpers (mergeProps, composeHandlers, positioning)      |
+|  Cross-target helpers (mergeProps, composeHandlers)                   |
 +-----------------------------------------------------------------------+
                                |  bridged per target
                                v
 +------------------------------------------------------------------------+
-|  <target>   (react, native, opentui, …)                                |
+|  <target>   (react, solid, native, opentui, …)                         |
 |  Runtime-specific bridge                                               |
 |  • lifecycle (build + start/stop)  • normalize bindings -> props       |
 |  • selector subscription                                               |
@@ -56,9 +56,9 @@ actions. Nothing in `core/` knows that React or the DOM exists.
 
 **`shared/`** is the cross-target side — `shared/bindings` owns the
 substrate-agnostic event and attr vocabulary (`onPress`, `role`, …); `shared/utils`
-owns cross-target helpers (mergeProps, composeHandlers, positioning).
+owns cross-target helpers (mergeProps, composeHandlers).
 
-**`<target>/`** is the substrate side — `react`, `native`, `opentui`, and any
+**`<target>/`** is the substrate side — `react`, `solid`, `native`, `opentui`, and any
 future renderer. Each target is the runtime bridge for one environment: the
 lifecycle bridge, the event normalization, and the selector subscription all
 live here.
@@ -93,12 +93,12 @@ Zag, whose machines read props directly.)
 
 ## Project structure
 
-| File / location             | What it owns                                                  |
-| --------------------------- | ------------------------------------------------------------- |
-| `packages/core/`            | State-machine engine (plain-mutation kernel)                  |
-| `packages/shared/bindings/` | Substrate-agnostic event + attr vocabulary (onPress, role, …) |
-| `packages/shared/utils/`    | mergeProps, composeHandlers, positioning, memo                |
-| `packages/<target>/`        | Hook + normalize per substrate (react, native, opentui, …)    |
+| File / location             | What it owns                                                      |
+| --------------------------- | ----------------------------------------------------------------- |
+| `packages/core/`            | State-machine engine (plain-mutation kernel)                      |
+| `packages/shared/bindings/` | Substrate-agnostic event + attr vocabulary (onPress, role, …)     |
+| `packages/shared/utils/`    | mergeProps, composeHandlers                                       |
+| `packages/<target>/`        | Hook + normalize per substrate (react, solid, native, opentui, …) |
 
 ## The map
 
@@ -119,9 +119,9 @@ shared/bindings                       substrate-agnostic event + attr vocabulary
 +-- (onPress, role, aria-*, …)        consumed by every target's normalize
 
 shared/utils                          cross-target, cross-component helpers
-+-- (composeHandlers, positioning, memo, mergeProps)
++-- (mergeProps, composeHandlers)
 
-<target>                              one substrate (react, native, opentui, …)
+<target>                              one substrate (react, solid, native, opentui, …)
 |                                     runtime, hooks, and props translator
 +-- use-machine                       lifecycle bridge (build + start/stop + useSyncExternalStore)
 +-- use-selector                      fine-grained leaf subscription (O(readers))
@@ -133,10 +133,10 @@ Three package groups, three jobs:
 - **`core/`** — _the agnostic side_. Behavior, types, and the engine that
   knows nothing about a renderer.
 - **`shared/`** — _the cross-target side_. `shared/bindings` owns the
-  event + attr vocabulary; `shared/utils` owns agnostic helpers (positioning,
-  prop merging, memoization).
+  event + attr vocabulary; `shared/utils` owns agnostic helpers (prop
+  merging, handler composition).
 - **`<target>/`** — _the substrate side_. One folder per renderer
-  (`react`, `native`, `opentui`). Owns its runtime bridge and its props translator.
+  (`react`, `solid`, `native`, `opentui`). Owns its runtime bridge and its props translator.
 
 ## The machine parts
 
@@ -174,11 +174,27 @@ whether it needs props/platform or not:
 
 ## Vocabulary
 
-| Term         | What it is                                                                                                                |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| **host**     | The agnostic core — `packages/core/*`. Declares what behavior is.                                                         |
-| **target**   | A substrate-specific bridge package and its render environment — `packages/<target>/*` (`react`, `native`, `opentui`, …). |
-| **machine**  | A state-graph config consumed by `machine()`; returns a startable service.                                                |
-| **connect**  | A function returning the logical surface a view spreads onto elements.                                                    |
-| **bindings** | The substrate-agnostic event + attr vocabulary — lives in `shared/bindings`, consumed by every target's normalize.        |
-| **compose**  | Run several machines as one unit (orthogonal regions): bundled `start`/`stop` + `sync` + `combine`.                       |
+| Term         | What it is                                                                                                                                                                                                                                                                             |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **host**     | The agnostic core — `packages/core/*`. Declares what behavior is.                                                                                                                                                                                                                      |
+| **target**   | A substrate-specific bridge package and its render environment — `packages/<target>/*` (`react`, `solid`, `native`, `opentui`, …).                                                                                                                                                     |
+| **machine**  | A state-graph config consumed by `machine()`; returns a startable service.                                                                                                                                                                                                             |
+| **connect**  | A function returning the logical surface a view spreads onto elements.                                                                                                                                                                                                                 |
+| **bindings** | The substrate-agnostic event + attr vocabulary — lives in `shared/bindings`, consumed by every target's normalize. Each target's rename map and drop set are vocabulary-typed (`HandlerTargets`/`AttrTargets`, `HandlerKey`/`AttrKey`), so a typo'd or unknown key is a compile error. |
+| **compose**  | Run several machines as one unit (orthogonal regions): bundled `start`/`stop` + `sync` + `combine`.                                                                                                                                                                                    |
+
+## Versioning
+
+Every package versions independently; `.changeset/config.json` keeps `fixed`
+and `linked` empty, so no group is ever forced to share a version number —
+an untouched package never gets an empty bump.
+
+Internal workspace dependencies pin exact (`workspace:*`), never a caret
+range (`workspace:^`). Independent versions mean siblings drift apart at
+their own pace, so a caret range between two packages that share a further
+dependency can let a consumer's install resolve to two different physical
+copies of it — a dependency diamond. Anything identity-sensitive further
+down (a singleton, a `WeakMap`, module-level state) breaks silently across
+the two copies. An exact pin collapses the diamond to one resolvable
+version: a mismatch fails at publish time, not at runtime in a consumer's
+app.

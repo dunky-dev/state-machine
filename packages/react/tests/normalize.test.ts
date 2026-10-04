@@ -8,7 +8,9 @@
  * pass-through.
  */
 import { describe, expect, it, vi } from 'vitest'
-import { normalize } from '@dunky.dev/state-machine-react'
+import { normalize } from '@dunky.dev/react-state-machine'
+import { ATTR_MAP, HANDLER_MAP } from '../src/normalize'
+import { describeVocabularyAccounting } from '../../shared/bindings/tests/fixtures/vocabulary-accounting'
 
 describe('react normalize — handlers', () => {
   it('maps onPress to onClick (the DOM activation event)', () => {
@@ -136,49 +138,13 @@ describe('react normalize — expanded handler surface', () => {
     expect(out.onDoubleClick).toBe(onDoublePress)
   })
 
-  it('onValueChange receives a ChangePayload built from the DOM event', () => {
+  // Payload construction is pinned once in @dunky.dev/state-machine-dom's own
+  // tests; this only proves normalize WRAPS the handler with its adapter.
+  it('onValueChange receives the adapted ChangePayload, not the raw event', () => {
     const onValueChange = vi.fn()
     const out = normalize({ onValueChange })
     ;(out.onChange as (e: unknown) => void)({ target: { value: 'hi', type: 'text' } })
-    expect(onValueChange).toHaveBeenCalledWith({
-      value: 'hi',
-      defaultPrevented: undefined,
-      preventDefault: undefined,
-    })
-    ;(out.onChange as (e: unknown) => void)({ target: { checked: true, type: 'checkbox' } })
-    expect(onValueChange).toHaveBeenLastCalledWith(expect.objectContaining({ value: true }))
-  })
-
-  it('onWheel receives a WheelPayload with a neutral deltaUnit (deltaMode → enum)', () => {
-    const onWheel = vi.fn()
-    const out = normalize({ onWheel })
-    ;(out.onWheel as (e: unknown) => void)({ deltaX: 1, deltaY: 2, deltaZ: 0, deltaMode: 1 })
-    expect(onWheel).toHaveBeenCalledWith(
-      expect.objectContaining({ deltaX: 1, deltaY: 2, deltaZ: 0, deltaUnit: 'line' }),
-    )
-  })
-
-  it('onScroll / onScrollEnd receive a neutral ScrollPayload from currentTarget geometry', () => {
-    const onScroll = vi.fn()
-    const out = normalize({ onScroll })
-    ;(out.onScroll as (e: unknown) => void)({
-      currentTarget: {
-        scrollLeft: 5,
-        scrollTop: 50,
-        scrollWidth: 800,
-        scrollHeight: 1200,
-        clientWidth: 400,
-        clientHeight: 600,
-      },
-    })
-    expect(onScroll).toHaveBeenCalledWith({
-      offsetX: 5,
-      offsetY: 50,
-      contentWidth: 800,
-      contentHeight: 1200,
-      viewportWidth: 400,
-      viewportHeight: 600,
-    })
+    expect(onValueChange).toHaveBeenCalledWith(expect.objectContaining({ value: 'hi' }))
   })
 })
 
@@ -293,3 +259,5 @@ describe('react normalize — expanded attribute surface', () => {
     expect(onValueChange).toHaveBeenCalledWith(expect.objectContaining({ value: '50' }))
   })
 })
+
+describeVocabularyAccounting('react', normalize, { map: HANDLER_MAP }, { map: ATTR_MAP })
