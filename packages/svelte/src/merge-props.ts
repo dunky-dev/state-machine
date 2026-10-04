@@ -1,71 +1,40 @@
+import { composeHandlers, mergeProps as baseMergeProps } from '@dunky.dev/state-machine-utils'
+
 type AnyProps = Record<string, unknown>
 type AnyHandler = (...args: unknown[]) => unknown
 
-// A Svelte DOM event prop: lowercase `on` + an event name (`onclick`,
-// `onkeydown`, `onpointerenter`). This is where the Svelte merge diverges from
-// the shared `baseMergeProps`, whose detector keys off React's camelCase form
-// (`on` + an UPPERCASE letter). After `normalize`, the library props are all
-// lowercase, so we chain on the lowercase shape instead.
-const isEventHandlerKey = (key: string): boolean =>
-  key.length > 2 && key.startsWith('on') && key[2] !== key[2]!.toUpperCase()
-
-const isFn = (v: unknown): v is AnyHandler => typeof v === 'function'
-
-function compose(consumer: AnyHandler, library: AnyHandler): AnyHandler {
-  return (...args) => {
-    consumer(...args)
-    // Respect consumer's defaultPrevented — if the first arg looks like an event
-    // whose default was prevented, the library handler is skipped. Matches the
-    // Radix/Ark convention the React/base mergers use.
-    const event = args[0] as { defaultPrevented?: boolean } | undefined
-    if (event && typeof event === 'object' && event.defaultPrevented) return
-    return library(...args)
-  }
-}
+// The agnostic base composes only `on` + an uppercase letter; Svelte's event
+// props are the lowercase DOM names (`onclick`), so those compose here.
+const isLowercaseHandlerKey = (key: string): boolean => /^on[a-z]/.test(key)
 
 /**
- * Merge a consumer's props with the component's (library) props for the same
- * element — the Svelte counterpart of the React `mergeProps`.
- *
- * - **Event handlers are chained, consumer-first**, with the same
- *   `defaultPrevented` veto: if the consumer's handler prevents the event, the
- *   library's is skipped. Detection is on Svelte's lowercase `on*` props.
- * - **`class` is concatenated** with a single space and trimmed (`'a b'` + `'c'`
- *   → `'a b c'`), the Svelte attribute name (React's `className`). String + string
- *   only; otherwise library wins.
- * - **`style` is concatenated** as a string (Svelte styles are strings, not the
- *   React array form), joined with `; ` and trimmed. String + string only;
- *   otherwise library wins.
- * - **Everything else: library wins** — the component owns its semantics
- *   (`id`, `role`, `aria-*`).
- *
- * If the consumer passes no props, the library props are returned as-is.
+ * Merge consumer props with the component's normalized props, Svelte-style:
+ * the substrate-agnostic mergeProps (handlers compose, library wins) over
+ * Svelte's lowercase event props too, plus `class` of any shape merged as
+ * `[consumer, library]` (Svelte resolves strings, arrays, and objects through
+ * clsx) and overlapping `style` strings joined, library last so it wins.
  */
-export function mergeProps(consumer: AnyProps | undefined, library: AnyProps): AnyProps {
-  if (!consumer) return library
-  const out: AnyProps = { ...consumer }
+export function mergeProps<Props extends object = AnyProps>(
+  consumer: Props | undefined,
+  library: AnyProps,
+): Props & AnyProps {
+  const merged: AnyProps = baseMergeProps(consumer as AnyProps | undefined, library)
+  if (!consumer) return merged as Props & AnyProps
+  const own = consumer as AnyProps
 
-  for (const [key, libValue] of Object.entries(library)) {
-    const consumerValue = consumer[key]
-
-    if (isEventHandlerKey(key) && isFn(consumerValue) && isFn(libValue)) {
-      out[key] = compose(consumerValue, libValue)
-      continue
+  for (const key in library) {
+    const ours = own[key]
+    const theirs = library[key]
+    if (isLowercaseHandlerKey(key) && typeof ours === 'function' && typeof theirs === 'function') {
+      merged[key] = composeHandlers(ours as AnyHandler, theirs as AnyHandler)
     }
-
-    if (key === 'class' && typeof consumerValue === 'string' && typeof libValue === 'string') {
-      out.class = `${consumerValue} ${libValue}`.trim()
-      continue
-    }
-
-    if (key === 'style' && typeof consumerValue === 'string' && typeof libValue === 'string') {
-      out.style = `${consumerValue.replace(/;\s*$/, '')}; ${libValue}`.trim()
-      continue
-    }
-
-    // Default: library wins.
-    out[key] = libValue
+  }
+  if (own.class != null && library.class != null) {
+    merged.class = [own.class, library.class]
+  }
+  if (typeof own.style === 'string' && typeof library.style === 'string') {
+    merged.style = `${own.style}; ${library.style}`
   }
 
-  return out
+  return merged as Props & AnyProps
 }

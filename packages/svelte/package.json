@@ -25,7 +25,8 @@
   "dependencies": {
     "@dunky.dev/state-machine": "workspace:*",
     "@dunky.dev/state-machine-bindings": "workspace:*",
-    "@dunky.dev/state-machine-dom": "workspace:*"
+    "@dunky.dev/state-machine-dom": "workspace:*",
+    "@dunky.dev/state-machine-utils": "workspace:*"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.1",

@@ -243,6 +243,9 @@ importers:
       '@dunky.dev/state-machine-dom':
         specifier: workspace:*
         version: link:../dom
+      '@dunky.dev/state-machine-utils':
+        specifier: workspace:*
+        version: link:../shared/utils
     devDependencies:
       '@sveltejs/vite-plugin-svelte':
         specifier: ^7.3.1
