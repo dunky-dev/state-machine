@@ -9,7 +9,7 @@
  * nothing relies on accidental pass-through.
  */
 import { describe, expect, it, vi } from 'vitest'
-import { normalize } from '@dunky.dev/state-machine-svelte'
+import { normalize } from '@dunky.dev/svelte-state-machine'
 
 describe('svelte normalize — handlers', () => {
   it('maps onPress to onclick (the DOM activation event)', () => {

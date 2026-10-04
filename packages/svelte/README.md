@@ -1,4 +1,4 @@
-# `@dunky.dev/state-machine-svelte`
+# `@dunky.dev/svelte-state-machine`
 
 The **Svelte 5 bindings** for [`@dunky.dev/state-machine`](../core/README.md).
 The core engine is renderer-agnostic; this package is the thin Svelte edge that
@@ -11,7 +11,7 @@ Everything here is deliberately small — the behavior lives in the core machine
 and the component's `connect`; this layer only adapts them to Svelte. There are
 four exports: one bridge (`useMachine`, which also runs the component's substrate
 effects), one leaf-subscription helper (`useSelector`), and two prop helpers
-(`normalize`, `mergeProps`) — plus the `ComponentEffect` types.
+(`normalize`, `mergeProps`) — plus the `ComponentEffect` type.
 
 > **Svelte 5 only.** `useMachine` and `useSelector` use runes (`$state`,
 > `$effect`), so they ship as `.svelte.ts` modules and are compiled by your
@@ -83,7 +83,7 @@ Each effect is a `[setup/teardown, depPropNames]` tuple (`ComponentEffect`), the
 **same shape as the React binding** — only how `useMachine` runs it differs:
 
 ```ts
-import type { ComponentEffect } from '@dunky.dev/state-machine-svelte'
+import type { ComponentEffect } from '@dunky.dev/svelte-state-machine'
 
 type TooltipEffect = ComponentEffect<TooltipMachine, TooltipMachineProps>
 
@@ -213,5 +213,4 @@ If the consumer passes no props, the library props are returned as-is.
 | `normalize(bindings)`                            | agnostic bindings → DOM/ARIA props (lowercase `on*`, `tabindex`, `aria-*`)                                                      |
 | `mergeProps(consumer, library)`                  | merge consumer + component props (handlers chained w/ `defaultPrevented` veto; `style`/`class` concatenated; else library wins) |
 | `ComponentEffect<M, P>`                          | `[ (machine, props) => cleanup, (keyof P)[] ]` — one substrate effect + its prop deps                                           |
-| `ComponentEffects<M, P>`                         | `ComponentEffect<M, P>[]` — a component's effect list                                                                           |
 | `Bindings`                                       | `Record<string, unknown>` — the loose shape `normalize` accepts                                                                 |

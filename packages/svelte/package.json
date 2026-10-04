@@ -1,5 +1,5 @@
 {
-  "name": "@dunky.dev/state-machine-svelte",
+  "name": "@dunky.dev/svelte-state-machine",
   "version": "0.2.0",
   "license": "MIT",
   "repository": {
@@ -23,7 +23,7 @@
     }
   },
   "dependencies": {
-    "@dunky.dev/state-machine": "workspace:^"
+    "@dunky.dev/state-machine": "workspace:*"
   },
   "devDependencies": {
     "svelte": "^5.43.2"

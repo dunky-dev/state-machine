@@ -23,18 +23,6 @@ export type ComponentEffect<Machine, Props> = [
   deps: (keyof Props)[],
 ]
 
-/**
- * A component's full set of substrate effects — a list, since one component can
- * have several independent effects with DIFFERENT deps (e.g. an Escape listener
- * gated by `closeOnEscape` and a Tab trap gated by `focusTrap`). Each gets its
- * own `$effect` so only the one whose dep changed re-subscribes.
- *
- * Unlike React, Svelte has no rules-of-hooks: `useMachine` sets up the effects
- * once at call time, so the list need not be a module constant. Keeping it one
- * (`export const xEffects = [...]`) is still the tidy convention.
- */
-export type ComponentEffects<Machine, Props> = ComponentEffect<Machine, Props>[]
-
 type Service<
   State extends string,
   Context extends object,
@@ -76,7 +64,7 @@ export function useMachine<
 >(
   createConfig: (props: Props) => TransitionConfig<State, Context, Event, Computed>,
   connect: Connect<State, Context, Event, Props, Api, Computed>,
-  effects: ComponentEffects<Service<State, Context, Event, Computed>, Props>,
+  effects: ComponentEffect<Service<State, Context, Event, Computed>, Props>[],
   getProps: () => Props,
 ): { readonly api: Api; readonly machine: Service<State, Context, Event, Computed> } {
   // Build machine + connector once. The first props read seeds context + the

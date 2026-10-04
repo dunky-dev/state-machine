@@ -11,7 +11,7 @@
   "dependencies": {
     "@dunky.dev/state-machine": "workspace:^",
     "@dunky.dev/state-machine-bindings": "workspace:^",
-    "@dunky.dev/state-machine-svelte": "workspace:^",
+    "@dunky.dev/svelte-state-machine": "workspace:^",
     "@sandbox/cmdk-core": "workspace:^",
     "svelte": "^5.43.2"
   },

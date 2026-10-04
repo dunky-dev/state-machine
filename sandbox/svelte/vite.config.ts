@@ -14,7 +14,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@dunky.dev/state-machine': resolve(__dirname, '../../packages/core/src'),
-      '@dunky.dev/state-machine-svelte': resolve(__dirname, '../../packages/svelte/src'),
+      '@dunky.dev/svelte-state-machine': resolve(__dirname, '../../packages/svelte/src'),
       '@dunky.dev/state-machine-bindings': resolve(__dirname, '../../packages/shared/bindings/src'),
       '@sandbox/cmdk-core': resolve(__dirname, '../shared/src'),
     },

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { useSelector } from '@dunky.dev/state-machine-svelte'
+  import { useSelector } from '@dunky.dev/svelte-state-machine'
   import type { CountersContext, CountersEvent } from './counters'
   import type { Machine } from '@dunky.dev/state-machine'
 

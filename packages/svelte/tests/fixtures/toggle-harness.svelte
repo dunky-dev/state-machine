@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { useMachine, type ComponentEffects } from '@dunky.dev/state-machine-svelte'
+  import { useMachine, type ComponentEffect } from '@dunky.dev/svelte-state-machine'
   import {
     createToggleConfig,
     connectToggle,
@@ -26,7 +26,7 @@
   // `trackLabelEffect` is fixed per render in these tests; reading it once to
   // shape the effect list at setup is intentional.
   // svelte-ignore state_referenced_locally
-  const effects: ComponentEffects<ReturnType<typeof useMachine>['machine'], ToggleProps> =
+  const effects: ComponentEffect<ReturnType<typeof useMachine>['machine'], ToggleProps>[] =
     trackLabelEffect
       ? [
           [

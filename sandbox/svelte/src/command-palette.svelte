@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { type ComponentEffect, normalize, useMachine } from '@dunky.dev/state-machine-svelte'
+  import { type ComponentEffect, normalize, useMachine } from '@dunky.dev/svelte-state-machine'
   import {
     commandPaletteMachineConfig,
     connectCommandPalette,

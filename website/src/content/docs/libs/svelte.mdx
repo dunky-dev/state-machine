@@ -5,7 +5,7 @@ description: Svelte bindings for @dunky.dev/state-machine.
 
 import Install from '../../../components/install.astro'
 
-<Install pkg='@dunky.dev/state-machine-svelte' />
+<Install pkg='@dunky.dev/svelte-state-machine' />
 
 The Svelte package is a thin edge layer. Behavior lives in the core machine and the component's `connect` function; this package only adapts them to Svelte 5: lifecycle, reactivity (runes), prop translation, and platform effects. It requires Svelte 5 — `useMachine` and `useSelector` are runes modules (`.svelte.ts`), so they're compiled by your Svelte build like any component.
 
@@ -15,7 +15,7 @@ The one bridge. Every component calls it with the four agnostic pieces and gets 
 
 ```svelte
 <script lang="ts">
-  import { useMachine, normalize } from '@dunky.dev/state-machine-svelte'
+  import { useMachine, normalize } from '@dunky.dev/svelte-state-machine'
   import { createDialogConfig, connectDialog, dialogEffects } from './dialog'
 
   type DialogProps = {
@@ -136,7 +136,7 @@ For a leaf component that should only update when one slice of the machine chang
 
 ```svelte
 <script lang="ts">
-  import { useSelector } from '@dunky.dev/state-machine-svelte'
+  import { useSelector } from '@dunky.dev/svelte-state-machine'
 
   let { machine, value }: { machine: RowMachine; value: string } = $props()
 
@@ -163,7 +163,7 @@ const pos = useSelector(
 Some behavior can't live in the machine because it touches the DOM or reads props the machine never sees. Declare each as a `[setup/teardown, depPropNames]` tuple; `useMachine` runs one `$effect` per entry, tracking only its named prop deps:
 
 ```ts
-import type { ComponentEffect } from '@dunky.dev/state-machine-svelte'
+import type { ComponentEffect } from '@dunky.dev/svelte-state-machine'
 import type { DialogMachine, DialogProps } from './dialog'
 
 type Effect = ComponentEffect<DialogMachine, DialogProps>

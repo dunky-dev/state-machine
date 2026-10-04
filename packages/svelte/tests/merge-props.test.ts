@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { mergeProps } from '@dunky.dev/state-machine-svelte'
+import { mergeProps } from '@dunky.dev/svelte-state-machine'
 
 describe('mergeProps', () => {
   it('chains overlapping handlers — consumer first, library second', () => {
