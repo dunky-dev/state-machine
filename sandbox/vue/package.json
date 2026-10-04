@@ -5,20 +5,22 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "@dunky.dev/state-machine": "workspace:^",
     "@dunky.dev/state-machine-bindings": "workspace:^",
+    "@dunky.dev/state-machine-dom": "workspace:^",
     "@dunky.dev/state-machine-utils": "workspace:^",
     "@dunky.dev/vue-state-machine": "workspace:^",
     "@sandbox/cmdk-core": "workspace:^",
-    "vue": "^3.5.13"
+    "vue": "^3.5.43"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^6.0.0",
-    "vite": "^8.0.14",
-    "vue-tsc": "^2.2.0"
+    "@vitejs/plugin-vue": "^6.0.9",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.2",
+    "vue-tsc": "^3.3.12"
   }
 }

@@ -1,5 +1,5 @@
 {
-  "*.{ts,tsx}": ["oxlint --fix --no-error-on-unmatched-pattern", "oxfmt"],
+  "*.{ts,tsx,vue}": ["oxlint --fix --no-error-on-unmatched-pattern", "oxfmt"],
   "*.astro": ["oxlint --fix --no-error-on-unmatched-pattern"],
   "*.{md,mdx}": ["oxfmt"]
 }

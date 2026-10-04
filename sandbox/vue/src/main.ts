@@ -1,7 +1,10 @@
 import { createApp } from 'vue'
 import App from './app.vue'
 
-const root = document.getElementById('app')
-if (!root) throw new Error('missing #app')
+// The stylesheet the web sandboxes share.
+import '../../shared/src/styles.css'
+
+const root = document.getElementById('root')
+if (!root) throw new Error('missing #root')
 
 createApp(App).mount(root)
