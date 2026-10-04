@@ -2,23 +2,43 @@
 '@dunky.dev/vue-state-machine': minor
 ---
 
-Add the Vue 3 bindings package (`@dunky.dev/vue-state-machine`). It mirrors the React package's API one-for-one — `useMachine`, `useSelector`, `normalize`, `mergeProps`, and the `ComponentEffect` type — implemented with Vue's reactivity: `useMachine` builds the machine + connector once in `setup()`, runs `start`/`stop` on the mount lifecycle, pushes prop changes through `setProps`, runs each `ComponentEffect` as its own dep-keyed `watch`, and exposes the connector snapshot as a `ComputedRef`; `useSelector` returns a value-deduped readonly ref; `normalize` translates the agnostic bindings to Vue DOM/ARIA props; `mergeProps` merges consumer + component props with Vue's `class`/`style` conventions.
+Add `@dunky.dev/vue-state-machine` — the Vue bindings target, for `vue` `^3.3.0`.
+
+A first-class Vue bridge with the same four exports as the React and Solid
+targets. `useMachine` builds the machine and connector once in `setup()`,
+exposes the connector's memoized snapshot as a `ComputedRef`, keeps props fresh
+through `setProps`, and runs the lifecycle in React's order: `start()`, then
+each `ComponentEffect`, after mount; `stop()`, then the effect cleanups, on
+unmount. An effect re-runs only when one of its named prop deps changes, after
+the DOM has been patched. Under `<KeepAlive>` a deactivated component pauses —
+machine stopped, effects torn down — and resumes with its state intact, like
+React's `<Activity>`; server rendering starts nothing and runs no effect.
+`useSelector` returns a readonly ref holding the selected value as-is.
+`normalize` reuses the shared DOM translation from
+`@dunky.dev/state-machine-dom` with Vue's listener names (`onPointerenter`,
+`onKeydown` — Vue derives the DOM event by hyphenating a listener's camel tail).
+`mergeProps` chains handlers with the `defaultPrevented` veto, which Vue's own
+`mergeProps` doesn't, and merges `class`/`style` of any shape as
+`[consumer, library]`.
 
 ```vue
 <script setup lang="ts">
-import { useAttrs } from 'vue'
-import { useMachine, normalize, mergeProps } from '@dunky.dev/vue-state-machine'
-import { toggleMachineConfig, connectToggle, toggleEffects, type ToggleProps } from './toggle'
+import { useMachine, normalize } from '@dunky.dev/vue-state-machine'
+import { createDialogConfig, connectDialog, dialogEffects, type DialogProps } from './dialog'
 
-const props = defineProps<ToggleProps>()
-const attrs = useAttrs()
-
-const { api } = useMachine(toggleMachineConfig, connectToggle, toggleEffects, props)
+// Vue casts an absent Boolean prop to `false`; `undefined` keeps the core's defaults.
+const props = withDefaults(defineProps<DialogProps>(), { open: undefined, modal: undefined })
+const { api } = useMachine(createDialogConfig, connectDialog, dialogEffects, props)
 </script>
 
 <template>
-  <button v-bind="mergeProps(attrs, normalize(api.parts.trigger))">
-    {{ api.pressed ? 'On' : 'Off' }}
-  </button>
+  <button v-bind="normalize(api.triggerProps)">Open</button>
+  <div v-if="api.isOpen" v-bind="normalize(api.contentProps)">Dialog content</div>
 </template>
 ```
+
+Two Vue rules to know. Declare boolean props with `default: undefined`: an
+absent `Boolean` prop is cast to `false`, which would make `open` permanently
+controlled and drop a `modal: true` default. And in an async `setup()`, call
+`useMachine` before the first `await` — Vue binds only the lifecycle hooks
+registered before it.
