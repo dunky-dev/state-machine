@@ -82,6 +82,7 @@ record:
     |
     +-- react   -> aria-hidden
     +-- solid   -> aria-hidden
+    +-- vue     -> aria-hidden
     +-- native  -> aria-hidden      (RN's web-aligned alias, fanned out per platform)
     +-- opentui -> visible={false}  (no accessibility tree; the visual analog)
   ```

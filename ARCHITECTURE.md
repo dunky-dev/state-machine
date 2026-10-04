@@ -123,7 +123,7 @@ shared/utils                          cross-target, cross-component helpers
 
 <target>                              one substrate (react, solid, vue, native, opentui, …)
 |                                     runtime, hooks, and props translator
-+-- use-machine                       lifecycle bridge (build + start/stop + useSyncExternalStore)
++-- use-machine                       lifecycle bridge (build + start/stop + snapshot subscription)
 +-- use-selector                      fine-grained leaf subscription (O(readers))
 +-- normalize                         bindings -> target props
 ```
