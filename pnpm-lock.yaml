@@ -237,6 +237,9 @@ importers:
       '@dunky.dev/state-machine':
         specifier: workspace:*
         version: link:../core
+      '@dunky.dev/state-machine-dom':
+        specifier: workspace:*
+        version: link:../dom
       '@dunky.dev/state-machine-utils':
         specifier: workspace:*
         version: link:../shared/utils

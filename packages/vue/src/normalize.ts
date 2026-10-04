@@ -1,140 +1,51 @@
-// Translate the machine layer's logical surface to Vue DOM props (the
-// `h()` / v-bind-spread shape). Multi-word DOM events keep only the leading
-// capital (`onPointerenter`): Vue hyphenates the camel tail when deriving the
-// event name, so `onPointerEnter` would listen to `pointer-enter`.
+/**
+ * Translate the machine layer's logical surface to Vue DOM props — the shape
+ * `h()` and a template `v-bind` spread take.
+ *
+ * The DOM-shared half — the `aria-` attr projection and the payload adapters
+ * — lives in `@dunky.dev/state-machine-dom` (see its header for the shared
+ * decisions). This file adds only what is Vue's own:
+ * - Listener casing: Vue derives the DOM event from a listener prop by
+ *   hyphenating its camel tail (`onPointerEnter` would listen to
+ *   `pointer-enter`), so a multi-word event keeps only its leading capital:
+ *   `onPointerenter`, `onKeydown`. The shared names are the camelCase of the
+ *   same DOM events, so the Vue names are derived from them, never restated.
+ * - `onValueChange` → `onInput`: the per-change event (`change` fires only on
+ *   commit). Handlers receive native events; the shared adapters read them.
+ * - `onDoublePress` → `onDblclick` (the DOM event is `dblclick`).
+ * - `focusable` → `tabindex` 0 / -1 — the real attribute, and not a boolean:
+ *   `false` still has to leave the element focusable in script.
+ * - ARIA booleans pass through untransformed: Vue writes a non-boolean
+ *   attribute's value as-is, so `true`/`false` render as the "true"/"false"
+ *   tokens ARIA expects — on the client and in server rendering alike.
+ */
 import type {
   AttrKey,
   AttrTargets,
   HandlerKey,
   HandlerTargets,
 } from '@dunky.dev/state-machine-bindings'
+import {
+  DOM_ATTR_MAP,
+  DOM_HANDLER_MAP,
+  PAYLOAD_ADAPTERS,
+  type AnyEvent,
+} from '@dunky.dev/state-machine-dom'
+
+// `onPointerEnter` → `onPointerenter`: lowercase everything after the leading capital.
+const toVueListener = (prop: string): string => prop.slice(0, 3) + prop.slice(3).toLowerCase()
 
 export const HANDLER_MAP: HandlerTargets = {
-  onPress: 'onClick',
-  onPointerEnter: 'onPointerenter',
-  onPointerLeave: 'onPointerleave',
-  onPointerMove: 'onPointermove',
-  onPointerDown: 'onPointerdown',
-  onPointerUp: 'onPointerup',
-  onPointerCancel: 'onPointercancel',
-  onFocus: 'onFocus',
-  onBlur: 'onBlur',
-  onKeyDown: 'onKeydown',
-  onKeyUp: 'onKeyup',
-  // onValueChange/onWheel/onScroll/onScrollEnd also have their argument translated (see PAYLOAD_ADAPTERS).
-  // `input`, not `change`: live per-keystroke, matching React's onChange semantics.
+  ...Object.fromEntries(
+    Object.entries(DOM_HANDLER_MAP).map(([key, prop]) => [key, toVueListener(prop!)]),
+  ),
   onValueChange: 'onInput',
-  onContextMenu: 'onContextmenu',
   onDoublePress: 'onDblclick',
-  onWheel: 'onWheel',
-  onScroll: 'onScroll',
-  onScrollEnd: 'onScrollend',
-}
-
-// Some handlers can't just be renamed: the agnostic payload the component reads
-// (`ChangePayload`/`WheelPayload`/`ScrollPayload`) is a different SHAPE from the
-// raw DOM event. For those, normalize wraps the handler so the component receives
-// the agnostic payload — built here from the DOM event — rather than the DOM
-// event itself. (onPress/pointer/keyboard handlers already receive a shape that
-// overlaps PointerPayload/KeyboardPayload, so they pass through unwrapped.)
-
-// DOM WheelEvent.deltaMode (0/1/2) → the neutral WheelPayload unit.
-const WHEEL_UNIT = ['pixel', 'line', 'page'] as const
-
-type AnyEvent = {
-  target?: { value?: unknown; checked?: unknown; type?: string }
-  currentTarget?: Record<string, number>
-  deltaX?: number
-  deltaY?: number
-  deltaZ?: number
-  deltaMode?: number
-  defaultPrevented?: boolean
-  preventDefault?: () => void
-}
-
-const PAYLOAD_ADAPTERS: Record<string, (e: AnyEvent) => unknown> = {
-  onValueChange: e => {
-    const t = e?.target
-    const value = t && (t.type === 'checkbox' || t.type === 'radio') ? t.checked : t?.value
-    return { value, defaultPrevented: e?.defaultPrevented, preventDefault: e?.preventDefault }
-  },
-  onWheel: e => ({
-    deltaX: e?.deltaX,
-    deltaY: e?.deltaY,
-    deltaZ: e?.deltaZ,
-    deltaUnit: WHEEL_UNIT[e?.deltaMode ?? 0] ?? 'pixel',
-    defaultPrevented: e?.defaultPrevented,
-    preventDefault: e?.preventDefault,
-  }),
-  onScroll: scrollPayload,
-  onScrollEnd: scrollPayload,
-}
-
-function scrollPayload(e: AnyEvent): unknown {
-  const el = e?.currentTarget ?? {}
-  return {
-    offsetX: el.scrollLeft,
-    offsetY: el.scrollTop,
-    contentWidth: el.scrollWidth,
-    contentHeight: el.scrollHeight,
-    viewportWidth: el.clientWidth,
-    viewportHeight: el.clientHeight,
-  }
 }
 
 export const ATTR_MAP: AttrTargets = {
-  describedBy: 'aria-describedby',
-  labelledBy: 'aria-labelledby',
-  controls: 'aria-controls',
-  hasPopup: 'aria-haspopup',
-  expanded: 'aria-expanded',
-  selected: 'aria-selected',
-  disabled: 'aria-disabled',
-  hidden: 'aria-hidden',
-  modal: 'aria-modal',
+  ...DOM_ATTR_MAP,
   focusable: 'tabindex', // value transformed below
-  role: 'role',
-  id: 'id',
-
-  // labeling
-  label: 'aria-label',
-  // widget state (values pass through untransformed — booleans, the 'mixed'
-  // tristate, and the aria-current / aria-invalid enums all serialize as-is)
-  checked: 'aria-checked',
-  pressed: 'aria-pressed',
-  current: 'aria-current',
-  busy: 'aria-busy',
-  invalid: 'aria-invalid',
-  required: 'aria-required',
-  readOnly: 'aria-readonly',
-  // relationships
-  activeDescendant: 'aria-activedescendant',
-  errorMessage: 'aria-errormessage',
-  owns: 'aria-owns',
-  // value / range
-  valueMin: 'aria-valuemin',
-  valueMax: 'aria-valuemax',
-  valueNow: 'aria-valuenow',
-  valueText: 'aria-valuetext',
-  // structure / orientation
-  orientation: 'aria-orientation',
-  sort: 'aria-sort',
-  autoComplete: 'aria-autocomplete',
-  multiline: 'aria-multiline',
-  multiSelectable: 'aria-multiselectable',
-  level: 'aria-level',
-  posInSet: 'aria-posinset',
-  setSize: 'aria-setsize',
-  // grid / table
-  colCount: 'aria-colcount',
-  colIndex: 'aria-colindex',
-  colSpan: 'aria-colspan',
-  rowCount: 'aria-rowcount',
-  rowIndex: 'aria-rowindex',
-  rowSpan: 'aria-rowspan',
-  // live region
-  live: 'aria-live',
-  atomic: 'aria-atomic',
 }
 
 export type Bindings = Record<string, unknown>
@@ -147,17 +58,15 @@ export function normalize(logical: Bindings): Record<string, unknown> {
     const handler = HANDLER_MAP[key as HandlerKey]
     if (handler) {
       const adapt = PAYLOAD_ADAPTERS[key]
+      // Wrap when the agnostic payload differs from the raw DOM event; else the
+      // handler shape already matches (PointerPayload/KeyboardPayload), pass it.
       out[handler] = adapt ? (e: AnyEvent) => (value as (p: unknown) => void)(adapt(e)) : value
       continue
     }
 
     const attr = ATTR_MAP[key as AttrKey]
     if (attr) {
-      if (key === 'focusable') {
-        out[attr] = value ? 0 : -1
-      } else {
-        out[attr] = value
-      }
+      out[attr] = key === 'focusable' ? (value ? 0 : -1) : value
       continue
     }
 

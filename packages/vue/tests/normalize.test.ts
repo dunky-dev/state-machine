@@ -1,312 +1,131 @@
+// @vitest-environment jsdom
 /**
- * Vue DOM bindings translator — pure-logic tests (no DOM runtime needed).
- *
- * `normalize` maps the core's substrate-agnostic logical surface
- * (`@dunky.dev/state-machine`'s `EventBindings` + `AttrBindings`) to real
- * DOM/ARIA props in Vue's `onXxx` listener form. These tests pin the FULL
- * vocabulary so every logical binding has an explicit, asserted DOM target —
- * nothing relies on accidental pass-through.
+ * Vue DOM bindings translator. The vocabulary-accounting suite pins that every
+ * key lands on its declared target; these tests prove the targets on real
+ * elements patched by Vue's own renderer — each handler fires on its DOM
+ * event, the payload adapters read real events, and ARIA values serialize as
+ * the spec's tokens.
  */
+import { h, render } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
+import type { ChangePayload, WheelPayload } from '@dunky.dev/state-machine-bindings'
 import { normalize } from '@dunky.dev/vue-state-machine'
 import { ATTR_MAP, HANDLER_MAP } from '../src/normalize'
 import { describeVocabularyAccounting } from '../../shared/bindings/tests/fixtures/vocabulary-accounting'
 
-describe('vue normalize — handlers', () => {
-  it('maps onPress to onClick (the DOM activation event)', () => {
-    const onPress = vi.fn()
-    expect(normalize({ onPress })).toEqual({ onClick: onPress })
+// Each logical handler's Vue listener prop and the DOM event it must catch,
+// written out by hand: Vue derives the event by hyphenating the prop's camel
+// tail, so `onPointerEnter` would listen to `pointer-enter` and never fire.
+const LISTENERS: Record<string, [prop: string, event: string]> = {
+  onPress: ['onClick', 'click'],
+  onPointerEnter: ['onPointerenter', 'pointerenter'],
+  onPointerLeave: ['onPointerleave', 'pointerleave'],
+  onPointerMove: ['onPointermove', 'pointermove'],
+  onPointerDown: ['onPointerdown', 'pointerdown'],
+  onPointerUp: ['onPointerup', 'pointerup'],
+  onPointerCancel: ['onPointercancel', 'pointercancel'],
+  onFocus: ['onFocus', 'focus'],
+  onBlur: ['onBlur', 'blur'],
+  onKeyDown: ['onKeydown', 'keydown'],
+  onKeyUp: ['onKeyup', 'keyup'],
+  onValueChange: ['onInput', 'input'],
+  onContextMenu: ['onContextmenu', 'contextmenu'],
+  onDoublePress: ['onDblclick', 'dblclick'],
+  onWheel: ['onWheel', 'wheel'],
+  onScroll: ['onScroll', 'scroll'],
+  onScrollEnd: ['onScrollend', 'scrollend'],
+}
+
+// One element through Vue's DOM renderer — the real patchProp / patchEvent path.
+function renderElement<E extends Element = HTMLElement>(
+  tag: string,
+  props: Record<string, unknown>,
+  container: Element = document.createElement('div'),
+): E {
+  render(h(tag, props), container)
+  return container.firstElementChild as E
+}
+
+const attributesOf = (el: Element): Record<string, string> =>
+  Object.fromEntries(Array.from(el.attributes, a => [a.name, a.value]))
+
+describe('vue normalize — handlers on real elements', () => {
+  it('names every handler with the Vue listener prop for its DOM event', () => {
+    const expected = Object.fromEntries(
+      Object.entries(LISTENERS).map(([key, [prop]]) => [key, prop]),
+    )
+    expect(HANDLER_MAP).toEqual(expected)
   })
 
-  it('maps the full pointer family to Vue pointer listeners', () => {
-    const onPointerEnter = vi.fn()
-    const onPointerLeave = vi.fn()
-    const onPointerMove = vi.fn()
-    const onPointerDown = vi.fn()
-    const onPointerUp = vi.fn()
-    const onPointerCancel = vi.fn()
-    expect(
-      normalize({
-        onPointerEnter,
-        onPointerLeave,
-        onPointerMove,
-        onPointerDown,
-        onPointerUp,
-        onPointerCancel,
-      }),
-    ).toEqual({
-      onPointerenter: onPointerEnter,
-      onPointerleave: onPointerLeave,
-      onPointermove: onPointerMove,
-      onPointerdown: onPointerDown,
-      onPointerup: onPointerUp,
-      onPointercancel: onPointerCancel,
-    })
+  it('fires every mapped handler on its DOM event', () => {
+    for (const [key, [, event]] of Object.entries(LISTENERS)) {
+      const handler = vi.fn()
+      renderElement('div', normalize({ [key]: handler })).dispatchEvent(new Event(event))
+      expect({ key, calls: handler.mock.calls.length }).toEqual({ key, calls: 1 })
+    }
   })
 
-  it('passes onFocus / onBlur through', () => {
-    const onFocus = vi.fn()
-    const onBlur = vi.fn()
-    expect(normalize({ onFocus, onBlur })).toEqual({ onFocus, onBlur })
+  it('onValueChange receives a ChangePayload read from the real input', () => {
+    const onValueChange = vi.fn()
+    const input = renderElement<HTMLInputElement>('input', normalize({ onValueChange }))
+    input.value = 'hi'
+    input.dispatchEvent(new Event('input'))
+    expect(onValueChange).toHaveBeenCalledWith(expect.objectContaining({ value: 'hi' }))
   })
 
-  it('maps both keyboard handlers (onKeyDown / onKeyUp → onKeydown / onKeyup)', () => {
-    const onKeyDown = vi.fn()
-    const onKeyUp = vi.fn()
-    expect(normalize({ onKeyDown, onKeyUp })).toEqual({ onKeydown: onKeyDown, onKeyup: onKeyUp })
+  it("an adapted payload's preventDefault cancels the real event (bound, no illegal invocation)", () => {
+    const onValueChange = (p?: ChangePayload) => p?.preventDefault?.()
+    const onWheel = (p?: WheelPayload) => p?.preventDefault?.()
+    const el = renderElement('input', normalize({ onValueChange, onWheel }))
+    for (const event of [
+      new Event('input', { cancelable: true }),
+      new WheelEvent('wheel', { cancelable: true }),
+    ]) {
+      el.dispatchEvent(event)
+      expect({ type: event.type, prevented: event.defaultPrevented }).toEqual({
+        type: event.type,
+        prevented: true,
+      })
+    }
   })
 })
 
-describe('vue normalize — attributes', () => {
-  it('maps the ARIA reference attrs (describedBy / labelledBy / controls)', () => {
-    expect(normalize({ describedBy: 'd', labelledBy: 'l', controls: 'c' })).toEqual({
-      'aria-describedby': 'd',
-      'aria-labelledby': 'l',
-      'aria-controls': 'c',
+describe('vue normalize — attributes on real elements', () => {
+  it('serializes ARIA booleans as "true"/"false" tokens and focusable as tabindex 0/-1', () => {
+    const el = renderElement(
+      'div',
+      normalize({ role: 'switch', id: 'sw', checked: false, expanded: true, focusable: true }),
+    )
+    expect(attributesOf(el)).toEqual({
+      role: 'switch',
+      id: 'sw',
+      'aria-checked': 'false',
+      'aria-expanded': 'true',
+      tabindex: '0',
+    })
+    expect(renderElement('div', normalize({ focusable: false })).getAttribute('tabindex')).toBe(
+      '-1',
+    )
+  })
+
+  it('removes an attribute once its binding turns undefined', () => {
+    const container = document.createElement('div')
+    renderElement('div', normalize({ describedBy: 'tip', hidden: true }), container)
+    const el = renderElement('div', normalize({ describedBy: undefined, hidden: true }), container)
+    expect(attributesOf(el)).toEqual({ 'aria-hidden': 'true' })
+  })
+})
+
+describe('vue normalize — pass-through', () => {
+  it('passes unknown keys through unchanged (class, data-*)', () => {
+    expect(normalize({ 'data-state': 'open', class: 'x' })).toEqual({
+      'data-state': 'open',
+      class: 'x',
     })
   })
 
-  it('maps hasPopup to aria-haspopup (string or boolean)', () => {
-    expect(normalize({ hasPopup: 'menu' })).toEqual({ 'aria-haspopup': 'menu' })
-    expect(normalize({ hasPopup: true })).toEqual({ 'aria-haspopup': true })
-  })
-
-  it('maps the boolean state attrs to their aria-* equivalents', () => {
-    expect(
-      normalize({ expanded: true, selected: false, disabled: true, hidden: false, modal: true }),
-    ).toEqual({
-      'aria-expanded': true,
-      'aria-selected': false,
-      'aria-disabled': true,
-      'aria-hidden': false,
-      'aria-modal': true,
-    })
-  })
-
-  it('maps focusable to tabindex (true → 0, false → -1)', () => {
-    expect(normalize({ focusable: true })).toEqual({ tabindex: 0 })
-    expect(normalize({ focusable: false })).toEqual({ tabindex: -1 })
-  })
-
-  it('maps role and id straight through (same name)', () => {
-    expect(normalize({ role: 'tooltip', id: 't:1' })).toEqual({ role: 'tooltip', id: 't:1' })
-  })
-
-  it('passes unknown attrs through unchanged (e.g. data-state)', () => {
-    expect(normalize({ 'data-state': 'open' })).toEqual({ 'data-state': 'open' })
-  })
-
-  it('skips undefined values', () => {
+  it('drops undefined values, so they never override a consumer prop in mergeProps', () => {
     expect(normalize({ role: undefined, id: 'x' })).toEqual({ id: 'x' })
-  })
-})
-
-describe('vue normalize — combined surface (trigger shape)', () => {
-  it('translates a realistic trigger binding set', () => {
-    const onPress = vi.fn()
-    const out = normalize({
-      id: 'menu:1:trigger',
-      role: 'button',
-      controls: 'menu:1:content',
-      hasPopup: 'menu',
-      expanded: true,
-      focusable: true,
-      onPress,
-      onKeyDown: vi.fn(),
-      'data-state': 'open',
-    })
-    expect(out).toMatchObject({
-      id: 'menu:1:trigger',
-      role: 'button',
-      'aria-controls': 'menu:1:content',
-      'aria-haspopup': 'menu',
-      'aria-expanded': true,
-      tabindex: 0,
-      onClick: onPress,
-      'data-state': 'open',
-    })
-    expect(typeof out.onKeydown).toBe('function')
-  })
-})
-
-describe('vue normalize — expanded handler surface', () => {
-  it('maps each value-change / interaction handler to its Vue listener prop', () => {
-    const out = normalize({
-      onValueChange: vi.fn(),
-      onContextMenu: vi.fn(),
-      onDoublePress: vi.fn(),
-      onWheel: vi.fn(),
-      onScroll: vi.fn(),
-      onScrollEnd: vi.fn(),
-    })
-    expect(Object.keys(out).sort()).toEqual(
-      ['onInput', 'onContextmenu', 'onDblclick', 'onScroll', 'onScrollend', 'onWheel'].sort(),
-    )
-  })
-
-  it('passes onContextMenu / onDoublePress through unwrapped (same payload shape)', () => {
-    const onContextMenu = vi.fn()
-    const onDoublePress = vi.fn()
-    const out = normalize({ onContextMenu, onDoublePress })
-    expect(out.onContextmenu).toBe(onContextMenu)
-    expect(out.onDblclick).toBe(onDoublePress)
-  })
-
-  it('onValueChange receives a ChangePayload built from the DOM event', () => {
-    const onValueChange = vi.fn()
-    const out = normalize({ onValueChange })
-    ;(out.onInput as (e: unknown) => void)({ target: { value: 'hi', type: 'text' } })
-    expect(onValueChange).toHaveBeenCalledWith({
-      value: 'hi',
-      defaultPrevented: undefined,
-      preventDefault: undefined,
-    })
-    ;(out.onInput as (e: unknown) => void)({ target: { checked: true, type: 'checkbox' } })
-    expect(onValueChange).toHaveBeenLastCalledWith(expect.objectContaining({ value: true }))
-  })
-
-  it('onWheel receives a WheelPayload with a neutral deltaUnit (deltaMode → enum)', () => {
-    const onWheel = vi.fn()
-    const out = normalize({ onWheel })
-    ;(out.onWheel as (e: unknown) => void)({ deltaX: 1, deltaY: 2, deltaZ: 0, deltaMode: 1 })
-    expect(onWheel).toHaveBeenCalledWith(
-      expect.objectContaining({ deltaX: 1, deltaY: 2, deltaZ: 0, deltaUnit: 'line' }),
-    )
-  })
-
-  it('onScroll / onScrollEnd receive a neutral ScrollPayload from currentTarget geometry', () => {
-    const onScroll = vi.fn()
-    const out = normalize({ onScroll })
-    ;(out.onScroll as (e: unknown) => void)({
-      currentTarget: {
-        scrollLeft: 5,
-        scrollTop: 50,
-        scrollWidth: 800,
-        scrollHeight: 1200,
-        clientWidth: 400,
-        clientHeight: 600,
-      },
-    })
-    expect(onScroll).toHaveBeenCalledWith({
-      offsetX: 5,
-      offsetY: 50,
-      contentWidth: 800,
-      contentHeight: 1200,
-      viewportWidth: 400,
-      viewportHeight: 600,
-    })
-  })
-})
-
-describe('vue normalize — expanded attribute surface', () => {
-  it('maps widget-state attrs to aria-*, preserving tristate/enum values', () => {
-    expect(
-      normalize({
-        checked: 'mixed',
-        pressed: true,
-        current: 'page',
-        busy: true,
-        invalid: 'spelling',
-        required: true,
-        readOnly: false,
-      }),
-    ).toEqual({
-      'aria-checked': 'mixed',
-      'aria-pressed': true,
-      'aria-current': 'page',
-      'aria-busy': true,
-      'aria-invalid': 'spelling',
-      'aria-required': true,
-      'aria-readonly': false,
-    })
-  })
-
-  it('maps labeling + relationship attrs', () => {
-    expect(
-      normalize({ label: 'Volume', activeDescendant: 'opt-3', errorMessage: 'e1', owns: 'lb1' }),
-    ).toEqual({
-      'aria-label': 'Volume',
-      'aria-activedescendant': 'opt-3',
-      'aria-errormessage': 'e1',
-      'aria-owns': 'lb1',
-    })
-  })
-
-  it('maps value/range attrs (slider shape)', () => {
-    expect(normalize({ valueMin: 0, valueMax: 100, valueNow: 70, valueText: '70%' })).toEqual({
-      'aria-valuemin': 0,
-      'aria-valuemax': 100,
-      'aria-valuenow': 70,
-      'aria-valuetext': '70%',
-    })
-  })
-
-  it('maps structure + grid attrs', () => {
-    expect(
-      normalize({
-        orientation: 'horizontal',
-        sort: 'ascending',
-        autoComplete: 'list',
-        multiline: true,
-        multiSelectable: false,
-        level: 2,
-        posInSet: 3,
-        setSize: 10,
-        colCount: 5,
-        colIndex: 2,
-        colSpan: 1,
-        rowCount: 20,
-        rowIndex: 4,
-        rowSpan: 1,
-      }),
-    ).toEqual({
-      'aria-orientation': 'horizontal',
-      'aria-sort': 'ascending',
-      'aria-autocomplete': 'list',
-      'aria-multiline': true,
-      'aria-multiselectable': false,
-      'aria-level': 2,
-      'aria-posinset': 3,
-      'aria-setsize': 10,
-      'aria-colcount': 5,
-      'aria-colindex': 2,
-      'aria-colspan': 1,
-      'aria-rowcount': 20,
-      'aria-rowindex': 4,
-      'aria-rowspan': 1,
-    })
-  })
-
-  it('maps live-region attrs (off passes through as aria-live="off")', () => {
-    expect(normalize({ live: 'off', atomic: true })).toEqual({
-      'aria-live': 'off',
-      'aria-atomic': true,
-    })
-  })
-
-  it('translates a realistic slider binding set', () => {
-    const onValueChange = vi.fn()
-    const out = normalize({
-      role: 'slider',
-      orientation: 'horizontal',
-      valueMin: 0,
-      valueMax: 100,
-      valueNow: 40,
-      valueText: '40%',
-      focusable: true,
-      onValueChange,
-    })
-    expect(out).toMatchObject({
-      role: 'slider',
-      'aria-orientation': 'horizontal',
-      'aria-valuemin': 0,
-      'aria-valuemax': 100,
-      'aria-valuenow': 40,
-      'aria-valuetext': '40%',
-      tabindex: 0,
-    })
-    ;(out.onInput as (e: unknown) => void)({ target: { value: '50', type: 'range' } })
-    expect(onValueChange).toHaveBeenCalledWith(expect.objectContaining({ value: '50' }))
   })
 })
 
