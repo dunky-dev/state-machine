@@ -237,6 +237,12 @@ importers:
       '@dunky.dev/state-machine':
         specifier: workspace:*
         version: link:../core
+      '@dunky.dev/state-machine-bindings':
+        specifier: workspace:*
+        version: link:../shared/bindings
+      '@dunky.dev/state-machine-dom':
+        specifier: workspace:*
+        version: link:../dom
     devDependencies:
       '@sveltejs/vite-plugin-svelte':
         specifier: ^7.3.1

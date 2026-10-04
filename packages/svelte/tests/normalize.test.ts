@@ -1,15 +1,17 @@
 /**
  * Svelte DOM bindings translator — pure-logic tests (no DOM runtime needed).
  *
- * `normalize` maps the core's substrate-agnostic logical surface
- * (`@dunky.dev/state-machine`'s `EventBindings` + `AttrBindings`) to real
- * DOM/ARIA props in Svelte's idiom: lowercase `on*` event props, `tabindex`,
- * and the (framework-neutral) `aria-*` attrs. These tests pin the FULL
- * vocabulary so every logical binding has an explicit, asserted DOM target —
- * nothing relies on accidental pass-through.
+ * `normalize` maps the core's substrate-agnostic logical surface to the props
+ * a Svelte 5 element spread expects. These tests pin the FULL vocabulary so
+ * every logical binding has an explicit, asserted target. The differences
+ * from the React DOM normalizer are deliberate and pinned: event props are
+ * the lowercase DOM attribute names (`onclick`, `oninput`, `ondblclick`) and
+ * `focusable` lands on `tabindex`.
  */
 import { describe, expect, it, vi } from 'vitest'
 import { normalize } from '@dunky.dev/svelte-state-machine'
+import { ATTR_MAP, HANDLER_MAP } from '../src/normalize'
+import { describeVocabularyAccounting } from '../../shared/bindings/tests/fixtures/vocabulary-accounting'
 
 describe('svelte normalize — handlers', () => {
   it('maps onPress to onclick (the DOM activation event)', () => {
@@ -17,37 +19,34 @@ describe('svelte normalize — handlers', () => {
     expect(normalize({ onPress })).toEqual({ onclick: onPress })
   })
 
-  it('maps the full pointer family to lowercase DOM pointer events', () => {
-    const onPress = vi.fn()
-    const out = normalize({
-      onPointerEnter: vi.fn(),
-      onPointerLeave: vi.fn(),
-      onPointerMove: vi.fn(),
-      onPointerDown: vi.fn(),
-      onPointerUp: vi.fn(),
-      onPointerCancel: vi.fn(),
-      onPress,
+  it('maps the full pointer family to the lowercase DOM pointer events', () => {
+    const [enter, leave, move, down, up, cancel] = Array.from({ length: 6 }, () => vi.fn())
+    expect(
+      normalize({
+        onPointerEnter: enter,
+        onPointerLeave: leave,
+        onPointerMove: move,
+        onPointerDown: down,
+        onPointerUp: up,
+        onPointerCancel: cancel,
+      }),
+    ).toEqual({
+      onpointerenter: enter,
+      onpointerleave: leave,
+      onpointermove: move,
+      onpointerdown: down,
+      onpointerup: up,
+      onpointercancel: cancel,
     })
-    expect(Object.keys(out).sort()).toEqual(
-      [
-        'onpointerenter',
-        'onpointerleave',
-        'onpointermove',
-        'onpointerdown',
-        'onpointerup',
-        'onpointercancel',
-        'onclick',
-      ].sort(),
-    )
   })
 
-  it('maps onFocus / onBlur to lowercase', () => {
+  it('maps onFocus / onBlur to onfocus / onblur', () => {
     const onFocus = vi.fn()
     const onBlur = vi.fn()
     expect(normalize({ onFocus, onBlur })).toEqual({ onfocus: onFocus, onblur: onBlur })
   })
 
-  it('maps both keyboard handlers (onkeydown / onkeyup)', () => {
+  it('maps both keyboard handlers to onkeydown / onkeyup', () => {
     const onKeyDown = vi.fn()
     const onKeyUp = vi.fn()
     expect(normalize({ onKeyDown, onKeyUp })).toEqual({ onkeydown: onKeyDown, onkeyup: onKeyUp })
@@ -68,6 +67,8 @@ describe('svelte normalize — attributes', () => {
     expect(normalize({ hasPopup: true })).toEqual({ 'aria-haspopup': true })
   })
 
+  // Booleans pass through: Svelte writes a non-boolean attribute's `false` as
+  // the literal "false" token (pinned on the DOM in normalize.dom.test.ts).
   it('maps the boolean state attrs to their aria-* equivalents', () => {
     expect(
       normalize({ expanded: true, selected: false, disabled: true, hidden: false, modal: true }),
@@ -80,7 +81,7 @@ describe('svelte normalize — attributes', () => {
     })
   })
 
-  it('maps focusable to tabindex (true → 0, false → -1)', () => {
+  it('maps focusable to tabindex (lowercase; true → 0, false → -1)', () => {
     expect(normalize({ focusable: true })).toEqual({ tabindex: 0 })
     expect(normalize({ focusable: false })).toEqual({ tabindex: -1 })
   })
@@ -89,8 +90,11 @@ describe('svelte normalize — attributes', () => {
     expect(normalize({ role: 'tooltip', id: 't:1' })).toEqual({ role: 'tooltip', id: 't:1' })
   })
 
-  it('passes unknown attrs through unchanged (e.g. data-state)', () => {
-    expect(normalize({ 'data-state': 'open' })).toEqual({ 'data-state': 'open' })
+  it('passes unknown attrs through unchanged (e.g. data-state, class)', () => {
+    expect(normalize({ 'data-state': 'open', class: 'x' })).toEqual({
+      'data-state': 'open',
+      class: 'x',
+    })
   })
 
   it('skips undefined values', () => {
@@ -98,36 +102,8 @@ describe('svelte normalize — attributes', () => {
   })
 })
 
-describe('svelte normalize — combined surface (trigger shape)', () => {
-  it('translates a realistic trigger binding set', () => {
-    const onPress = vi.fn()
-    const out = normalize({
-      id: 'menu:1:trigger',
-      role: 'button',
-      controls: 'menu:1:content',
-      hasPopup: 'menu',
-      expanded: true,
-      focusable: true,
-      onPress,
-      onKeyDown: vi.fn(),
-      'data-state': 'open',
-    })
-    expect(out).toMatchObject({
-      id: 'menu:1:trigger',
-      role: 'button',
-      'aria-controls': 'menu:1:content',
-      'aria-haspopup': 'menu',
-      'aria-expanded': true,
-      tabindex: 0,
-      onclick: onPress,
-      'data-state': 'open',
-    })
-    expect(typeof out.onkeydown).toBe('function')
-  })
-})
-
 describe('svelte normalize — expanded handler surface', () => {
-  it('maps each value-change / interaction handler to its lowercase DOM event prop', () => {
+  it('maps each value-change / interaction handler to its Svelte DOM event prop', () => {
     const out = normalize({
       onValueChange: vi.fn(),
       onContextMenu: vi.fn(),
@@ -137,7 +113,7 @@ describe('svelte normalize — expanded handler surface', () => {
       onScrollEnd: vi.fn(),
     })
     expect(Object.keys(out).sort()).toEqual(
-      ['oninput', 'oncontextmenu', 'ondblclick', 'onscroll', 'onscrollend', 'onwheel'].sort(),
+      ['oncontextmenu', 'ondblclick', 'oninput', 'onscroll', 'onscrollend', 'onwheel'].sort(),
     )
   })
 
@@ -149,49 +125,13 @@ describe('svelte normalize — expanded handler surface', () => {
     expect(out.ondblclick).toBe(onDoublePress)
   })
 
-  it('onValueChange receives a ChangePayload built from the DOM event', () => {
+  // Payload construction is pinned once in @dunky.dev/state-machine-dom's own
+  // tests; this only proves normalize WRAPS the handler with its adapter.
+  it('onValueChange receives the adapted ChangePayload, not the raw event', () => {
     const onValueChange = vi.fn()
     const out = normalize({ onValueChange })
     ;(out.oninput as (e: unknown) => void)({ target: { value: 'hi', type: 'text' } })
-    expect(onValueChange).toHaveBeenCalledWith({
-      value: 'hi',
-      defaultPrevented: undefined,
-      preventDefault: undefined,
-    })
-    ;(out.oninput as (e: unknown) => void)({ target: { checked: true, type: 'checkbox' } })
-    expect(onValueChange).toHaveBeenLastCalledWith(expect.objectContaining({ value: true }))
-  })
-
-  it('onWheel receives a WheelPayload with a neutral deltaUnit (deltaMode → enum)', () => {
-    const onWheel = vi.fn()
-    const out = normalize({ onWheel })
-    ;(out.onwheel as (e: unknown) => void)({ deltaX: 1, deltaY: 2, deltaZ: 0, deltaMode: 1 })
-    expect(onWheel).toHaveBeenCalledWith(
-      expect.objectContaining({ deltaX: 1, deltaY: 2, deltaZ: 0, deltaUnit: 'line' }),
-    )
-  })
-
-  it('onScroll / onScrollEnd receive a neutral ScrollPayload from currentTarget geometry', () => {
-    const onScroll = vi.fn()
-    const out = normalize({ onScroll })
-    ;(out.onscroll as (e: unknown) => void)({
-      currentTarget: {
-        scrollLeft: 5,
-        scrollTop: 50,
-        scrollWidth: 800,
-        scrollHeight: 1200,
-        clientWidth: 400,
-        clientHeight: 600,
-      },
-    })
-    expect(onScroll).toHaveBeenCalledWith({
-      offsetX: 5,
-      offsetY: 50,
-      contentWidth: 800,
-      contentHeight: 1200,
-      viewportWidth: 400,
-      viewportHeight: 600,
-    })
+    expect(onValueChange).toHaveBeenCalledWith(expect.objectContaining({ value: 'hi' }))
   })
 })
 
@@ -280,29 +220,6 @@ describe('svelte normalize — expanded attribute surface', () => {
       'aria-atomic': true,
     })
   })
-
-  it('translates a realistic slider binding set', () => {
-    const onValueChange = vi.fn()
-    const out = normalize({
-      role: 'slider',
-      orientation: 'horizontal',
-      valueMin: 0,
-      valueMax: 100,
-      valueNow: 40,
-      valueText: '40%',
-      focusable: true,
-      onValueChange,
-    })
-    expect(out).toMatchObject({
-      role: 'slider',
-      'aria-orientation': 'horizontal',
-      'aria-valuemin': 0,
-      'aria-valuemax': 100,
-      'aria-valuenow': 40,
-      'aria-valuetext': '40%',
-      tabindex: 0,
-    })
-    ;(out.oninput as (e: unknown) => void)({ target: { value: '50', type: 'range' } })
-    expect(onValueChange).toHaveBeenCalledWith(expect.objectContaining({ value: '50' }))
-  })
 })
+
+describeVocabularyAccounting('svelte', normalize, { map: HANDLER_MAP }, { map: ATTR_MAP })

@@ -1,7 +1,8 @@
 import type { AttrTargets, HandlerTargets } from '@dunky.dev/state-machine-bindings'
 
 /**
- * Handler names shared verbatim by every DOM target. The two divergent keys
+ * Handler names shared by every DOM target, in React's casing (Svelte
+ * lowercases them to the DOM's own attribute names). The two divergent keys
  * (`onValueChange`, `onDoublePress`) are deliberately absent — each target
  * adds its own.
  */
@@ -26,7 +27,7 @@ export const DOM_HANDLER_MAP: HandlerTargets = {
 /**
  * The `aria-` projection of the logical attr vocabulary — pure DOM truth,
  * identical in every DOM target. `focusable` is deliberately absent: its
- * target prop differs in casing (React `tabIndex`, Solid `tabindex`).
+ * target prop differs in casing (React `tabIndex`, Solid/Svelte `tabindex`).
  */
 export const DOM_ATTR_MAP: AttrTargets = {
   describedBy: 'aria-describedby',
@@ -85,7 +86,8 @@ export const DOM_ATTR_MAP: AttrTargets = {
 
 /**
  * The DOM event fields the payload adapters read. React's synthetic events
- * and Solid's native events expose the same names, so one shape serves both.
+ * and Solid's and Svelte's native events expose the same names, so one shape
+ * serves them all.
  */
 export type AnyEvent = {
   target?: { value?: unknown; checked?: unknown; type?: string }
