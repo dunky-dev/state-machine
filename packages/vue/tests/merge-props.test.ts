@@ -1,55 +1,86 @@
-import { describe, expect, it, vi } from 'vitest'
+/**
+ * Vue mergeProps — consumer props + the component's normalized props.
+ * Inherits handler composition (consumer first, `defaultPrevented` veto) and
+ * library-wins from the agnostic base; adds Vue's own shapes: `class`/`style`
+ * of any form merge as `[consumer, library]` (Vue normalizes arrays), and an
+ * array of consumer handlers — what Vue's own mergeProps hands a component
+ * through `attrs` — composes like a single handler.
+ */
+import { h, type HTMLAttributes } from 'vue'
+import { renderToString } from 'vue/server-renderer'
+import { describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { mergeProps } from '@dunky.dev/vue-state-machine'
 
-describe('mergeProps', () => {
-  it('inherits handler composition from the agnostic base', () => {
-    const consumer = vi.fn()
+type Handler = (event?: { defaultPrevented?: boolean }) => void
+const call = (props: Record<string, unknown>, key: string, event = {}) =>
+  (props[key] as Handler)(event)
+
+describe('vue mergeProps — handlers', () => {
+  it('chains consumer then library on every Vue listener key shape', () => {
+    for (const key of ['onClick', 'onPointerenter', 'onUpdate:open']) {
+      const calls: string[] = []
+      const merged = mergeProps(
+        { [key]: () => calls.push('consumer') },
+        { [key]: () => calls.push('library') },
+      )
+      call(merged, key)
+      expect({ key, calls }).toEqual({ key, calls: ['consumer', 'library'] })
+    }
+  })
+
+  it('skips the library handler when the consumer prevents default (veto)', () => {
     const library = vi.fn()
-    const merged = mergeProps({ onClick: consumer }, { onClick: library })
-    ;(merged.onClick as (e: unknown) => void)({ defaultPrevented: false })
-    expect(consumer).toHaveBeenCalledOnce()
-    expect(library).toHaveBeenCalledOnce()
+    const merged = mergeProps({ onClick: vi.fn() }, { onClick: library })
+    call(merged, 'onClick', { defaultPrevented: true })
+    expect(library).not.toHaveBeenCalled()
   })
 
-  it('inherits library-wins on plain attrs', () => {
-    const out = mergeProps({ id: 'consumer' }, { id: 'lib' })
-    expect(out.id).toBe('lib')
+  it('composes an array of consumer handlers like one handler, veto included', () => {
+    const calls: string[] = []
+    const merged = mergeProps(
+      { onClick: [() => calls.push('first'), () => calls.push('second')] },
+      { onClick: () => calls.push('library') },
+    )
+    call(merged, 'onClick')
+    call(merged, 'onClick', { defaultPrevented: true })
+    expect(calls).toEqual(['first', 'second', 'library', 'first', 'second'])
+  })
+})
+
+describe('vue mergeProps — class / style', () => {
+  it('merges overlapping class and style of any shape; Vue renders library style last', async () => {
+    const merged = mergeProps(
+      { class: ['a', { b: true }], style: 'color: red; margin: 0' },
+      { class: 'c', style: { color: 'blue' } },
+    )
+    expect(await renderToString(h('div', merged))).toBe(
+      '<div class="a b c" style="color:blue;margin:0;"></div>',
+    )
   })
 
-  it('wraps overlapping styles into an array — consumer first, library second', () => {
-    const consumerStyle = { color: 'red' }
-    const libStyle = { color: 'blue' }
-    const out = mergeProps({ style: consumerStyle }, { style: libStyle })
-    expect(out.style).toEqual([consumerStyle, libStyle])
+  it('keeps a one-sided class or style as-is', () => {
+    const style = { color: 'blue' }
+    expect(mergeProps({ class: ['a'] }, { style })).toEqual({ class: ['a'], style })
+  })
+})
+
+describe('vue mergeProps — attrs', () => {
+  it('library wins on plain attrs', () => {
+    expect(mergeProps({ id: 'consumer', title: 't' }, { id: 'lib' })).toEqual({
+      id: 'lib',
+      title: 't',
+    })
   })
 
-  it('library style wins when consumer omits style', () => {
-    const libStyle = { color: 'blue' }
-    const out = mergeProps({ id: 'a' }, { style: libStyle })
-    expect(out.style).toBe(libStyle)
+  it('returns the library props when the consumer passes none', () => {
+    const library = { id: 'lib', class: 'x' }
+    expect(mergeProps(undefined, library)).toBe(library)
   })
+})
 
-  it('consumer style stays when library omits style', () => {
-    const consumerStyle = { color: 'red' }
-    const out = mergeProps({ style: consumerStyle }, { id: 'a' })
-    expect(out.style).toBe(consumerStyle)
-  })
-
-  it('concatenates overlapping classes with a single space', () => {
-    const out = mergeProps({ class: 'a b' }, { class: 'c' })
-    expect(out.class).toBe('a b c')
-  })
-
-  it('trims edge whitespace; inner spacing is preserved verbatim', () => {
-    const out = mergeProps({ class: '  a  ' }, { class: '  b  ' })
-    // `${'  a  '} ${'  b  '}` → '  a     b  ' → trim → 'a     b'
-    // (2 trailing + 1 separator + 2 leading = 5 inner spaces)
-    expect(out.class).toBe('a     b')
-  })
-
-  it('non-string class falls back to library-wins (no concat)', () => {
-    // consumer.class is unset; library's wins as a plain key.
-    const out = mergeProps({ id: 'a' }, { class: 'x' })
-    expect(out.class).toBe('x')
+describe('vue mergeProps — typing', () => {
+  it("hands Vue's own attribute types back cast-free", () => {
+    const consumer: HTMLAttributes = { class: 'a', onClick: () => {} }
+    expectTypeOf(mergeProps(consumer, { class: 'b' })).toExtend<HTMLAttributes>()
   })
 })
