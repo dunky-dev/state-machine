@@ -147,7 +147,7 @@ import type { RowMachine } from './row'
 const props = defineProps<{ machine: RowMachine; value: string }>()
 
 const isHighlighted = useSelector(
-  props.machine,
+  () => props.machine,
   () => props.machine.context.highlightedValue === props.value,
 )
 </script>
@@ -157,7 +157,7 @@ const isHighlighted = useSelector(
 </template>
 ```
 
-The ref updates only when the selected value changes — `Object.is` by default. For object selections, pass a custom equality function so a re-derived equal object doesn't bump the ref:
+The selector re-runs on every machine change and whenever a reactive value it reads changes — `props.value` above — and the ref updates only when the selected value changes: `Object.is` by default. Pass the machine as a getter (or a ref) so a swapped machine is followed. For object selections, pass a custom equality function so a re-derived equal object doesn't bump the ref:
 
 ```ts
 const pos = useSelector(
@@ -181,7 +181,7 @@ type Effect = ComponentEffect<DialogMachine, DialogProps>
 
 const onEscapeKey: Effect = [
   (machine, props) => {
-    if (!props.closeOnEscape) return
+    if (props.closeOnEscape === false) return // undefined keeps the default: on
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') machine.send({ type: 'close' })
     }
@@ -194,6 +194,6 @@ const onEscapeKey: Effect = [
 export const dialogEffects = [onEscapeKey]
 ```
 
-The tuple shape is **identical to every other target** — the same `./dialog` effects run everywhere. The deps are prop NAMES (typed `(keyof Props)[]`, so a typo is a compile error); the Vue bridge watches exactly those props, compares each by value, and re-runs after the DOM update, so a prop the effect merely reads never becomes a hidden dependency. As on React, effects start once the machine has, and are cleaned up after it stops. The machine only receives `send({ type: 'close' })`; it has no idea a keyboard event exists.
+The tuple shape is **identical to every other target** — the same `./dialog` effects run everywhere. The deps are prop NAMES (typed `(keyof Props)[]`, so a typo is a compile error); the Vue bridge watches exactly those props, compares each by value, and re-runs after the DOM update, so a prop the effect merely reads never becomes a hidden dependency. As on React, effects start once the machine has, and are cleaned up after it stops and the component's DOM is gone; one that throws is reported through Vue's error handling without stopping the others. The machine only receives `send({ type: 'close' })`; it has no idea a keyboard event exists.
 
 See [Effects](/api/effects) for the full mental model of where each type of effect lives.

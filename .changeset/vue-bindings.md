@@ -8,12 +8,14 @@ A first-class Vue bridge with the same four exports as the React and Solid
 targets. `useMachine` builds the machine and connector once in `setup()`,
 exposes the connector's memoized snapshot as a `ComputedRef`, keeps props fresh
 through `setProps`, and runs the lifecycle in React's order: `start()`, then
-each `ComponentEffect`, after mount; `stop()`, then the effect cleanups, on
-unmount. An effect re-runs only when one of its named prop deps changes, after
+each `ComponentEffect`, after mount; `stop()`, then the effect cleanups, once
+the component's DOM is gone. An effect re-runs only when one of its named prop deps changes, after
 the DOM has been patched. Under `<KeepAlive>` a deactivated component pauses —
 machine stopped, effects torn down — and resumes with its state intact, like
 React's `<Activity>`; server rendering starts nothing and runs no effect.
-`useSelector` returns a readonly ref holding the selected value as-is.
+`useSelector` returns a readonly ref holding the selected value as-is; it
+re-selects on machine changes and when a reactive value the selector reads
+changes, and takes the machine as a value, ref, or getter.
 `normalize` reuses the shared DOM translation from
 `@dunky.dev/state-machine-dom` with Vue's listener names (`onPointerenter`,
 `onKeydown` — Vue derives the DOM event by hyphenating a listener's camel tail).

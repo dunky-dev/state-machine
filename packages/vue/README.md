@@ -36,8 +36,8 @@ This is a **first-class Vue target**, not a re-export of the React bridge.
 React's adapters re-export onto React Native and OpenTUI because those share a
 React reconciler; Vue has its own reactivity, so the lifecycle is implemented
 with Vue primitives — a `computed` over the connector's memoized snapshot,
-`watch` for prop sync and effect deps, and the `onMounted` / `onBeforeUnmount`
-/ `onActivated` / `onDeactivated` hooks — while keeping React's effect order.
+`watch` for prop sync and effect deps, and the `onMounted` / `onUnmounted` /
+`onActivated` / `onDeactivated` hooks — while keeping React's effect order.
 The behavior still lives in the core machine and the component's `connect`;
 this layer only adapts them to Vue.
 
@@ -150,7 +150,8 @@ It:
   identity changes only on a real change.
 - **runs the lifecycle in React's order** — `service.start()` after mount, then
   the component's effects; on unmount, `service.stop()`, then the effect
-  cleanups. The connector wired its
+  cleanups, once the component's DOM is gone (as React's passive effects run).
+  The connector wired its
   [reactions](../core/README.md#reactions--firing-prop-callbacks-without-the-machine-knowing)
   to the machine's own `start`/`stop`, so prop callbacks follow automatically.
 - **pauses under `<KeepAlive>`** — deactivation stops the machine and tears the
@@ -211,10 +212,10 @@ import type { ComponentEffect } from '@dunky.dev/vue-state-machine'
 
 type TooltipEffect = ComponentEffect<TooltipMachine, TooltipMachineProps>
 
-/** Escape-to-close (gated by closeOnEscape). */
+/** Escape-to-close (on unless closeOnEscape is false). */
 const trackEscape: TooltipEffect = [
   (machine, props) => {
-    if (!props.closeOnEscape) return
+    if (props.closeOnEscape === false) return
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') machine.send({ type: 'escape' })
     }
@@ -233,9 +234,11 @@ of its named deps changes, and only after Vue has patched the DOM with that
 change (a `post`-flush watcher with one getter per dep, each compared by
 value). The body runs untracked, so a prop it merely reads never becomes a
 hidden dependency — the authored `deps`, typed `(keyof Props)[]`, are the whole
-re-run contract, as with React's dep array. The effect receives the machine and
-the current props: pass the component's props object and a listener reading a
-prop at event time sees its latest value.
+re-run contract, as with React's dep array. Each entry runs on its own: one
+that throws is reported through Vue's error handling (`app.config.errorHandler`)
+and the others still run. The effect receives the machine and the current
+props: pass the component's props object and a listener reading a prop at
+event time sees its latest value.
 
 > The agnostic _decision_ lives in the core component's resolver; only the
 > _transport_ (the DOM listener) is here. The machine just receives a plain event.
@@ -249,13 +252,18 @@ changes:
 
 ```ts
 const open = useSelector(machine, () => machine.matches('open'))
-const isHL = useSelector(machine, () => machine.context.highlightedValue === value)
+// a machine from props: pass a getter, and read props inside the selector freely
+const isHL = useSelector(
+  () => props.machine,
+  () => props.machine.context.highlightedValue === props.value,
+)
 // in a template: <div :data-open="open" />
 ```
 
-Backed by the machine's `select` — a value-deduped Selection — feeding a
-`shallowRef`. `Object.is` by default; **an object/array selection MUST pass a
-custom `isEqual`** so a re-derived equal value doesn't bump the ref:
+The selector re-runs on every machine change and whenever a reactive value it
+reads changes (a prop it compares against), and the ref takes the new value only
+when it differs. `Object.is` by default; **an object/array selection MUST pass
+a custom `isEqual`** so a re-derived equal value doesn't bump the ref:
 
 ```ts
 const pos = useSelector(
@@ -266,12 +274,12 @@ const pos = useSelector(
 ```
 
 The selection comes back as-is — never wrapped in a reactive proxy, so
-`selected.value === machine.context.item` holds. The subscription is disposed
-with the surrounding effect scope: the component's on unmount, or a bare
-`effectScope()` when it stops. It subscribes during `setup()`, and Vue never
-disposes a scope on the server, so in SSR hand it a machine that lives per
-request (one from `useMachine`), never a module-level machine shared across
-requests.
+`selected.value === machine.context.item` holds. The machine may be a ref or a
+getter; swapping it re-subscribes. The subscription is disposed with the
+surrounding effect scope — the component's on unmount, or a bare
+`effectScope()` when it stops — and a server render leaves none behind on Vue
+3.5+. (On 3.3–3.4, Vue never runs that cleanup on the server: hand
+`useSelector` a per-request machine there, such as one from `useMachine`.)
 
 `api` from `useMachine` already updates only on a real change, so reach for
 `useSelector` when a leaf wants to track one slice of a machine it doesn't
@@ -356,7 +364,7 @@ also falls the attrs through to the root element and every handler runs twice.
 | Export                                        | What it is                                                                                                                     |
 | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `useMachine(config, connect, effects, props)` | the bridge composable — build once + lifecycle + run effects + computed snapshot; returns `{ api, machine }`                   |
-| `useSelector(machine, selector, isEqual?)`    | fine-grained subscription to a derived slice; returns a readonly ref (`O(readers)`)                                            |
+| `useSelector(machine, selector, isEqual?)`    | fine-grained subscription to a derived slice (machine: value, ref, or getter); returns a readonly ref (`O(readers)`)           |
 | `normalize(bindings)`                         | agnostic bindings → Vue DOM/ARIA props                                                                                         |
 | `mergeProps(consumer, library)`               | merge consumer + component props (handlers chained w/ `defaultPrevented` veto; `class`/`style` as `[consumer, library]` array) |
 | `ComponentEffect<M, P>`                       | `[ (machine, props) => cleanup, (keyof P)[] ]` — one platform effect + its prop deps; pass a static list of them               |
