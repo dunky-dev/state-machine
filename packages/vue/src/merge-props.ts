@@ -35,7 +35,12 @@ export function mergeProps<Props extends object = AnyProps>(
   }
 
   const merged: AnyProps = baseMergeProps(own, library)
-  if (own.class != null && library.class != null) merged.class = [own.class, library.class]
-  if (own.style != null && library.style != null) merged.style = [own.style, library.style]
+  // Both sides apply; a nullish library value adds nothing, so the consumer's stays.
+  if (own.class != null) {
+    merged.class = library.class == null ? own.class : [own.class, library.class]
+  }
+  if (own.style != null) {
+    merged.style = library.style == null ? own.style : [own.style, library.style]
+  }
   return merged as Props & AnyProps
 }

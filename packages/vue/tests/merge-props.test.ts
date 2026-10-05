@@ -63,9 +63,13 @@ describe('vue mergeProps — class / style', () => {
     )
   })
 
-  it('keeps a one-sided class or style as-is', () => {
+  it('keeps a one-sided class or style as-is — including against a nullish library value', () => {
     const style = { color: 'blue' }
     expect(mergeProps({ class: ['a'] }, { style })).toEqual({ class: ['a'], style })
+    expect(mergeProps({ class: 'mine', style }, { class: undefined, style: null })).toEqual({
+      class: 'mine',
+      style,
+    })
   })
 })
 
