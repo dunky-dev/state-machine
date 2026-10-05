@@ -1,15 +1,15 @@
 import {
-  getCurrentInstance,
+  computed,
+  hasInjectionContext,
   inject,
   onScopeDispose,
-  shallowReadonly,
   shallowRef,
   ssrContextKey,
   toValue,
   triggerRef,
   watch,
+  type ComputedRef,
   type MaybeRefOrGetter,
-  type ShallowRef,
 } from 'vue'
 import type { EqualityFn, Machine } from '@dunky.dev/state-machine'
 
@@ -21,7 +21,7 @@ import type { EqualityFn, Machine } from '@dunky.dev/state-machine'
  *
  * Equality is `Object.is` by default; pass `isEqual` for object selections so a
  * re-derived equal object doesn't bump the ref. The selection comes back as-is,
- * never wrapped in a reactive proxy, behind a readonly ref: it is derived state.
+ * never wrapped in a reactive proxy, behind a computed ref: it is derived state.
  */
 export function useSelector<
   State extends string,
@@ -33,41 +33,37 @@ export function useSelector<
   machine: MaybeRefOrGetter<Machine<State, Context, Event, Computed>>,
   selector: () => T,
   isEqual?: EqualityFn<T>,
-): Readonly<ShallowRef<T>> {
-  const selected = shallowRef(selector()) as ShallowRef<T>
+): ComputedRef<T> {
+  const equals = isEqual ?? Object.is
+  // Triggered on every notification of the current machine. The computed re-runs the
+  // selector lazily, where it is read — after Vue has finished patching the props — and
+  // re-collects its reactive reads (a prop it compares against) on every run.
+  const notified = shallowRef()
+  let last: { value: T } | undefined
+  const selected = computed(() => {
+    void notified.value
+    const next = selector()
+    // An equal selection keeps the previous value's identity, so readers don't re-render.
+    if (last && equals(last.value, next)) return last.value
+    last = { value: next }
+    return next
+  })
+
   // A server render is one pass with nothing to follow, and Vue never disposes a scope
   // there: a subscription would outlive the request.
-  if (getCurrentInstance() && inject(ssrContextKey, null)) return shallowReadonly(selected)
+  if (hasInjectionContext() && inject(ssrContextKey, null)) return selected
 
-  const equals = isEqual ?? Object.is
-  // Triggered on every notification of the current machine. One watcher runs the selector
-  // for both machine changes and its own reactive reads (a prop it compares against), so
-  // every run re-collects those reads, whichever path triggered it.
-  const notified = shallowRef()
-  watch(
-    () => {
-      void notified.value
-      return selector()
-    },
-    next => {
-      if (!equals(selected.value, next)) selected.value = next
-    },
-    { flush: 'sync' },
-  )
-
-  const subscribe = (current: Machine<State, Context, Event, Computed>) =>
-    current.subscribe(() => triggerRef(notified))
-  let unsubscribe = subscribe(toValue(machine))
-  // A ref or getter may swap the machine: move the subscription, then re-select.
+  let unsubscribe = toValue(machine).subscribe(() => triggerRef(notified))
+  // A ref or getter may swap the machine: the subscription moves with it.
   watch(
     () => toValue(machine),
     current => {
       unsubscribe()
-      unsubscribe = subscribe(current)
+      unsubscribe = current.subscribe(() => triggerRef(notified))
       triggerRef(notified)
     },
   )
   onScopeDispose(() => unsubscribe())
 
-  return shallowReadonly(selected)
+  return selected
 }

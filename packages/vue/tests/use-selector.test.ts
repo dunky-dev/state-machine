@@ -2,7 +2,7 @@
 // `useSelector` — fine-grained leaf subscription: the ref updates only when the
 // selected value changes, hands the value back untouched, and disposes with its
 // effect scope (a component's, or a bare effectScope()).
-import { defineComponent, effectScope, h, nextTick, ref, shallowRef } from 'vue'
+import { defineComponent, effectScope, h, nextTick, ref, shallowRef, type PropType } from 'vue'
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -138,10 +138,57 @@ describe('useSelector — reactive inputs', () => {
     current.value = second
     await nextTick()
 
+    expect(a.value).toBe(0)
     const evaluations = selector.mock.calls.length
-    first.send({ type: 'incA' }) // the old machine no longer wakes the selector
+    first.send({ type: 'incA' }) // the old machine no longer marks the selection stale
+    void a.value
     expect(selector.mock.calls.length).toBe(evaluations)
     second.send({ type: 'incA' })
+    expect(a.value).toBe(1)
+    scope.stop()
+  })
+
+  it('reads props only after Vue has patched them all', async () => {
+    const m = makeMachine()
+    const Leaf = defineComponent({
+      props: {
+        items: { type: Array as PropType<string[]>, required: true },
+        index: { type: Number, required: true },
+      },
+      setup(props) {
+        const label = useSelector(m, () => props.items[props.index]!.toUpperCase())
+        return () => h('span', label.value)
+      },
+    })
+    const items = ref(['a', 'b', 'c'])
+    const index = ref(2)
+    const errorHandler = vi.fn()
+    const wrapper = mount(
+      defineComponent({ render: () => h(Leaf, { items: items.value, index: index.value }) }),
+      { global: { config: { errorHandler } } },
+    )
+    items.value = ['x'] // alone, index 2 is out of range...
+    index.value = 0 // ...but both land in the same patch
+    await nextTick()
+    expect(errorHandler).not.toHaveBeenCalled()
+    expect(wrapper.text()).toBe('X')
+  })
+
+  it('keeps the last good selection when the selector throws', () => {
+    const m = makeMachine()
+    const broken = ref(false)
+    const scope = effectScope()
+    const a = scope.run(() =>
+      useSelector(m, () => {
+        if (broken.value) throw new Error('selector failed')
+        return m.context.a
+      }),
+    )!
+    expect(a.value).toBe(0)
+    broken.value = true
+    expect(() => a.value).toThrow('selector failed')
+    broken.value = false
+    m.send({ type: 'incA' })
     expect(a.value).toBe(1)
     scope.stop()
   })
@@ -161,7 +208,7 @@ describe('useSelector — the returned ref', () => {
     scope.stop()
   })
 
-  it('disposes with its effect scope: a stopped scope stops evaluating the selector', () => {
+  it('disposes with its effect scope: a stopped scope stops following the machine', () => {
     const m = makeMachine()
     const selector = vi.fn(() => m.context.a)
     const scope = effectScope()
@@ -172,6 +219,7 @@ describe('useSelector — the returned ref', () => {
     scope.stop()
     const evaluations = selector.mock.calls.length
     m.send({ type: 'incA' })
+    void a.value // a live subscription would have marked the selection stale
     expect(selector.mock.calls.length).toBe(evaluations)
   })
 })

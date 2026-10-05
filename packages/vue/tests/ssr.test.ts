@@ -55,19 +55,16 @@ describe('server rendering', () => {
     expect(onStart).not.toHaveBeenCalled()
   })
 
-  it('leaves no useSelector subscription on a machine that outlives the render', async () => {
+  it('subscribes useSelector to nothing, so a machine outliving the render keeps no listener', async () => {
     const shared = machine(createToggleConfig({}))
-    const selector = vi.fn(() => shared.matches('open'))
+    const subscribe = vi.spyOn(shared, 'subscribe')
     const Reader = defineComponent({
       setup() {
-        const open = useSelector(shared, selector)
+        const open = useSelector(shared, () => shared.matches('open'))
         return () => h('span', String(open.value))
       },
     })
     expect(await renderToString(createSSRApp(Reader))).toBe('<span>false</span>')
-
-    const evaluations = selector.mock.calls.length
-    shared.send({ type: 'toggle' })
-    expect(selector.mock.calls.length).toBe(evaluations)
+    expect(subscribe).not.toHaveBeenCalled()
   })
 })
