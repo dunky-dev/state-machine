@@ -1,7 +1,10 @@
 import { mount } from 'svelte'
 import App from './app.svelte'
 
-const target = document.getElementById('app')
-if (!target) throw new Error('missing #app')
+// The stylesheet every web sandbox shares.
+import '../../shared/src/styles.css'
 
-mount(App, { target })
+const root = document.getElementById('root')
+if (!root) throw new Error('missing #root')
+
+mount(App, { target: root })

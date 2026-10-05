@@ -11,12 +11,14 @@
   "dependencies": {
     "@dunky.dev/state-machine": "workspace:^",
     "@dunky.dev/state-machine-bindings": "workspace:^",
+    "@dunky.dev/state-machine-dom": "workspace:^",
+    "@dunky.dev/state-machine-utils": "workspace:^",
     "@dunky.dev/svelte-state-machine": "workspace:^",
     "@sandbox/cmdk-core": "workspace:^",
-    "svelte": "^5.43.2"
+    "svelte": "^5.57.1"
   },
   "devDependencies": {
-    "@sveltejs/vite-plugin-svelte": "^7.1.2",
-    "vite": "^8.0.14"
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "vite": "^8.3.2"
   }
 }
