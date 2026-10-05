@@ -77,8 +77,10 @@ export function useMachine<
     try {
       service.start()
     } finally {
-      // Even if a core effect threw while starting, the component's own effects still run.
-      active = effects.map(([fn, deps]) => {
+      // Even if a core effect threw while starting, the component's own effects still run;
+      // each is recorded as it starts, so whatever happens next can tear it down.
+      const disposers: (() => void)[] = (active = [])
+      for (const [fn, deps] of effects) {
         // Held here, not passed to onCleanup: the instance scope stops its watchers before
         // the DOM is removed, and the cleanup must wait for that — and for stop().
         let cleanup: (() => void) | undefined
@@ -100,47 +102,44 @@ export function useMachine<
           },
           { immediate: true, flush: 'post' },
         )
-        return () => {
+        disposers.push(() => {
           stop()
           teardown()
-        }
-      })
-    }
-  }
-  // Finishes the pass even when a cleanup throws, so one can't strand the others'
-  // listeners; every failure is reported, a lone one as-is.
-  const disposeEffects = () => {
-    const disposers = active
-    active = undefined
-    if (!disposers) return
-    let failures: unknown[] | undefined
-    for (const dispose of disposers) {
-      try {
-        dispose()
-      } catch (error) {
-        ;(failures ??= []).push(error)
+        })
       }
     }
-    if (failures) {
-      throw failures.length === 1
-        ? failures[0]
-        : new AggregateError(failures, 'useMachine: several effect cleanups threw')
-    }
+  }
+  const takeDisposers = (): (() => void)[] => {
+    const disposers = active ?? []
+    active = undefined
+    return disposers
   }
   onMounted(resume)
   onActivated(resume)
-  onDeactivated(() => {
-    try {
-      service.stop()
-    } finally {
-      disposeEffects()
-    }
-  })
+  onDeactivated(() => settle([service.stop, ...takeDisposers()]))
   // Unmounting stops the machine first and parent-first, like React's top-down passive
   // cleanups — a part's own teardown send then fires no reactions — and cleans the effects
   // up once the DOM is gone.
   onBeforeUnmount(service.stop)
-  onUnmounted(disposeEffects)
+  onUnmounted(() => settle(takeDisposers()))
 
   return { api, machine: service }
+}
+
+// Runs every step even when one throws, so a failing cleanup can't strand the others'
+// listeners; then reports every failure — a lone one as-is.
+function settle(steps: (() => void)[]): void {
+  let failures: unknown[] | undefined
+  for (const step of steps) {
+    try {
+      step()
+    } catch (error) {
+      ;(failures ??= []).push(error)
+    }
+  }
+  if (failures) {
+    throw failures.length === 1
+      ? failures[0]
+      : new AggregateError(failures, 'useMachine: several teardown steps threw')
+  }
 }
