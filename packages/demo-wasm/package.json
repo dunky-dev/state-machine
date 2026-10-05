@@ -1,0 +1,20 @@
+{
+  "name": "@dunky.dev/demo-wasm",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The demo machines compiled from Rust (crates/demo) to wasm, wrapped as TS Machines. Build the wasm first: pnpm build:wasm.",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./node": "./src/node.ts",
+    "./pkg/*": "./pkg/*"
+  },
+  "dependencies": {
+    "@dunky.dev/state-machine": "workspace:*",
+    "@dunky.dev/state-machine-wasm": "workspace:*",
+    "@sandbox/cmdk-core": "workspace:*"
+  }
+}
