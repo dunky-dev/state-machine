@@ -36,10 +36,13 @@
   )
 
   let input: HTMLInputElement | undefined = $state()
+  // `view.api` is replaced on every machine change; a derived slice changes
+  // only on open/close, so the effect below doesn't re-focus on each keystroke.
+  const open = $derived(view.api.open)
 
   // Focus on open — a platform touchpoint, so the renderer owns it.
   $effect(() => {
-    if (view.api.open) input?.focus()
+    if (open) input?.focus()
   })
 </script>
 

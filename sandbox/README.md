@@ -11,11 +11,11 @@ produces.
 sandbox/
 +-- shared/      @sandbox/cmdk-core — the machine + connect() + commands (NO framework)
 |                + src/styles.css — the one stylesheet the React, Solid, and Svelte apps share
-+-- react/       Vite + React DOM     → normalize → onClick / aria-* / role
-+-- solid/       Vite + Solid         → normalize → onClick / aria-* / tabindex
-+-- svelte/      Vite + Svelte 5      → normalize → onclick / aria-* / tabindex
-+-- opentui/     Bun + @opentui/react → normalize → onMouseDown / focusable / cells
-+-- native/      Expo + React Native  → normalize → onPress / accessibilityState
++-- react/       Vite + React DOM     -> normalize -> onClick / aria-* / role
++-- solid/       Vite + Solid         -> normalize -> onClick / aria-* / tabindex
++-- svelte/      Vite + Svelte 5      -> normalize -> onclick / aria-* / tabindex
++-- opentui/     Bun + @opentui/react -> normalize -> onMouseDown / focusable / cells
++-- native/      Expo + React Native  -> normalize -> onPress / accessibilityState
 ```
 
 The split that makes this work: the **prop translator** (`normalize`) comes from
