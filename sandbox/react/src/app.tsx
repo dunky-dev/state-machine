@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { DEMO_COMMANDS } from '@sandbox/cmdk-core'
+import { DEMO_COMMANDS, type CommandPaletteSource } from '@sandbox/cmdk-core'
 import { CommandPalette } from './command-palette'
 
-export function App() {
+export type Engine = 'ts' | 'rust'
+
+export function App({ engine, source }: { engine: Engine; source: CommandPaletteSource }) {
   const [last, setLast] = useState('—')
 
   return (
@@ -10,6 +12,7 @@ export function App() {
       <h1 className='demo-title'>⌘K Command Palette</h1>
       <br />
       <CommandPalette
+        source={source}
         commands={DEMO_COMMANDS}
         onSelect={c => {
           setLast(c.label)
@@ -24,6 +27,12 @@ export function App() {
       </p>
       <p className='demo-hint'>
         <strong>Last selected: {last}</strong>
+      </p>
+      <p className='demo-hint'>
+        Engine: {engine === 'rust' ? 'Rust (wasm)' : 'TypeScript'} ·{' '}
+        <a href={engine === 'rust' ? '?' : '?engine=rust'}>
+          Switch to {engine === 'rust' ? 'TypeScript' : 'Rust'}
+        </a>
       </p>
     </main>
   )

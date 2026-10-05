@@ -1,8 +1,10 @@
 import { createSignal } from 'solid-js'
-import { DEMO_COMMANDS } from '@sandbox/cmdk-core'
+import { DEMO_COMMANDS, type CommandPaletteSource } from '@sandbox/cmdk-core'
 import { CommandPalette } from './command-palette'
 
-export function App() {
+export type Engine = 'ts' | 'rust'
+
+export function App(props: { engine: Engine; source: CommandPaletteSource }) {
   const [last, setLast] = createSignal('—')
 
   return (
@@ -10,6 +12,7 @@ export function App() {
       <h1 class='demo-title'>⌘K Command Palette</h1>
       <br />
       <CommandPalette
+        source={props.source}
         commands={DEMO_COMMANDS}
         onSelect={c => {
           setLast(c.label)
@@ -24,6 +27,12 @@ export function App() {
       </p>
       <p class='demo-hint'>
         <strong>Last selected: {last()}</strong>
+      </p>
+      <p class='demo-hint'>
+        Engine: {props.engine === 'rust' ? 'Rust (wasm)' : 'TypeScript'} ·{' '}
+        <a href={props.engine === 'rust' ? '?' : '?engine=rust'}>
+          Switch to {props.engine === 'rust' ? 'TypeScript' : 'Rust'}
+        </a>
       </p>
     </main>
   )

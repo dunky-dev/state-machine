@@ -4,9 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun run src/index.tsx"
+    "dev": "bun run src/index.tsx",
+    "dev:rust": "bun run src/index.tsx --engine=rust"
   },
   "dependencies": {
+    "@dunky.dev/demo-wasm": "workspace:^",
     "@dunky.dev/opentui-state-machine": "workspace:^",
     "@dunky.dev/react-state-machine": "workspace:^",
     "@dunky.dev/state-machine": "workspace:^",

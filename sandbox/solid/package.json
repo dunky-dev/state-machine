@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@dunky.dev/demo-wasm": "workspace:^",
     "@dunky.dev/solid-state-machine": "workspace:^",
     "@dunky.dev/state-machine": "workspace:^",
     "@dunky.dev/state-machine-bindings": "workspace:^",
