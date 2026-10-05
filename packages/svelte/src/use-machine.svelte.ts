@@ -49,13 +49,9 @@ export function useMachine<
 
   // The listener only bumps a version (write-only: it must read nothing in the
   // sender's scope) and `api` pulls the connector's lazy snapshot, so connect()
-  // runs once the transition settles, at most once per flush, only if read.
+  // runs once the transition settles, at most once per change, only if read.
   let notified = 0
   let version = $state(0)
-  const api = $derived.by(() => {
-    void version // re-derive on every connector notify
-    return untrack(() => connection.snapshot)
-  })
 
   // Created before the template: it listens before a child's mount effect can
   // send, and its teardown stops the machine before children tear down.
@@ -90,7 +86,8 @@ export function useMachine<
 
   return {
     get api() {
-      return api
+      void version // re-read on every connector notify
+      return untrack(() => connection.snapshot)
     },
     machine: service,
   }

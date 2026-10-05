@@ -28,6 +28,15 @@ function mount(props: Record<string, unknown> = {}) {
   return { ...result, view: view! }
 }
 
+// A connect that also reports a deep reactive prop, read where connect runs.
+const connectWithBox: typeof connectToggle = Object.assign(
+  (snapshot: Parameters<typeof connectToggle>[0]) => ({
+    ...connectToggle(snapshot),
+    label: String((snapshot.props as { box?: { n: number } }).box?.n),
+  }),
+  { reactions: connectToggle.reactions },
+)
+
 describe('useMachine — lifecycle', () => {
   it('renders from the snapshot and updates the DOM on a machine change', async () => {
     const { getByTestId } = mount({ label: 'a' })
@@ -130,14 +139,11 @@ describe('useMachine — the api snapshot', () => {
 describe('useMachine — sends from inside an effect', () => {
   it("never lends connect()'s reads to the effect that sent", () => {
     const box = makeBox()
-    const connect: typeof connectToggle = Object.assign(
-      (snapshot: Parameters<typeof connectToggle>[0]) => ({
-        ...connectToggle(snapshot),
-        label: String((snapshot.props as { box?: { n: number } }).box?.n),
-      }),
-      { reactions: connectToggle.reactions },
-    )
-    const { view } = mount({ connect, box, childSends: { mount: { type: 'toggle' } } })
+    const { view } = mount({
+      connect: connectWithBox,
+      box,
+      childSends: { mount: { type: 'toggle' } },
+    })
     box.n = 5 // read by connect(), never by the child that sent
     flushSync()
     expect(view.api).toMatchObject({ open: true, count: 1 }) // the child did not re-send
@@ -160,6 +166,17 @@ describe('useMachine — props', () => {
     await rerender({ label: 'b' }) // must NOT rebuild/reset state
     expect(view.api).toMatchObject({ open: true, count: 1, label: 'b' })
     expect(getByTestId('toggle').textContent).toBe('b open 1')
+  })
+
+  // setProps compares shallowly on every target; the docs say to pass a new reference.
+  it('sees props by reference: a replaced value reaches the api, an in-place mutation does not', async () => {
+    const box = makeBox()
+    const { view, rerender } = mount({ connect: connectWithBox, box })
+    box.n = 1
+    flushSync()
+    expect(view.api.label).toBe('0')
+    await rerender({ box: { n: 2 } })
+    expect(view.api.label).toBe('2')
   })
 
   it('value-dedups: a re-render with equal props does not churn the snapshot', async () => {
