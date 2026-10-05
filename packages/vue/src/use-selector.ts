@@ -1,7 +1,12 @@
 import {
+  getCurrentInstance,
+  inject,
+  onScopeDispose,
   shallowReadonly,
   shallowRef,
+  ssrContextKey,
   toValue,
+  triggerRef,
   watch,
   type MaybeRefOrGetter,
   type ShallowRef,
@@ -29,32 +34,40 @@ export function useSelector<
   selector: () => T,
   isEqual?: EqualityFn<T>,
 ): Readonly<ShallowRef<T>> {
-  const equals = isEqual ?? Object.is
   const selected = shallowRef(selector()) as ShallowRef<T>
-  // The ref is the one record of the last selection: both change paths dedupe against it.
-  const accept = (next: T) => {
-    if (!equals(selected.value, next)) selected.value = next
-  }
+  // A server render is one pass with nothing to follow, and Vue never disposes a scope
+  // there: a subscription would outlive the request.
+  if (getCurrentInstance() && inject(ssrContextKey, null)) return shallowReadonly(selected)
 
-  // The machine reports its own changes. Subscribing from an immediate watcher follows a
-  // ref or getter that swaps the machine, and leaves nothing behind on the server, where
-  // an immediate watcher runs once and stops.
+  const equals = isEqual ?? Object.is
+  // Triggered on every notification of the current machine. One watcher runs the selector
+  // for both machine changes and its own reactive reads (a prop it compares against), so
+  // every run re-collects those reads, whichever path triggered it.
+  const notified = shallowRef()
+  watch(
+    () => {
+      void notified.value
+      return selector()
+    },
+    next => {
+      if (!equals(selected.value, next)) selected.value = next
+    },
+    { flush: 'sync' },
+  )
+
+  const subscribe = (current: Machine<State, Context, Event, Computed>) =>
+    current.subscribe(() => triggerRef(notified))
+  let unsubscribe = subscribe(toValue(machine))
+  // A ref or getter may swap the machine: move the subscription, then re-select.
   watch(
     () => toValue(machine),
-    (current, previous, onCleanup) => {
-      if (previous) accept(selector())
-      onCleanup(current.subscribe(() => accept(selector())))
+    current => {
+      unsubscribe()
+      unsubscribe = subscribe(current)
+      triggerRef(notified)
     },
-    { immediate: true },
   )
-
-  // Vue reports the reactive reads inside the selector — a prop it compares against — which
-  // change without the machine noticing. The fresh tuple sidesteps the watcher's own change
-  // check, which would compare against a stale value once the machine path has moved on.
-  watch(
-    (): [T] => [selector()],
-    ([next]) => accept(next),
-  )
+  onScopeDispose(() => unsubscribe())
 
   return shallowReadonly(selected)
 }

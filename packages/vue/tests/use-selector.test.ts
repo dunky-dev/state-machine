@@ -116,6 +116,19 @@ describe('useSelector — reactive inputs', () => {
     expect(renders.mock.calls).toEqual([[true], [false], [true]])
   })
 
+  it('tracks a reactive read the selector skipped on an earlier run', async () => {
+    const m = makeMachine()
+    const target = ref(1)
+    // `a > 0 &&` short-circuits while a is 0, so the first run never reads `target`.
+    const { Leaf, renders } = defineLeaf(m, () => m.context.a > 0 && m.context.a === target.value)
+    mount(Leaf)
+    m.send({ type: 'incA' }) // a machine-triggered run now reads `target`
+    await nextTick()
+    target.value = 2
+    await nextTick()
+    expect(renders.mock.calls).toEqual([[false], [true], [false]])
+  })
+
   it('follows a machine swapped through a ref', async () => {
     const [first, second] = [makeMachine(), makeMachine()]
     const current = shallowRef(first)
