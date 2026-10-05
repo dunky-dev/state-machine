@@ -29,6 +29,11 @@ describe('svelte — server rendering', () => {
     expect(body).toContain('ssr closed 0')
   })
 
+  it('renders the snapshot a send during script init produced', () => {
+    const { body } = render(UseMachine, { props: { label: 'ssr', sendAtInit: { type: 'toggle' } } })
+    expect(body).toContain('ssr open 1')
+  })
+
   it('serializes spread bindings like the client: ARIA tokens, tabindex, merged class, no handlers', () => {
     const attrs = mergeProps(
       { class: ['a', { b: true }] },

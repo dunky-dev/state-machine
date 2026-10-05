@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import { useSelector } from '@dunky.dev/svelte-state-machine'
   import Sender from './sender.svelte'
   import type { CountersMachine } from './counters'
@@ -21,16 +22,20 @@
     sendOnMount?: { type: 'incA' }
   } = $props()
 
-  // svelte-ignore state_referenced_locally
-  const selection = useSelector(machine, () => pick(machine, wanted), isEqual)
-  // svelte-ignore state_referenced_locally
-  const report = onread
+  const selection = useSelector(
+    () => machine,
+    () => pick(machine, wanted),
+    (a, b) => (isEqual ?? Object.is)(a, b),
+  )
 
-  // Reads only the selection, so it re-runs exactly when the reader is woken.
-  $effect(() => report?.(selection.current))
+  // Tracks only the selection, so it re-runs exactly when the reader is woken.
+  $effect(() => {
+    const value = selection.current
+    untrack(() => onread?.(value))
+  })
 </script>
 
 <span data-testid="value">{String(selection.current)}</span>
 {#if sendOnMount}
-  <Sender {machine} event={sendOnMount} />
+  <Sender {machine} mount={sendOnMount} />
 {/if}

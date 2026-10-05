@@ -9,7 +9,7 @@ import {
 // The toggle the useMachine suites (DOM and server) drive: `toggle` flips the
 // state and counts opens; `label` passes through to prove props reach connect.
 type ToggleState = 'closed' | 'open'
-type ToggleEvent = { type: 'toggle' }
+export type ToggleEvent = { type: 'toggle' }
 interface ToggleContext {
   count: number
 }
@@ -27,6 +27,8 @@ export interface ToggleApi {
 }
 
 export type ToggleMachine = ReturnType<typeof machine<ToggleState, ToggleContext, ToggleEvent>>
+
+export type ToggleView = { readonly api: ToggleApi; readonly machine: ToggleMachine }
 
 export const createToggleConfig = (): TransitionConfig<
   ToggleState,

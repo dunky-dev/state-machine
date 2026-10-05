@@ -5,36 +5,30 @@
 // testing-library's rerender swaps one props object, so every prop read
 // shares a signal — the way props arrive through a parent's `{...spread}`.
 import { fireEvent, render } from '@testing-library/svelte'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { flushSync } from 'svelte'
+import { describe, expect, it, vi } from 'vitest'
+import { act as write } from '@dunky.dev/state-machine'
 import type { ComponentEffect } from '@dunky.dev/svelte-state-machine'
+import { makeBox } from './fixtures/box.svelte'
 import UseMachine from './fixtures/use-machine.svelte'
 import {
   connectToggle,
+  createToggleConfig,
   type ToggleApi,
   type ToggleMachine,
   type ToggleProps,
+  type ToggleView,
 } from './fixtures/toggle'
 
-type View = { readonly api: ToggleApi; readonly machine: ToggleMachine }
 type Effect = ComponentEffect<ToggleMachine, ToggleProps>
 
-// Mounts the harness and hands back the live view alongside the render result.
 function mount(props: Record<string, unknown> = {}) {
-  let view: View | undefined
-  const result = render(UseMachine, { ...props, expose: (v: View) => (view = v) })
+  let view: ToggleView | undefined
+  const result = render(UseMachine, { ...props, expose: (v: ToggleView) => (view = v) })
   return { ...result, view: view! }
 }
 
-afterEach(() => vi.clearAllMocks())
-
 describe('useMachine — lifecycle', () => {
-  it('returns { api, machine }: api is the connect() output, machine is the running service', () => {
-    const { view } = mount({ label: 'hi' })
-    expect(view.api).toMatchObject({ open: false, label: 'hi', count: 0 })
-    expect(typeof view.api.toggle).toBe('function')
-    expect(typeof view.machine.send).toBe('function')
-  })
-
   it('renders from the snapshot and updates the DOM on a machine change', async () => {
     const { getByTestId } = mount({ label: 'a' })
     expect(getByTestId('toggle').textContent).toBe('a closed 0')
@@ -69,7 +63,7 @@ describe('useMachine — lifecycle', () => {
     ]
     const { unmount } = render(UseMachine, {
       effects: [effect],
-      expose: (view: View) => {
+      expose: (view: ToggleView) => {
         view.machine.onStart(() => order.push(`start:${mounted()}`))
         view.machine.onStop(() => order.push('stop'))
       },
@@ -77,6 +71,14 @@ describe('useMachine — lifecycle', () => {
     expect(order).toEqual(['start:mounted', 'effect:mounted'])
     unmount()
     expect(order).toEqual(['start:mounted', 'effect:mounted', 'stop', 'cleanup'])
+  })
+
+  // React runs a parent's unmount cleanups before descending into children.
+  it('stops before child components tear down, so their cleanup sends fire no reactions', () => {
+    const onOpenChange = vi.fn()
+    const { unmount } = mount({ onOpenChange, childSends: { destroy: { type: 'toggle' } } })
+    unmount()
+    expect(onOpenChange).not.toHaveBeenCalled()
   })
 })
 
@@ -97,9 +99,57 @@ describe('useMachine — the api snapshot', () => {
   })
 
   it('reflects a send made before mount (a child mount effect runs first)', () => {
-    const { view, getByTestId } = mount({ sendOnMount: { type: 'toggle' } })
+    const { view, getByTestId } = mount({ childSends: { mount: { type: 'toggle' } } })
     expect(view.api.open).toBe(true)
     expect(getByTestId('toggle').textContent).toBe('- open 1')
+  })
+
+  it('runs connect() once the transition settles, never mid-transition', () => {
+    // The entry action sets what connect relies on: open => draft is a string.
+    type Draft = { draft: string | null }
+    const createConfig = (() => ({
+      initial: 'closed',
+      context: { count: 0, draft: null },
+      states: {
+        closed: { on: { toggle: { target: 'open' } } },
+        open: { entry: write(() => ({ draft: 'ready' })) },
+      },
+    })) as unknown as typeof createToggleConfig
+    const connect: typeof connectToggle = snapshot => ({
+      ...connectToggle(snapshot),
+      label: snapshot.state === 'open' ? (snapshot.context as unknown as Draft).draft!.trim() : '-',
+    })
+    const { view } = mount({ createConfig, connect })
+    expect(() => view.machine.send({ type: 'toggle' })).not.toThrow()
+    expect(view.api.label).toBe('ready')
+  })
+})
+
+// Core notifies synchronously inside send(), so everything that wakes on it
+// would otherwise run in the tracking scope of whichever effect sent.
+describe('useMachine — sends from inside an effect', () => {
+  it("never lends connect()'s reads to the effect that sent", () => {
+    const box = makeBox()
+    const connect: typeof connectToggle = Object.assign(
+      (snapshot: Parameters<typeof connectToggle>[0]) => ({
+        ...connectToggle(snapshot),
+        label: String((snapshot.props as { box?: { n: number } }).box?.n),
+      }),
+      { reactions: connectToggle.reactions },
+    )
+    const { view } = mount({ connect, box, childSends: { mount: { type: 'toggle' } } })
+    box.n = 5 // read by connect(), never by the child that sent
+    flushSync()
+    expect(view.api).toMatchObject({ open: true, count: 1 }) // the child did not re-send
+  })
+
+  it("never lends a reaction callback's reads or writes to the effect that sent", () => {
+    const log = makeBox()
+    const onOpenChange = vi.fn(() => log.n++) // reads and writes state, like a counter
+    const { view } = mount({ onOpenChange, sendInEffect: { type: 'toggle' } })
+    flushSync()
+    expect(onOpenChange).toHaveBeenCalledOnce() // no self-invalidating loop
+    expect(view.api.open).toBe(true)
   })
 })
 
@@ -121,16 +171,6 @@ describe('useMachine — props', () => {
 })
 
 describe('useMachine — component effects', () => {
-  it('runs each ComponentEffect: setup on mount, cleanup on unmount', () => {
-    const setup = vi.fn()
-    const cleanup = vi.fn()
-    const { unmount } = mount({ effects: [[() => (setup(), cleanup), []]] })
-    expect(setup).toHaveBeenCalledOnce()
-    expect(cleanup).not.toHaveBeenCalled()
-    unmount()
-    expect(cleanup).toHaveBeenCalledOnce()
-  })
-
   // `copy`: the getter builds its own object (destructured defaults), so the
   // deps must be tracked by value, not by which props the getter reads.
   it.each([false, true])(

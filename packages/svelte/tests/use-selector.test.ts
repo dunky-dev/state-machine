@@ -4,7 +4,7 @@
 // selector closes over, subscribed for the reader's lifetime.
 import { render } from '@testing-library/svelte'
 import { flushSync } from 'svelte'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import UseSelector from './fixtures/use-selector.svelte'
 import { makeCounters, type CountersMachine } from './fixtures/counters'
 
@@ -14,20 +14,7 @@ const send = (m: CountersMachine, type: 'incA' | 'incB' | 'noop') => {
   flushSync()
 }
 
-afterEach(() => vi.clearAllMocks())
-
 describe('useSelector', () => {
-  it('reflects the selected value, updating when the machine changes it', () => {
-    const m = makeCounters()
-    const { getByTestId } = render(UseSelector, {
-      machine: m,
-      pick: (m: CountersMachine) => m.context.a,
-    })
-    expect(getByTestId('value').textContent).toBe('0')
-    send(m, 'incA')
-    expect(getByTestId('value').textContent).toBe('1')
-  })
-
   it('wakes its reader ONLY when the selected value changes (Object.is by default)', () => {
     const m = makeCounters()
     const onread = vi.fn()
@@ -81,6 +68,33 @@ describe('useSelector', () => {
 
     send(m, 'incA') // a is 1 → true against the NEW prop
     expect(getByTestId('value').textContent).toBe('true')
+  })
+
+  it('dedups a prop-driven change with isEqual too', async () => {
+    const m = makeCounters()
+    const onread = vi.fn()
+    const { rerender } = render(UseSelector, {
+      machine: m,
+      pick: (m: CountersMachine, wanted: number) => ({ a: m.context.a, big: wanted > 100 }),
+      isEqual: (x: unknown, y: unknown) => JSON.stringify(x) === JSON.stringify(y),
+      onread,
+    })
+    await rerender({ wanted: 1 }) // a fresh object, equal under isEqual → no wake
+    expect(onread).toHaveBeenCalledOnce()
+  })
+
+  it('follows the machine a getter hands over, waking on it alone', async () => {
+    const first = makeCounters()
+    const second = makeCounters()
+    const pick = (m: CountersMachine) => m.context.a
+    const { getByTestId, rerender } = render(UseSelector, { machine: first, pick })
+    send(second, 'incA')
+    await rerender({ machine: second })
+    expect(getByTestId('value').textContent).toBe('1') // reads the new machine
+
+    send(first, 'incA') // the old machine no longer wakes the reader
+    send(second, 'incA')
+    expect(getByTestId('value').textContent).toBe('2')
   })
 
   it('reflects a send made before mount (a child mount effect runs first)', () => {

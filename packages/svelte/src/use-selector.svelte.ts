@@ -6,9 +6,9 @@ import type { EqualityFn, Machine } from '@dunky.dev/state-machine'
  * reads the machine directly; `current` updates only when the selected VALUE
  * changes (Object.is by default — pass `isEqual` for object selections), so
  * unrelated machine changes never wake the reader. Call it while a component
- * initializes.
+ * initializes; pass the machine as a getter when it can change (a prop).
  *
- *   const open = useSelector(m, () => m.matches('open'))
+ *   const open = useSelector(() => machine, () => machine.matches('open'))
  *   // {#if open.current} … {/if}
  */
 export function useSelector<
@@ -18,24 +18,37 @@ export function useSelector<
   Event extends { type: string } = { type: string },
   Computed = Record<string, never>,
 >(
-  machine: Machine<State, Context, Event, Computed>,
+  machine:
+    | Machine<State, Context, Event, Computed>
+    | (() => Machine<State, Context, Event, Computed>),
   selector: () => T,
-  isEqual?: EqualityFn<T>,
+  isEqual: EqualityFn<T> = Object.is,
 ): { readonly current: T } {
-  // A send can come from inside any effect: evaluating the selector for it
-  // untracked keeps that effect from depending on what the selector reads.
-  const selection = machine.select(() => untrack(selector))
+  const source = typeof machine === 'function' ? machine : () => machine
 
-  // Raw: the value as the selector returned it, never proxied.
-  let current = $state.raw(selection.value)
-  // A pre-effect runs synchronously here (and never on the server), so this
-  // listens before a child's mount effect can send. The tracked read makes
-  // the props the selector closes over deps: a change re-seeds both the value
-  // and the dedup baseline.
+  // One dedup baseline for both triggers: the selector's latest value. Seeded
+  // here because pre-effects never run on the server.
+  let prev = untrack(selector)
+  let current = $state.raw(prev)
+
+  // Tracked: re-runs when a prop the selector closes over changes.
   $effect.pre(() => {
-    current = selector()
-    return selection.subscribe(next => (current = next), isEqual)
+    const next = selector()
+    if (!isEqual(prev, next)) current = next
+    prev = next
   })
+
+  // Runs synchronously here, so it listens before a child's mount effect can
+  // send; re-subscribes when the getter hands over another machine. The
+  // selector runs untracked: a send can come from inside any effect.
+  $effect.pre(() =>
+    source().subscribe(() => {
+      const next = untrack(selector)
+      if (isEqual(prev, next)) return
+      prev = next
+      current = next
+    }),
+  )
 
   return {
     get current() {
