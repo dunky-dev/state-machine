@@ -22,11 +22,14 @@ config.resolver.nodeModulesPaths = [
 // two React instances and "Invalid hook call" errors. Unlike webpack, Metro
 // doesn't dedupe, and extraNodeModules won't help because the wrong copy
 // resolves normally; we redirect every `react`/`react-dom` request to the
-// app's copy via resolveRequest.
+// app's copy via resolveRequest. Same for `react-native`: pnpm links
+// @dunky.dev/native-rust its own copy (a different peer set), and its
+// generated TurboModule spec must register with the app's runtime.
 const reactRoot = path.resolve(projectRoot, 'node_modules')
+const singleInstance = ['react', 'react-native']
 const defaultResolveRequest = config.resolver.resolveRequest
 config.resolver.resolveRequest = (context, moduleName, platform) => {
-  if (moduleName === 'react' || moduleName.startsWith('react/')) {
+  if (singleInstance.some(name => moduleName === name || moduleName.startsWith(`${name}/`))) {
     return context.resolveRequest(
       { ...context, originModulePath: path.join(reactRoot, 'noop.js') },
       moduleName,

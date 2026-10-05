@@ -9,6 +9,7 @@
     "android": "expo run:android"
   },
   "dependencies": {
+    "@dunky.dev/native-rust": "workspace:^",
     "@dunky.dev/native-state-machine": "workspace:^",
     "@dunky.dev/react-state-machine": "workspace:^",
     "@dunky.dev/state-machine": "workspace:^",

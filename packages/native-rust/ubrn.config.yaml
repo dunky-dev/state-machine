@@ -1,0 +1,18 @@
+# uniffi-bindgen-react-native: builds crates/uniffi for iOS/Android and
+# generates the JSI bindings + turbo-module glue into this package.
+# Reference: https://jhugman.github.io/uniffi-bindgen-react-native/reference/config-yaml.html
+#
+# Default targets: iOS device + arm64 simulator; all four Android ABIs, which
+# the generated CMake build expects to match the app's reactNativeArchitectures.
+rust:
+  directory: ../../crates/uniffi
+  manifestPath: Cargo.toml
+ios:
+  frameworkName: build/NativeRustFramework
+# All generated TypeScript goes under src/generated (gitignored); src/index.ts is
+# the hand-written entry that loads it.
+bindings:
+  ts: src/generated/bindings
+turboModule:
+  entrypoint: src/generated/index.tsx
+  ts: src/generated
