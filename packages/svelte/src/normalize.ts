@@ -4,36 +4,37 @@
  * The DOM-shared half — the `aria-` attr projection and the payload adapters
  * — lives in `@dunky.dev/state-machine-dom` (see its header for the shared
  * decisions). This file adds only what is Svelte's own:
- * - Event props are the DOM's handler attribute names, `on` + the event type,
- *   and case-sensitive (Svelte reads `onClick` as a `Click` event). The shared
- *   map's React-cased names are those same names camel-cased, so lowercasing
- *   derives them; the two keys it leaves out are named here: `onValueChange`
- *   → `oninput` (per change; `onchange` fires on commit) and `onDoublePress`
- *   → `ondblclick` (the DOM event is `dblclick`).
+ * - Event props are the DOM's own handler attributes, `on` + the event type,
+ *   lowercase and case-sensitive (Svelte reads `onClick` as a `Click` event).
+ *   The map answers every vocabulary handler, so a new one fails to compile
+ *   until it is mapped here.
  * - `focusable` → `tabindex` 0 / -1 — the attribute's own name, and not a
  *   boolean: `false` still has to leave the element focusable in script.
  * - ARIA booleans pass through: Svelte writes `false` on a non-boolean
  *   attribute as the literal "false" token.
+ * - Symbol keys pass through: Svelte attachments ride on them.
  */
-import type {
-  AttrKey,
-  AttrTargets,
-  HandlerKey,
-  HandlerTargets,
-} from '@dunky.dev/state-machine-bindings'
-import {
-  DOM_ATTR_MAP,
-  DOM_HANDLER_MAP,
-  PAYLOAD_ADAPTERS,
-  type AnyEvent,
-} from '@dunky.dev/state-machine-dom'
+import type { AttrKey, AttrTargets, HandlerKey } from '@dunky.dev/state-machine-bindings'
+import { DOM_ATTR_MAP, PAYLOAD_ADAPTERS, type AnyEvent } from '@dunky.dev/state-machine-dom'
 
-export const HANDLER_MAP: HandlerTargets = {
-  ...Object.fromEntries(
-    Object.entries(DOM_HANDLER_MAP).map(([key, prop]) => [key, prop.toLowerCase()]),
-  ),
-  onValueChange: 'oninput',
-  onDoublePress: 'ondblclick',
+export const HANDLER_MAP: Record<HandlerKey, string> = {
+  onPress: 'onclick',
+  onPointerEnter: 'onpointerenter',
+  onPointerLeave: 'onpointerleave',
+  onPointerMove: 'onpointermove',
+  onPointerDown: 'onpointerdown',
+  onPointerUp: 'onpointerup',
+  onPointerCancel: 'onpointercancel',
+  onFocus: 'onfocus',
+  onBlur: 'onblur',
+  onKeyDown: 'onkeydown',
+  onKeyUp: 'onkeyup',
+  onValueChange: 'oninput', // per change; `onchange` fires on commit
+  onContextMenu: 'oncontextmenu',
+  onDoublePress: 'ondblclick', // the DOM event is `dblclick`
+  onWheel: 'onwheel',
+  onScroll: 'onscroll',
+  onScrollEnd: 'onscrollend',
 }
 
 export const ATTR_MAP: AttrTargets = {
@@ -44,8 +45,9 @@ export const ATTR_MAP: AttrTargets = {
 export type Bindings = Record<string, unknown>
 
 export function normalize(logical: Bindings): Record<string, unknown> {
-  const out: Record<string, unknown> = {}
-  for (const [key, value] of Object.entries(logical)) {
+  const out: Record<PropertyKey, unknown> = {}
+  for (const key in logical) {
+    const value = logical[key]
     if (value === undefined) continue
 
     const handler = HANDLER_MAP[key as HandlerKey]
@@ -64,6 +66,9 @@ export function normalize(logical: Bindings): Record<string, unknown> {
     }
 
     out[key] = value
+  }
+  for (const key of Object.getOwnPropertySymbols(logical)) {
+    out[key] = (logical as Record<PropertyKey, unknown>)[key]
   }
   return out
 }

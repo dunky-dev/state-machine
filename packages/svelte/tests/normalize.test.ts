@@ -88,11 +88,20 @@ describe('svelte normalize — attributes', () => {
     expect(normalize({ focusable: false })).toEqual({ tabindex: -1 })
   })
 
-  it('passes unknown attrs through unchanged (e.g. data-state, class)', () => {
-    expect(normalize({ 'data-state': 'open', class: 'x' })).toEqual({
+  // Only the vocabulary is translated: a handler outside it keeps its name, so
+  // it must already be Svelte's own lowercase event prop to fire.
+  it('passes unknown keys through unchanged (data-state, class, a non-vocabulary onMouseDown)', () => {
+    const onMouseDown = vi.fn()
+    expect(normalize({ 'data-state': 'open', class: 'x', onMouseDown })).toEqual({
       'data-state': 'open',
       class: 'x',
+      onMouseDown,
     })
+  })
+
+  it('passes symbol keys (Svelte attachments) through', () => {
+    const attachment = Symbol('attachment')
+    expect(normalize({ [attachment]: 1 } as Record<string, unknown>)).toEqual({ [attachment]: 1 })
   })
 
   it('skips undefined values', () => {

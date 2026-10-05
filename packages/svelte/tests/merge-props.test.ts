@@ -43,10 +43,31 @@ describe('svelte mergeProps', () => {
     expect(out.id).toBe('lib')
   })
 
-  it('merges overlapping class of any shape as [consumer, library]', () => {
+  it('joins overlapping string classes into one string', () => {
+    expect(mergeProps({ class: 'a b' }, { class: 'c' }).class).toBe('a b c')
+  })
+
+  it('merges overlapping class of other shapes as [consumer, library]', () => {
     const consumerClass = ['a', { b: true }]
     expect(mergeProps({ class: consumerClass }, { class: 'c' }).class).toEqual([consumerClass, 'c'])
     expect(mergeProps({ class: 'a' }, { class: { c: true } }).class).toEqual(['a', { c: true }])
+  })
+
+  it("keeps the consumer's class and style when the library's are nullish", () => {
+    const out = mergeProps(
+      { class: 'mine', style: 'color: red' },
+      { class: undefined, style: null },
+    )
+    expect(out).toMatchObject({ class: 'mine', style: 'color: red' })
+  })
+
+  it('carries symbol keys (Svelte attachments) from both sides', () => {
+    const ours = Symbol('consumer attachment')
+    const theirs = Symbol('library attachment')
+    const out: Record<symbol, unknown> = mergeProps({ [ours]: 1, id: 'a' }, {
+      [theirs]: 2,
+    } as Record<string, unknown>)
+    expect([out[ours], out[theirs]]).toEqual([1, 2])
   })
 
   it('keeps a one-sided class untouched', () => {

@@ -1,40 +1,54 @@
-import { composeHandlers, mergeProps as baseMergeProps } from '@dunky.dev/state-machine-utils'
+import { composeHandlers } from '@dunky.dev/state-machine-utils'
 
 type AnyProps = Record<string, unknown>
 type AnyHandler = (...args: unknown[]) => unknown
-
-// The agnostic base composes only `on` + an uppercase letter; Svelte's event
-// props are the lowercase DOM names (`onclick`), so those compose here.
-const isLowercaseHandlerKey = (key: string): boolean => /^on[a-z]/.test(key)
+// Svelte attachments ride on symbol keys, so a merge must carry those too.
+type Bag = Record<PropertyKey, unknown>
 
 /**
  * Merge consumer props with the component's normalized props, Svelte-style:
- * the substrate-agnostic mergeProps (handlers compose, library wins) over
- * Svelte's lowercase event props too, plus `class` of any shape merged as
- * `[consumer, library]` (Svelte resolves strings, arrays, and objects through
- * clsx) and overlapping `style` strings joined, library last so it wins.
+ * the agnostic rules (handlers compose consumer-first with the
+ * `defaultPrevented` veto, library wins) over every `on*` key — Svelte's event
+ * props are the lowercase DOM names, which the shared base doesn't compose —
+ * plus `class` joined (strings) or merged as `[consumer, library]` (other
+ * shapes, resolved by Svelte's clsx), `style` strings joined with the library
+ * last so it wins, and the consumer's `class`/`style` kept when the library's
+ * is nullish. One pass: it runs on every spread.
  */
 export function mergeProps<Props extends object = AnyProps>(
   consumer: Props | undefined,
   library: AnyProps,
 ): Props & AnyProps {
-  const merged: AnyProps = baseMergeProps(consumer as AnyProps | undefined, library)
-  if (!consumer) return merged as Props & AnyProps
-  const own = consumer as AnyProps
+  if (!consumer) return library as Props & AnyProps
+  const own = consumer as Bag
+  const theirs = library as Bag
+  const merged: Bag = { ...own }
 
-  for (const key in library) {
+  for (const key in theirs) {
     const ours = own[key]
-    const theirs = library[key]
-    if (isLowercaseHandlerKey(key) && typeof ours === 'function' && typeof theirs === 'function') {
-      merged[key] = composeHandlers(ours as AnyHandler, theirs as AnyHandler)
+    const value = theirs[key]
+    if (key.startsWith('on') && isFn(ours) && isFn(value)) {
+      merged[key] = composeHandlers(ours, value)
+    } else if (key === 'class') {
+      if (value != null) merged.class = ours == null ? value : mergeClass(ours, value)
+    } else if (key === 'style') {
+      if (value != null)
+        merged.style =
+          typeof ours === 'string' && typeof value === 'string' ? `${ours}; ${value}` : value
+    } else {
+      merged[key] = value
     }
   }
-  if (own.class != null && library.class != null) {
-    merged.class = [own.class, library.class]
-  }
-  if (typeof own.style === 'string' && typeof library.style === 'string') {
-    merged.style = `${own.style}; ${library.style}`
-  }
+  for (const key of Object.getOwnPropertySymbols(theirs)) merged[key] = theirs[key]
 
   return merged as Props & AnyProps
 }
+
+const isFn = (v: unknown): v is AnyHandler => typeof v === 'function'
+
+// A joined string stays a string for consumers that interpolate `class`;
+// arrays and objects only render through Svelte's clsx.
+const mergeClass = (ours: unknown, theirs: unknown): unknown =>
+  typeof ours === 'string' && typeof theirs === 'string'
+    ? `${ours} ${theirs}`.trim()
+    : [ours, theirs]
