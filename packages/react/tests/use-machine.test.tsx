@@ -117,6 +117,25 @@ describe('useMachine — lifecycle', () => {
   })
 })
 
+describe('useMachine — machine source', () => {
+  it('accepts a ready machine instead of a config and runs that very instance', () => {
+    // The shape a Rust machine takes (built outside the engine, e.g. via wasm).
+    const ready = machine(createConfig()({}))
+    const sink: { api?: ToggleApi; machine?: ToggleMachine } = {}
+    function Comp(p: ToggleProps) {
+      const result = useMachine(() => ready, connect, noEffects, p)
+      sink.api = result.api
+      sink.machine = result.machine
+      return null
+    }
+    render(<Comp />)
+    expect(sink.machine).toBe(ready)
+    act(() => sink.api!.toggle())
+    expect(ready.state).toBe('open')
+    expect(sink.api!.open).toBe(true)
+  })
+})
+
 describe('useMachine — build once', () => {
   it('builds the machine ONCE: state survives prop changes (no rebuild)', () => {
     const { sink, Comp } = harness({ label: 'a' })
