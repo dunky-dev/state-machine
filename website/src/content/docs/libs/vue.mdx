@@ -194,6 +194,6 @@ const onEscapeKey: Effect = [
 export const dialogEffects = [onEscapeKey]
 ```
 
-The tuple shape is **identical to every other target** — the same `./dialog` effects run everywhere. The deps are prop NAMES (typed `(keyof Props)[]`, so a typo is a compile error); the Vue bridge watches exactly those props, compares each by value, and re-runs after the DOM update, so a prop the effect merely reads never becomes a hidden dependency. As on React, effects start once the machine has, and are cleaned up after it stops and the component's DOM is gone; one that throws is reported through Vue's error handling without stopping the others. The machine only receives `send({ type: 'close' })`; it has no idea a keyboard event exists.
+The tuple shape is **identical to every other target** — the same `./dialog` effects run everywhere. The deps are prop NAMES (typed `(keyof Props)[]`, so a typo is a compile error); the Vue bridge watches exactly those props, compares each by value, and re-runs after the DOM update, so a prop the effect merely reads never becomes a hidden dependency. As on React, effects start once the machine has, and are cleaned up after it stops and the component's DOM is gone; if one throws, the others still run and the error goes to Vue's error handling. The machine only receives `send({ type: 'close' })`; it has no idea a keyboard event exists.
 
 See [Effects](/api/effects) for the full mental model of where each type of effect lives.

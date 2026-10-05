@@ -179,12 +179,14 @@ const props = withDefaults(defineProps<DialogProps>(), {
   open: undefined,
   defaultOpen: undefined,
   modal: undefined,
+  closeOnEscape: undefined,
 })
 
 // runtime declaration
 props: {
   open: { type: Boolean, default: undefined },
   modal: { type: Boolean, default: undefined },
+  closeOnEscape: { type: Boolean, default: undefined },
 }
 ```
 
@@ -234,11 +236,11 @@ of its named deps changes, and only after Vue has patched the DOM with that
 change (a `post`-flush watcher with one getter per dep, each compared by
 value). The body runs untracked, so a prop it merely reads never becomes a
 hidden dependency — the authored `deps`, typed `(keyof Props)[]`, are the whole
-re-run contract, as with React's dep array. Each entry runs on its own: one
-that throws is reported through Vue's error handling (`app.config.errorHandler`)
-and the others still run. The effect receives the machine and the current
-props: pass the component's props object and a listener reading a prop at
-event time sees its latest value.
+re-run contract, as with React's dep array. Each entry runs on its own: if one
+throws, the others still run, and the first error then goes to Vue's error
+handling (`app.config.errorHandler`). The effect receives the machine and the
+current props: pass the component's props object and a listener reading a
+prop at event time sees its latest value.
 
 > The agnostic _decision_ lives in the core component's resolver; only the
 > _transport_ (the DOM listener) is here. The machine just receives a plain event.
@@ -277,9 +279,8 @@ The selection comes back as-is — never wrapped in a reactive proxy, so
 `selected.value === machine.context.item` holds. The machine may be a ref or a
 getter; swapping it re-subscribes. The subscription is disposed with the
 surrounding effect scope — the component's on unmount, or a bare
-`effectScope()` when it stops — and a server render leaves none behind on Vue
-3.5+. (On 3.3–3.4, Vue never runs that cleanup on the server: hand
-`useSelector` a per-request machine there, such as one from `useMachine`.)
+`effectScope()` when it stops. A server render subscribes nothing: it is a
+single pass, and Vue never disposes a scope on the server.
 
 `api` from `useMachine` already updates only on a real change, so reach for
 `useSelector` when a leaf wants to track one slice of a machine it doesn't
