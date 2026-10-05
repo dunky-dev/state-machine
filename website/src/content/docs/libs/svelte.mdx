@@ -11,7 +11,7 @@ Targets Svelte 5 (`svelte` `>=5.16.0 <5.33.5 || ^5.34.5`, tested on 5.57.1). The
 
 The Svelte package is a thin edge layer. Behavior lives in the core machine and the component's `connect` function; this package only adapts them to Svelte: lifecycle, reactivity, prop translation, and platform effects. **The machine itself is unchanged** — the same `createDialogConfig` and `connectDialog` run here as on any other target.
 
-The connector's snapshot is mirrored into raw `$state`, so markup that reads `view.api.isOpen` updates when the machine or a prop changes it — and only then, because the connector memoizes the snapshot.
+`view.api` is the connector's snapshot, derived lazily: `connect()` runs once a transition settles, and only when something reads the result. It is a fresh object after every machine or prop change, which markup re-reads cheaply — Svelte only touches the DOM where a value differs.
 
 ## `useMachine`
 
@@ -44,9 +44,11 @@ The one bridge. Every component calls it with the four agnostic pieces — the p
 {/if}
 ```
 
-`useMachine` builds the machine and connector **once** (a component's script runs a single time, so the first props seed context; later changes flow through `setProps`, not a rebuild), starts after mount, stops on destroy, and exposes the connect output as `view.api`. Call it while the component initializes. Read `view.api` where you use it; do **not** destructure it (`const { api } = useMachine(…)` captures one snapshot and loses reactivity).
+`useMachine` builds the machine and connector **once** (a component's script runs a single time, so the first props seed context; later changes flow through `setProps`, not a rebuild), starts after mount, stops on destroy — before child components tear down, as React does — and exposes the connect output as `view.api`. Call it while the component initializes. Read `view.api` where you use it; do **not** destructure it (`const { api } = useMachine(…)` captures one snapshot and loses reactivity).
 
-Props go in as a **getter** because a component's script runs once and its props are reactive bindings: the bridge reads them inside its effects. `() => props` is the usual form; a getter that builds its own object, such as `() => ({ closeOnEscape, ...rest })` after destructured defaults, works the same.
+Props go in as a **getter** because a component's script runs once and its props are reactive bindings: the bridge reads them inside its effects. `() => props` is the usual form; a getter that builds its own object, such as `() => ({ closeOnEscape, ...rest })` after destructured defaults, works the same. The bridge compares props shallowly, like every target: to change a value `connect` reads, pass a new reference (`items = [...items, item]`) rather than mutating it in place.
+
+In an `$effect`, read the slice you need — `const isOpen = $derived(view.api.isOpen)`, or `useSelector` — so it re-runs only when that value changes. Call actions there untracked (`untrack(() => view.api.toggle())`) or through `view.machine.send(…)`: an effect that reads `view.api` and then changes it re-runs itself in a loop. Sends never lend what wakes on them (`connect`, reactions, your callbacks) to the effect that sent.
 
 ### The three imports
 
@@ -111,16 +113,27 @@ When a consumer spreads their own props onto the same element the component cont
 
 ```svelte
 <script lang="ts">
-  import { mergeProps, normalize } from '@dunky.dev/svelte-state-machine'
+  import type { HTMLButtonAttributes } from 'svelte/elements'
+  import { mergeProps, normalize, useMachine } from '@dunky.dev/svelte-state-machine'
+
+  // The dialog's own props drive the machine; the rest go to the element.
+  let { open, onOpenChange, closeOnEscape, ...rest }: DialogProps & HTMLButtonAttributes =
+    $props()
+
+  const view = useMachine(createDialogConfig, connectDialog, dialogEffects, () => ({
+    open,
+    onOpenChange,
+    closeOnEscape,
+  }))
 </script>
 
-<button {...mergeProps(props, normalize(view.api.triggerProps))}>
+<button {...mergeProps(rest, normalize(view.api.triggerProps))}>Open</button>
 ```
 
 - **Event handlers are chained, consumer-first.** If the consumer calls `e.preventDefault()`, the component's handler is skipped — a clean veto.
-- **`class` merges as `[consumer, library]`**, whatever its shape — Svelte resolves strings, arrays, and objects through clsx, so `class={['card', { active }]}` survives the merge.
+- **`class` strings join into one string**; other shapes merge as `[consumer, library]`, which Svelte resolves through clsx, so `class={['card', { active }]}` survives the merge.
 - **`style` strings are joined**, the component's declarations last so they win.
-- **Everything else: component wins** (`id`, `role`, `aria-*`).
+- **Everything else: component wins** (`id`, `role`, `aria-*`) — except a nullish `class`/`style`, which keeps the consumer's. Symbol-keyed attachments from both sides are kept.
 
 ## `useSelector`: fine-grained leaf subscription
 
@@ -132,13 +145,16 @@ For a leaf component that should only update when one slice of the machine chang
 
   let { machine, value }: { machine: RowMachine; value: string } = $props()
 
-  const isHighlighted = useSelector(machine, () => machine.context.highlightedValue === value)
+  const isHighlighted = useSelector(
+    () => machine,
+    () => machine.context.highlightedValue === value,
+  )
 </script>
 
 <div data-highlighted={isHighlighted.current}>{value}</div>
 ```
 
-`current` updates only when the selected value changes — `Object.is` by default — including when a prop the selector closes over (`value` here) changes. For object selections, pass a custom equality function so a re-derived equal object doesn't push a new value:
+`current` updates only when the selected value changes — `Object.is` by default — including when a prop the selector closes over (`value` here) changes. The machine goes in as a getter because it's a prop: the subscription follows it if it changes. For object selections, pass a custom equality function so a re-derived equal object doesn't push a new value:
 
 ```ts
 const pos = useSelector(
@@ -148,7 +164,7 @@ const pos = useSelector(
 )
 ```
 
-Reading `view.api` from `useMachine` already updates only on real changes, so `useSelector` is for the case where a leaf wants to track one slice of a machine it doesn't otherwise own — e.g. thousands of items backed by one machine, each waking only for its own value.
+`view.api` changes as a whole on every machine change, so `useSelector` is how a leaf tracks one slice of a machine it doesn't otherwise own — e.g. thousands of items backed by one machine, each waking only for its own value.
 
 ## `ComponentEffect`: platform effects
 

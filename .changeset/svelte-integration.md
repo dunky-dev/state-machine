@@ -5,18 +5,21 @@
 Add `@dunky.dev/svelte-state-machine` — the Svelte 5 bindings target.
 
 A first-class Svelte bridge written in runes (not a React re-export):
-`useMachine` builds the machine and connector once, mirrors the connector's
-snapshot into raw `$state`, starts the machine after mount and stops it on
-destroy — React's order: start, then the component effects; stop, then their
-cleanups — and runs each `ComponentEffect` as its own `$effect`, re-run only
-when the value of one of its named prop deps changes. `useSelector` returns
-`{ current }`. `normalize` maps the agnostic bindings to the props a Svelte
+`useMachine` builds the machine and connector once and exposes the connector's
+snapshot as `view.api`, derived lazily — `connect()` runs once a transition
+settles, only when read. It starts the machine after mount and stops it on
+destroy before child components tear down (React's order), and runs each
+`ComponentEffect` as its own `$effect`, re-run only when the value of one of its
+named prop deps changes. Sends run untracked, so a send from inside an `$effect`
+never makes that effect depend on what wakes on it — `connect()`, reactions,
+your callbacks. `useSelector` returns `{ current }` and takes the machine as a
+value or a getter. `normalize` maps the agnostic bindings to the props a Svelte
 element spread expects — the DOM's lowercase event attributes (`onclick`,
 `oninput`, `ondblclick`), `tabindex`, `aria-*` — and `mergeProps` chains
-handlers consumer-first with the `defaultPrevented` veto, merges `class` of any
-shape as `[consumer, library]`, and joins `style` strings. The same `connect`
-and machine config run unchanged across React, Solid, Svelte, React Native, and
-OpenTUI.
+handlers consumer-first with the `defaultPrevented` veto, joins `class` and
+`style` strings, merges other `class` shapes as `[consumer, library]`, and keeps
+symbol-keyed attachments. The same `connect` and machine config run unchanged
+across React, Solid, Svelte, React Native, and OpenTUI.
 
 ```svelte
 <script lang="ts">
@@ -31,7 +34,9 @@ OpenTUI.
 
 Props go in as a getter (`() => props`): a component's script runs once and
 its props are reactive bindings, so the bridge reads them inside its effects.
-Read `view.api` where you use it instead of destructuring it.
+Like every target, it compares props shallowly — pass a new reference to change
+a value `connect` reads. Read `view.api` where you use it instead of
+destructuring it, and read `$derived` slices of it in effects.
 
 The package ships `.svelte.js` runes modules and `.d.ts` files, built with
 `@sveltejs/package`, for the consumer's Svelte build to compile: use it through
