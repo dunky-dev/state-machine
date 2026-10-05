@@ -11,8 +11,6 @@
   "dependencies": {
     "@dunky.dev/state-machine": "workspace:^",
     "@dunky.dev/state-machine-bindings": "workspace:^",
-    "@dunky.dev/state-machine-dom": "workspace:^",
-    "@dunky.dev/state-machine-utils": "workspace:^",
     "@dunky.dev/vue-state-machine": "workspace:^",
     "@sandbox/cmdk-core": "workspace:^",
     "vue": "^3.5.43"
