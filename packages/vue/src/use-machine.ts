@@ -74,38 +74,40 @@ export function useMachine<
   const resume = () => {
     if (active) return
     service.start()
-    active = []
-    for (const [fn, deps] of effects) {
-      // Held here, not passed to onCleanup: the instance scope stops its watchers before the
-      // DOM is removed, and the cleanup must wait for that — and for stop().
-      let cleanup: (() => void) | undefined
-      const teardown = () => {
-        const previous = cleanup
-        cleanup = undefined
-        previous?.()
-      }
-      // The machine is an implicit dep, as in React's dep array; it also keeps the source
-      // non-empty, which an `immediate` watcher needs before Vue 3.5.x. One getter per dep
-      // is compared by value, so no other prop re-runs the effect, and a throwing effect is
-      // reported by Vue without stopping the next one. `post`: a re-run sees the patched DOM.
-      const stop = watch(
-        [() => service, ...deps.map(key => () => toValue(props)[key])],
-        () => {
+    const disposers: (() => void)[] = (active = [])
+    runAll(
+      effects.map(([fn, deps]) => () => {
+        // Held here, not passed to onCleanup: the instance scope stops its watchers before
+        // the DOM is removed, and the cleanup must wait for that — and for stop().
+        let cleanup: (() => void) | undefined
+        const teardown = () => {
+          const previous = cleanup
+          cleanup = undefined
+          previous?.()
+        }
+        const run = () => {
           teardown()
           cleanup = fn(service, toValue(props)) || undefined
-        },
-        { immediate: true, flush: 'post' },
-      )
-      active.push(() => {
-        stop()
-        teardown()
-      })
-    }
+        }
+        // One getter per dep, compared by value: no other prop re-runs the effect. `post`
+        // lets a re-run see the DOM already patched with the props that caused it.
+        const stop = watch(
+          deps.map(key => () => toValue(props)[key]),
+          run,
+          { flush: 'post' },
+        )
+        disposers.push(() => {
+          stop()
+          teardown()
+        })
+        run()
+      }),
+    )
   }
   const pause = () => {
-    service.stop()
-    if (active) for (const dispose of active) dispose()
+    const disposers = active ?? []
     active = undefined
+    runAll([service.stop, ...disposers])
   }
   onMounted(resume)
   onActivated(resume)
@@ -113,4 +115,22 @@ export function useMachine<
   onUnmounted(pause)
 
   return { api, machine: service }
+}
+
+// Finish the pass even when a step throws, then rethrow the first failure — the core's own
+// effect-teardown rule — so one failing effect can't strand the others.
+function runAll(steps: (() => void)[]): void {
+  let failed = false
+  let failure: unknown
+  for (const step of steps) {
+    try {
+      step()
+    } catch (error) {
+      if (!failed) {
+        failed = true
+        failure = error
+      }
+    }
+  }
+  if (failed) throw failure
 }
