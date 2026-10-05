@@ -1,4 +1,4 @@
-import { composeHandlers, mergeProps as baseMergeProps } from '@dunky.dev/state-machine-utils'
+import { mergeProps as baseMergeProps } from '@dunky.dev/state-machine-utils'
 
 type AnyProps = Record<string, unknown>
 type AnyHandler = (...args: unknown[]) => unknown
@@ -19,23 +19,23 @@ export function mergeProps<Props extends object = AnyProps>(
   consumer: Props | undefined,
   library: AnyProps,
 ): Props & AnyProps {
-  const merged: AnyProps = baseMergeProps(consumer as AnyProps | undefined, library)
-  if (!consumer) return merged as Props & AnyProps
-  const own = consumer as AnyProps
+  if (!consumer) return baseMergeProps(consumer, library) as Props & AnyProps
 
-  if (own.class != null && library.class != null) merged.class = [own.class, library.class]
-  if (own.style != null && library.style != null) merged.style = [own.style, library.style]
-
+  // Fold a consumer's handler array into one function, so the base decides — with its own
+  // listener rule — whether to compose it. Copied on write: arrays are the rare case.
+  let own = consumer as AnyProps
   for (const key in library) {
     const handlers = own[key]
-    const libHandler = library[key]
-    if (Array.isArray(handlers) && typeof libHandler === 'function' && key.startsWith('on')) {
-      const callAll: AnyHandler = (...args) => {
+    if (Array.isArray(handlers) && typeof library[key] === 'function') {
+      if (own === consumer) own = { ...own }
+      own[key] = (...args: unknown[]) => {
         for (const handler of handlers as AnyHandler[]) handler(...args)
       }
-      merged[key] = composeHandlers(callAll, libHandler as AnyHandler)
     }
   }
 
+  const merged: AnyProps = baseMergeProps(own, library)
+  if (own.class != null && library.class != null) merged.class = [own.class, library.class]
+  if (own.style != null && library.style != null) merged.style = [own.style, library.style]
   return merged as Props & AnyProps
 }

@@ -45,6 +45,11 @@ describe('vue mergeProps — handlers', () => {
     call(merged, 'onClick', { defaultPrevented: true })
     expect(calls).toEqual(['first', 'second', 'library', 'first', 'second'])
   })
+
+  it('composes a handler array only where the base composes handlers', () => {
+    const library = () => {}
+    expect(mergeProps({ online: [() => {}] }, { online: library }).online).toBe(library)
+  })
 })
 
 describe('vue mergeProps — class / style', () => {
