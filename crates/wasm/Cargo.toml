@@ -1,0 +1,14 @@
+[package]
+name = "dunky-wasm"
+description = "wasm-bindgen glue for dunky-core machines: export a Rust machine to JS with one macro."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+dunky-core = { workspace = true }
+wasm-bindgen = { workspace = true }
+js-sys = { workspace = true }
+serde = { workspace = true }
+serde-wasm-bindgen = { workspace = true }

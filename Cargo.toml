@@ -1,0 +1,38 @@
+# Rust port of the engine. Members are listed explicitly so a half-built crate
+# never breaks `cargo test --workspace` for the others.
+[workspace]
+resolver = "3"
+members = ["crates/core", "crates/macros", "crates/wasm", "crates/demo", "crates/demo-wasm"]
+# Built by its own pipeline (uniffi-bindgen-react-native) for iOS/Android.
+exclude = ["crates/uniffi"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/dunky-dev/state-machine"
+rust-version = "1.85"
+
+[workspace.dependencies]
+dunky-core = { path = "crates/core" }
+dunky-macros = { path = "crates/macros" }
+dunky-wasm = { path = "crates/wasm" }
+dunky-demo = { path = "crates/demo" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Must match the installed wasm-bindgen CLI exactly (wasm-bindgen --version).
+wasm-bindgen = "=0.2.129"
+js-sys = "0.3"
+serde-wasm-bindgen = "0.6"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+
+# Size-tuned profile for the shipped .wasm.
+[profile.wasm]
+inherits = "release"
+opt-level = "z"
+strip = true

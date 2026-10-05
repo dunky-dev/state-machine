@@ -9,3 +9,12 @@ dist
 
 # local-only Claude settings (never committed; keep it out of format/lint too)
 .claude/settings.local.json
+
+# Rust
+/target
+# wasm-bindgen output (built by `pnpm build:wasm`)
+packages/demo-wasm/pkg
+
+# Expo prebuild output (`expo prebuild` / `expo run:*` in the RN sandbox)
+sandbox/native/ios
+sandbox/native/android

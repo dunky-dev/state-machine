@@ -1,0 +1,28 @@
+[package]
+name = "dunky-demo-wasm"
+description = "The demo machines compiled to wasm (cdylib) for the JS adapter, benchmark and sandboxes."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# Every demo machine. Build a single one (for size numbers) with e.g.
+# `--no-default-features --features dialog`.
+default = ["palette", "cell", "pingpong", "guards", "dialog", "list", "highlight"]
+palette = []
+cell = []
+pingpong = []
+guards = []
+dialog = []
+list = []
+highlight = []
+
+[dependencies]
+dunky-core = { workspace = true }
+dunky-wasm = { workspace = true }
+dunky-demo = { workspace = true }
+wasm-bindgen = { workspace = true }
