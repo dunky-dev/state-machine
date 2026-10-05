@@ -7,6 +7,7 @@
 import { createSSRApp, defineComponent, h } from 'vue'
 import { renderToString } from 'vue/server-renderer'
 import { describe, expect, it, vi } from 'vitest'
+import { machine } from '@dunky.dev/state-machine'
 import {
   type ComponentEffect,
   normalize,
@@ -52,5 +53,21 @@ describe('server rendering', () => {
     )
     expect(escapeListener[0]).not.toHaveBeenCalled()
     expect(onStart).not.toHaveBeenCalled()
+  })
+
+  it('leaves no useSelector subscription on a machine that outlives the render', async () => {
+    const shared = machine(createToggleConfig({}))
+    const selector = vi.fn(() => shared.matches('open'))
+    const Reader = defineComponent({
+      setup() {
+        const open = useSelector(shared, selector)
+        return () => h('span', String(open.value))
+      },
+    })
+    expect(await renderToString(createSSRApp(Reader))).toBe('<span>false</span>')
+
+    const evaluations = selector.mock.calls.length
+    shared.send({ type: 'toggle' })
+    expect(selector.mock.calls.length).toBe(evaluations)
   })
 })

@@ -2,7 +2,7 @@
 // `useSelector` — fine-grained leaf subscription: the ref updates only when the
 // selected value changes, hands the value back untouched, and disposes with its
 // effect scope (a component's, or a bare effectScope()).
-import { defineComponent, effectScope, h, nextTick } from 'vue'
+import { defineComponent, effectScope, h, nextTick, ref, shallowRef } from 'vue'
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -100,6 +100,37 @@ describe('useSelector — value-deduped updates', () => {
     m.send({ type: 'incA' })
     await nextTick()
     expect(renders.mock.calls).toEqual([[{ a: 0 }], [{ a: 1 }]])
+  })
+})
+
+describe('useSelector — reactive inputs', () => {
+  it('re-selects when a reactive value it reads changes while the machine does not', async () => {
+    const m = makeMachine()
+    const target = ref(0)
+    const { Leaf, renders } = defineLeaf(m, () => m.context.a === target.value)
+    mount(Leaf)
+    target.value = 1 // the machine is untouched: 0 === 1
+    await nextTick()
+    m.send({ type: 'incA' }) // and back through the machine: 1 === 1
+    await nextTick()
+    expect(renders.mock.calls).toEqual([[true], [false], [true]])
+  })
+
+  it('follows a machine swapped through a ref', async () => {
+    const [first, second] = [makeMachine(), makeMachine()]
+    const current = shallowRef(first)
+    const selector = vi.fn(() => current.value.context.a)
+    const scope = effectScope()
+    const a = scope.run(() => useSelector(current, selector))!
+    current.value = second
+    await nextTick()
+
+    const evaluations = selector.mock.calls.length
+    first.send({ type: 'incA' }) // the old machine no longer wakes the selector
+    expect(selector.mock.calls.length).toBe(evaluations)
+    second.send({ type: 'incA' })
+    expect(a.value).toBe(1)
+    scope.stop()
   })
 })
 
