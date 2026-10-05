@@ -258,7 +258,7 @@ describe('useMachine — component effects', () => {
     expect(seen).toEqual(['a', 'b'])
   })
 
-  it('still cleans up the effects that started before one that threw', () => {
+  it('reports a throwing effect and still runs and cleans up the others', () => {
     const log: string[] = []
     const throwing: Effect = [
       () => {
@@ -266,14 +266,32 @@ describe('useMachine — component effects', () => {
       },
       [],
     ]
-    const { Comp } = harness([loggingEffect(log), throwing], log)
+    const { Comp } = harness([loggingEffect(log), throwing, loggingEffect(log)], log)
     // A plain app: test-utils rethrows mount errors even past the app's errorHandler.
     const app = createApp(Comp)
     app.config.errorHandler = vi.fn()
     app.mount(document.createElement('div'))
     app.unmount()
     expect(app.config.errorHandler).toHaveBeenCalledOnce()
-    expect(log).toEqual(['start', 'effect', 'stop', 'cleanup'])
+    expect(log).toEqual(['start', 'effect', 'effect', 'stop', 'cleanup', 'cleanup'])
+  })
+
+  it("cleans up once the component's DOM is gone, as React's passive effects do", () => {
+    let root: Element | null = null
+    let attachedAtCleanup: boolean | undefined
+    const effects: Effect[] = [
+      [
+        () => {
+          root = document.getElementById('toggle-root')
+          return () => void (attachedAtCleanup = root?.parentNode != null)
+        },
+        [],
+      ],
+    ]
+    const { Comp } = harness(effects)
+    mount(Comp, { attachTo: document.body }).unmount()
+    expect(root).not.toBeNull()
+    expect(attachedAtCleanup).toBe(false)
   })
 
   it('cleans up on unmount, after the machine stops', () => {

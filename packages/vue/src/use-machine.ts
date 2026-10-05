@@ -1,10 +1,10 @@
 import {
   computed,
   onActivated,
-  onBeforeUnmount,
   onDeactivated,
   onMounted,
   onScopeDispose,
+  onUnmounted,
   shallowRef,
   toValue,
   triggerRef,
@@ -66,36 +66,37 @@ export function useMachine<
   // Not deep: setProps compares top-level identities, so walking prop values is wasted work.
   watch(read, next => connection.setProps(next))
 
-  // React's order: start, then the effects, all after mount; teardown stops the machine,
-  // then cleans the effects up. A <KeepAlive> deactivation pauses both, as React's
-  // <Activity> does; onActivated also fires on the first mount, hence the guard.
-  let stopEffects: (() => void)[] | undefined
+  // React's order: start, then the effects, after mount; teardown stops the machine, then
+  // cleans the effects up once the DOM is gone, as React's passive effects do. A <KeepAlive>
+  // deactivation pauses both, like React's <Activity>; onActivated also fires on the first
+  // mount, hence the guard.
+  let active: (() => void)[] | undefined
   const resume = () => {
-    if (stopEffects) return
+    if (active) return
     service.start()
-    // Filled as it goes, so an effect that throws can't strand the ones started before it.
-    stopEffects = []
+    active = []
     for (const [fn, deps] of effects) {
+      // Held here, not passed to onCleanup: the instance scope stops its watchers before the
+      // DOM is removed, and the cleanup must wait for that — and for stop().
       let cleanup: (() => void) | undefined
       const teardown = () => {
         const previous = cleanup
         cleanup = undefined
         previous?.()
       }
-      const run = () => {
-        teardown()
-        cleanup = fn(service, toValue(props)) || undefined
-      }
-      // The first run is direct, not `immediate`: before Vue 3.5.x an immediate watcher
-      // over an empty source never fires. One getter per dep is compared by value, so no
-      // other prop can trigger a re-run; `post` lets the re-run see the patched DOM.
-      run()
+      // The machine is an implicit dep, as in React's dep array; it also keeps the source
+      // non-empty, which an `immediate` watcher needs before Vue 3.5.x. One getter per dep
+      // is compared by value, so no other prop re-runs the effect, and a throwing effect is
+      // reported by Vue without stopping the next one. `post`: a re-run sees the patched DOM.
       const stop = watch(
-        deps.map(key => () => toValue(props)[key]),
-        run,
-        { flush: 'post' },
+        [() => service, ...deps.map(key => () => toValue(props)[key])],
+        () => {
+          teardown()
+          cleanup = fn(service, toValue(props)) || undefined
+        },
+        { immediate: true, flush: 'post' },
       )
-      stopEffects.push(() => {
+      active.push(() => {
         stop()
         teardown()
       })
@@ -103,13 +104,13 @@ export function useMachine<
   }
   const pause = () => {
     service.stop()
-    if (stopEffects) for (const stop of stopEffects) stop()
-    stopEffects = undefined
+    if (active) for (const dispose of active) dispose()
+    active = undefined
   }
   onMounted(resume)
   onActivated(resume)
   onDeactivated(pause)
-  onBeforeUnmount(pause)
+  onUnmounted(pause)
 
   return { api, machine: service }
 }
