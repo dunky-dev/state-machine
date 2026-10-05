@@ -158,7 +158,8 @@ It:
 - **pauses under `<KeepAlive>`** — deactivation stops the machine and tears the
   effects down; reactivation restarts both, state intact. That is React's
   `<Activity mode="hidden">` contract: a deactivated component keeps no
-  document listeners, timers, or reactions alive.
+  document listeners, timers, or reactions alive. (Vue runs the parts'
+  `onDeactivated` hooks before the root's, so a part shouldn't send from one.)
 - **runs nothing on the server** — Vue never mounts during SSR, so
   `renderToString` renders the initial snapshot without starting the machine
   or running an effect (a `document` listener can't crash the server).
@@ -294,7 +295,8 @@ The selection comes back as-is — never wrapped in a reactive proxy, so
 getter; swapping it re-subscribes. The subscription is disposed with the
 surrounding effect scope — the component's on unmount, or a bare
 `effectScope()` when it stops. A server render subscribes nothing: it is a
-single pass, and Vue never disposes a scope on the server.
+single pass, and Vue never disposes a scope on the server. As with
+`useMachine`, call it before the first `await` in an async `setup()`.
 
 `api` from `useMachine` already updates only on a real change, so reach for
 `useSelector` when a leaf wants to track one slice of a machine it doesn't
