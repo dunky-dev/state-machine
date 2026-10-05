@@ -313,6 +313,31 @@ class MachineClass<
   }
 }
 
+/**
+ * What a bridge can build a service from: a config (run by this engine) or a ready
+ * machine — e.g. a Rust machine behind `@dunky.dev/state-machine-wasm`.
+ */
+export type MachineSource<
+  State extends string,
+  Context extends object,
+  Event extends { type: string },
+  Computed = Record<string, never>,
+> = TransitionConfig<State, Context, Event, Computed> | Machine<State, Context, Event, Computed>
+
+/** Build a stopped service from a config; a ready machine is returned as is. */
+export function toMachine<
+  State extends string,
+  Context extends object,
+  Event extends { type: string },
+  Computed = Record<string, never>,
+>(
+  source: MachineSource<State, Context, Event, Computed>,
+): Machine<State, Context, Event, Computed> {
+  return typeof (source as Machine<State, Context, Event, Computed>).send === 'function'
+    ? (source as Machine<State, Context, Event, Computed>)
+    : machine(source as TransitionConfig<State, Context, Event, Computed>)
+}
+
 export function machine<
   State extends string,
   Context extends object,

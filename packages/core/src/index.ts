@@ -1,4 +1,4 @@
-export { machine } from './machine'
+export { machine, toMachine, type MachineSource } from './machine'
 export { MACHINE_INIT } from './constants'
 export { setup } from './setup'
 export { and, or, not } from './guards'
@@ -7,6 +7,10 @@ export { connector } from './connector'
 export { makeReaction } from './reaction'
 export { compose, type Composition } from './compose'
 export { createStore, type Store, type Listener, type SetStateAction } from './store'
+// Building blocks for other Machine implementations (e.g. the wasm adapter), so every
+// implementation shares one broadcast and one selection semantics.
+export { makeBroadcast, type Broadcast } from './broadcast'
+export { makeSelection } from './selection'
 
 export type {
   Machine,
