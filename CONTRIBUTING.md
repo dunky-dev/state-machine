@@ -19,7 +19,7 @@ pnpm install
 | ------------------------------ | ---------------------------------------------------------- |
 | `pnpm test`                    | Full test suite, watch mode                                |
 | `pnpm test:ci`                 | Full test suite, once                                      |
-| `pnpm typecheck`               | `tsc -b` across the whole workspace                        |
+| `pnpm typecheck`               | `tsc -b` across the whole workspace, then `svelte-check`   |
 | `pnpm lint`                    | `oxlint`                                                   |
 | `pnpm format` / `format:check` | `oxfmt`                                                    |
 | `pnpm build`                   | Build every publishable package                            |

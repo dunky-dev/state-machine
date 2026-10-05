@@ -437,12 +437,6 @@ importers:
       '@dunky.dev/state-machine-bindings':
         specifier: workspace:^
         version: link:../../packages/shared/bindings
-      '@dunky.dev/state-machine-dom':
-        specifier: workspace:^
-        version: link:../../packages/dom
-      '@dunky.dev/state-machine-utils':
-        specifier: workspace:^
-        version: link:../../packages/shared/utils
       '@dunky.dev/svelte-state-machine':
         specifier: workspace:^
         version: link:../../packages/svelte
