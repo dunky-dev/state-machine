@@ -36,7 +36,6 @@ the short version:
 
 ```bash
 pnpm -C sandbox/react dev
-pnpm -C sandbox/solid dev
 pnpm -C sandbox/svelte dev
 pnpm -C sandbox/opentui dev  # terminal — needs Bun
 pnpm -C sandbox/native dev   # Expo  — needs a simulator or device
