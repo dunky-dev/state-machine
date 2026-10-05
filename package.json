@@ -10,7 +10,7 @@
     "website:dev": "pnpm -C website dev",
     "website:prod": "pnpm -C website build",
     "build": "tsdown && pnpm --filter @dunky.dev/svelte-state-machine build",
-    "typecheck": "tsc -b tsconfig.build.json && pnpm --filter @dunky.dev/svelte-state-machine typecheck",
+    "typecheck": "tsc -b tsconfig.build.json && pnpm -r --filter './packages/**' --if-present typecheck",
     "lint": "oxlint .",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
