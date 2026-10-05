@@ -6,7 +6,7 @@ Add `@dunky.dev/svelte-state-machine` — the Svelte 5 bindings target.
 
 A first-class Svelte bridge written in runes (not a React re-export):
 `useMachine` builds the machine and connector once and exposes the connector's
-snapshot as `view.api`, derived lazily — `connect()` runs once a transition
+snapshot as `view.api`, read lazily — `connect()` runs once a transition
 settles, only when read. It starts the machine after mount and stops it on
 destroy before child components tear down (React's order), and runs each
 `ComponentEffect` as its own `$effect`, re-run only when the value of one of its

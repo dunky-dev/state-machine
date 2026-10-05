@@ -23,7 +23,7 @@ package is the thin Svelte edge that runs it. It does four things:
   |   useMachine              build + start the machine, subscribe
   |   |
   |   v
-  |   view.api                the connector's snapshot, derived lazily
+  |   view.api                the connector's snapshot, read lazily
   |   |
   |   v
   |   normalize()             DOM / ARIA / events
@@ -35,8 +35,8 @@ package is the thin Svelte edge that runs it. It does four things:
 This is a **first-class Svelte target**, not a re-export of the React bridge.
 React's adapters re-export onto React Native and OpenTUI because those share a
 React reconciler; Svelte has its own reactivity, so the lifecycle is written in
-runes — `$derived`, `$effect.pre`, `$effect`, `untrack` — and there is no
-`useSyncExternalStore`. The behavior still lives in the core machine
+runes — `$state`, `$derived`, `$effect.pre`, `$effect`, `untrack` — and there
+is no `useSyncExternalStore`. The behavior still lives in the core machine
 and the component's `connect`; this layer only adapts them to Svelte.
 
 ## Quick start
@@ -130,12 +130,12 @@ connect, props)`, seeded with a **plain copy** of the props, never the live
   `$props()` proxy: the connector value-dedups in `setProps`, and a held proxy
   would compare equal to itself and never wake. Later prop changes flow through
   `setProps`, never a rebuild.
-- **derives the snapshot lazily** — the connector only bumps a version signal,
-  and `view.api` is a `$derived` over the connector's memoized snapshot:
-  `connect()` runs once a transition settles, at most once per flush, and only
-  when something reads it. `view.api` is that very object — no deep proxy, no
-  copy. The subscription is created before the template, so a child that sends
-  on mount (children's effects run before their parent's) still lands in the
+- **reads the snapshot lazily** — the connector only bumps a version signal,
+  and reading `view.api` returns the connector's memoized snapshot: `connect()`
+  runs once a transition settles, at most once per change, and only when
+  something reads it. `view.api` is that very object — no deep proxy, no copy.
+  The subscription is created before the template, so a child that sends on
+  mount (children's effects run before their parent's) still lands in the
   parent's `api`.
 - **keeps props fresh** — the getter is read through one `$derived`, spread into
   `setProps` by an `$effect`, so replacing any top-level prop re-runs it.

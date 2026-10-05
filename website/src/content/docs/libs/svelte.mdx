@@ -11,7 +11,7 @@ Targets Svelte 5 (`svelte` `>=5.16.0 <5.33.5 || ^5.34.5`, tested on 5.57.1). The
 
 The Svelte package is a thin edge layer. Behavior lives in the core machine and the component's `connect` function; this package only adapts them to Svelte: lifecycle, reactivity, prop translation, and platform effects. **The machine itself is unchanged** — the same `createDialogConfig` and `connectDialog` run here as on any other target.
 
-`view.api` is the connector's snapshot, derived lazily: `connect()` runs once a transition settles, and only when something reads the result. It is a fresh object after every machine or prop change, which markup re-reads cheaply — Svelte only touches the DOM where a value differs.
+`view.api` is the connector's snapshot, read lazily: `connect()` runs once a transition settles, and only when something reads the result. It is a fresh object after every machine or prop change, which markup re-reads cheaply — Svelte only touches the DOM where a value differs.
 
 ## `useMachine`
 
