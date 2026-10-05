@@ -21,6 +21,7 @@ import { runEngine } from './tests/engine'
 import { runConstruct } from './tests/construct'
 import { runMemory } from './tests/memory'
 import { runRendering } from './tests/rendering/run'
+import { WASM_SKIPPED, wasmBuilt } from './wasm-built'
 
 async function main() {
   console.log('Benchmark suite (disposable). Node', process.version)
@@ -33,6 +34,9 @@ async function main() {
   await runEngine()
   await runConstruct()
   await runMemory()
+  // The Rust/wasm comparison loads the built wasm, so it is imported only when it exists.
+  if (wasmBuilt()) await (await import('./tests/wasm')).runWasm()
+  else console.warn(`\n${WASM_SKIPPED}`)
   await runRendering() // last: imports react-dom (bootstraps its own jsdom)
   console.log('\n========== DONE ==========')
 }
