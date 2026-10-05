@@ -14,12 +14,14 @@ import {
   KeepAlive,
   nextTick,
   onMounted,
+  onUnmounted,
   ref,
   Suspense,
   type PropType,
 } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { act as write, type Connect, type TransitionConfig } from '@dunky.dev/state-machine'
 import { type ComponentEffect, useMachine } from '@dunky.dev/vue-state-machine'
 import {
   connectToggle,
@@ -98,6 +100,39 @@ describe('useMachine — lifecycle', () => {
     await nextTick()
     expect(sink.renders).toBeGreaterThan(before)
     expect(sink.api).toMatchObject({ open: true, count: 1 })
+  })
+})
+
+describe('useMachine — snapshot timing', () => {
+  it('reads the snapshot once a transition completes, never in the middle of one', async () => {
+    type EditState = 'idle' | 'editing'
+    type EditEvent = { type: 'edit' }
+    // The draft exists only once `editing`'s entry action has run — after the state
+    // change has already notified.
+    const config: TransitionConfig<EditState, { draft?: string }, EditEvent> = {
+      initial: 'idle',
+      context: {},
+      states: {
+        idle: { on: { edit: { target: 'editing' } } },
+        editing: { entry: [write(() => ({ draft: 'hi' }))] },
+      },
+    }
+    const connectDraft: Connect<EditState, { draft?: string }, EditEvent, object, number> = ({
+      state,
+      context,
+    }) => (state === 'editing' ? context.draft!.length : -1)
+    let send!: (event: EditEvent) => void
+    const Comp = defineComponent({
+      setup() {
+        const { api, machine } = useMachine(() => config, connectDraft, [], {})
+        send = machine.send
+        return () => h('div', String(api.value))
+      },
+    })
+    const wrapper = mount(Comp)
+    expect(() => send({ type: 'edit' })).not.toThrow()
+    await nextTick()
+    expect(wrapper.text()).toBe('2')
   })
 })
 
@@ -327,6 +362,28 @@ describe('useMachine — compound components', () => {
     await nextTick()
     expect(log).toEqual(['child:send', 'start'])
     expect(wrapper.text()).toBe('open')
+  })
+})
+
+describe('useMachine — compound teardown', () => {
+  it("stops before its parts unmount, so a part's teardown send fires no reactions", () => {
+    const onOpenChange = vi.fn()
+    const Part = defineComponent({
+      props: { machine: { type: Object as PropType<ToggleMachine>, required: true } },
+      setup(props) {
+        onUnmounted(() => props.machine.send({ type: 'toggle' })) // e.g. a part unregistering
+        return () => null
+      },
+    })
+    const Root = defineComponent({
+      setup() {
+        const props: ToggleProps = { onOpenChange }
+        const { machine } = useMachine(createToggleConfig, connectToggle, [], props)
+        return () => h(Part, { machine })
+      },
+    })
+    mount(Root).unmount()
+    expect(onOpenChange).not.toHaveBeenCalled()
   })
 })
 
