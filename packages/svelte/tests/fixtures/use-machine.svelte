@@ -18,6 +18,8 @@
     // Hand useMachine a getter that builds its own object (the destructured-
     // defaults shape) instead of the live props.
     copy?: boolean
+    // Deep reactive state a test's connect() reads through the props.
+    box?: { n: number }
     sendAtInit?: ToggleEvent
     sendInEffect?: ToggleEvent
     childSends?: { mount?: ToggleEvent; destroy?: ToggleEvent }
