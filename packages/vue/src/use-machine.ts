@@ -7,6 +7,7 @@ import {
   onScopeDispose,
   shallowRef,
   toValue,
+  triggerRef,
   watch,
   type ComputedRef,
   type MaybeRefOrGetter,
@@ -54,16 +55,13 @@ export function useMachine<
   const service = machine(createConfig(read()))
   const connection = connector(service, connect, read())
 
-  // The connector memoizes its snapshot but isn't reactive, so its wakes are counted and
-  // the computed re-reads it lazily: connect() runs once per read after a change, not once
-  // per machine notification. Per-instance, so a server render — which never disposes a
-  // scope — leaves nothing behind once the instance is collected.
-  const wakes = shallowRef(0)
-  onScopeDispose(connection.subscribe(() => wakes.value++))
-  const api = computed(() => {
-    void wakes.value
-    return connection.snapshot
-  })
+  // The connector memoizes its snapshot but isn't reactive: a wake only marks the computed
+  // stale, and the computed re-reads the snapshot lazily — connect() runs once per read
+  // after a change, not once per machine notification. Per-instance, so a server render
+  // (which never disposes a scope) leaves nothing behind once the instance is collected.
+  const source = shallowRef(connection)
+  onScopeDispose(connection.subscribe(() => triggerRef(source)))
+  const api = computed(() => source.value.snapshot)
 
   // Not deep: setProps compares top-level identities, so walking prop values is wasted work.
   watch(read, next => connection.setProps(next))
@@ -75,25 +73,33 @@ export function useMachine<
   const resume = () => {
     if (stopEffects) return
     service.start()
-    stopEffects = effects.map(([fn, deps]) => {
+    // Filled as it goes, so an effect that throws can't strand the ones started before it.
+    stopEffects = []
+    for (const [fn, deps] of effects) {
+      let cleanup: (() => void) | undefined
+      const teardown = () => {
+        const previous = cleanup
+        cleanup = undefined
+        previous?.()
+      }
+      const run = () => {
+        teardown()
+        cleanup = fn(service, toValue(props)) || undefined
+      }
       // The first run is direct, not `immediate`: before Vue 3.5.x an immediate watcher
-      // over an empty source never fires.
-      let cleanup = fn(service, toValue(props)) || undefined
-      // An array of getters is compared dep by dep, so no other prop can trigger a re-run;
-      // `post` lets the re-run see the DOM already patched with the props that caused it.
+      // over an empty source never fires. One getter per dep is compared by value, so no
+      // other prop can trigger a re-run; `post` lets the re-run see the patched DOM.
+      run()
       const stop = watch(
         deps.map(key => () => toValue(props)[key]),
-        () => {
-          cleanup?.()
-          cleanup = fn(service, toValue(props)) || undefined
-        },
+        run,
         { flush: 'post' },
       )
-      return () => {
+      stopEffects.push(() => {
         stop()
-        cleanup?.()
-      }
-    })
+        teardown()
+      })
+    }
   }
   const pause = () => {
     service.stop()

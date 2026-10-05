@@ -7,7 +7,16 @@
  * dep-keyed effect (React's effect order), and pause everything while a
  * <KeepAlive> holds the component deactivated (React's <Activity>).
  */
-import { defineComponent, h, KeepAlive, nextTick, ref, Suspense, type PropType } from 'vue'
+import {
+  createApp,
+  defineComponent,
+  h,
+  KeepAlive,
+  nextTick,
+  ref,
+  Suspense,
+  type PropType,
+} from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { type ComponentEffect, useMachine } from '@dunky.dev/vue-state-machine'
@@ -246,6 +255,24 @@ describe('useMachine — component effects', () => {
     const wrapper = mount(Comp, { props: { label: 'a' }, attachTo: document.body })
     await wrapper.setProps({ label: 'b' })
     expect(seen).toEqual(['a', 'b'])
+  })
+
+  it('still cleans up the effects that started before one that threw', () => {
+    const log: string[] = []
+    const throwing: Effect = [
+      () => {
+        throw new Error('effect failed')
+      },
+      [],
+    ]
+    const { Comp } = harness([loggingEffect(log), throwing], log)
+    // A plain app: test-utils rethrows mount errors even past the app's errorHandler.
+    const app = createApp(Comp)
+    app.config.errorHandler = vi.fn()
+    app.mount(document.createElement('div'))
+    app.unmount()
+    expect(app.config.errorHandler).toHaveBeenCalledOnce()
+    expect(log).toEqual(['start', 'effect', 'stop', 'cleanup'])
   })
 
   it('cleans up on unmount, after the machine stops', () => {
