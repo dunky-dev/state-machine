@@ -27,7 +27,7 @@ const cmdkShortcut: ComponentEffect<CommandPaletteMachine, CommandPaletteProps> 
 // The DOM renderer. It owns ZERO interaction logic — `useMachine` runs the shared
 // machine, `connect` produces logical bindings, and `normalize` turns them into
 // DOM props (onPress→onClick, role/aria-*, etc). The component is just markup;
-// the look lives in the stylesheet shared with the Solid app.
+// the look lives in the stylesheet shared with the Solid and Svelte apps.
 export function CommandPalette(props: CommandPaletteProps) {
   const { api } = useMachine(
     commandPaletteMachineConfig,
