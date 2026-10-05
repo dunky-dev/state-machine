@@ -174,7 +174,7 @@ describe('useSelector — reactive inputs', () => {
     expect(wrapper.text()).toBe('X')
   })
 
-  it('keeps the last good selection when the selector throws', () => {
+  it('rethrows a selector failure where it is read, then recovers on the next change', () => {
     const m = makeMachine()
     const broken = ref(false)
     const scope = effectScope()

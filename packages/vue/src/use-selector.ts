@@ -2,6 +2,7 @@ import {
   computed,
   hasInjectionContext,
   inject,
+  isRef,
   onScopeDispose,
   shallowRef,
   ssrContextKey,
@@ -39,6 +40,8 @@ export function useSelector<
   // selector lazily, where it is read — after Vue has finished patching the props — and
   // re-collects its reactive reads (a prop it compares against) on every run.
   const notified = shallowRef()
+  // Held here rather than read from the getter's `previous` argument, which early Vue 3.5
+  // releases never passed.
   let last: { value: T } | undefined
   const selected = computed(() => {
     void notified.value
@@ -53,16 +56,19 @@ export function useSelector<
   // there: a subscription would outlive the request.
   if (hasInjectionContext() && inject(ssrContextKey, null)) return selected
 
-  let unsubscribe = toValue(machine).subscribe(() => triggerRef(notified))
+  const wake = () => triggerRef(notified)
+  let unsubscribe = toValue(machine).subscribe(wake)
   // A ref or getter may swap the machine: the subscription moves with it.
-  watch(
-    () => toValue(machine),
-    current => {
-      unsubscribe()
-      unsubscribe = current.subscribe(() => triggerRef(notified))
-      triggerRef(notified)
-    },
-  )
+  if (isRef(machine) || typeof machine === 'function') {
+    watch(
+      () => toValue(machine),
+      current => {
+        unsubscribe()
+        unsubscribe = current.subscribe(wake)
+        wake()
+      },
+    )
+  }
   onScopeDispose(() => unsubscribe())
 
   return selected
