@@ -47,12 +47,18 @@ importers:
 
   benchmark:
     dependencies:
+      '@dunky.dev/demo-wasm':
+        specifier: workspace:*
+        version: link:../packages/demo-wasm
       '@dunky.dev/react-state-machine':
         specifier: workspace:^
         version: link:../packages/react
       '@dunky.dev/state-machine':
         specifier: workspace:^
         version: link:../packages/core
+      '@sandbox/cmdk-core':
+        specifier: workspace:*
+        version: link:../sandbox/shared
     devDependencies:
       '@types/jsdom':
         specifier: ^21.1.7
@@ -124,6 +130,18 @@ importers:
 
   packages/core: {}
 
+  packages/demo-wasm:
+    dependencies:
+      '@dunky.dev/state-machine':
+        specifier: workspace:*
+        version: link:../core
+      '@dunky.dev/state-machine-wasm':
+        specifier: workspace:*
+        version: link:../wasm
+      '@sandbox/cmdk-core':
+        specifier: workspace:*
+        version: link:../../sandbox/shared
+
   packages/dom:
     dependencies:
       '@dunky.dev/state-machine-bindings':
@@ -150,6 +168,24 @@ importers:
       react-native:
         specifier: '*'
         version: 0.85.0(@babel/core@7.29.7)(@types/react@19.2.15)(react@19.2.6)
+
+  packages/native-rust:
+    dependencies:
+      '@dunky.dev/state-machine-wasm':
+        specifier: workspace:*
+        version: link:../wasm
+      '@sandbox/cmdk-core':
+        specifier: workspace:*
+        version: link:../../sandbox/shared
+      '@ubjs/core':
+        specifier: 0.31.0-6
+        version: 0.31.0-6
+      react-native:
+        specifier: '*'
+        version: 0.81.4(@babel/core@7.29.7)(@types/react@19.2.15)(react@19.2.6)
+      uniffi-bindgen-react-native:
+        specifier: 0.31.0-6
+        version: 0.31.0-6
 
   packages/opentui:
     dependencies:
@@ -232,8 +268,17 @@ importers:
         specifier: ^4.1.7
         version: 4.1.7(@types/node@24.13.2)(jsdom@29.1.1)(vite@8.0.14(@types/node@24.13.2)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))
 
+  packages/wasm:
+    dependencies:
+      '@dunky.dev/state-machine':
+        specifier: workspace:*
+        version: link:../core
+
   sandbox/native:
     dependencies:
+      '@dunky.dev/native-rust':
+        specifier: workspace:^
+        version: link:../../packages/native-rust
       '@dunky.dev/native-state-machine':
         specifier: workspace:^
         version: link:../../packages/native
@@ -274,6 +319,9 @@ importers:
 
   sandbox/opentui:
     dependencies:
+      '@dunky.dev/demo-wasm':
+        specifier: workspace:^
+        version: link:../../packages/demo-wasm
       '@dunky.dev/opentui-state-machine':
         specifier: workspace:^
         version: link:../../packages/opentui
@@ -311,6 +359,9 @@ importers:
 
   sandbox/react:
     dependencies:
+      '@dunky.dev/demo-wasm':
+        specifier: workspace:^
+        version: link:../../packages/demo-wasm
       '@dunky.dev/react-state-machine':
         specifier: workspace:^
         version: link:../../packages/react
@@ -357,6 +408,9 @@ importers:
 
   sandbox/solid:
     dependencies:
+      '@dunky.dev/demo-wasm':
+        specifier: workspace:^
+        version: link:../../packages/demo-wasm
       '@dunky.dev/solid-state-machine':
         specifier: workspace:^
         version: link:../../packages/solid
@@ -3373,6 +3427,9 @@ packages:
     engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [win32]
+
+  '@ubjs/core@0.31.0-6':
+    resolution: {integrity: sha512-pscv6Zj8mVmd5+ikb1Zr6XZ0yqYwKGeIV8HU8rf9sTvs7GW34OARAp03xFJ7rE9XE4R6LgwQhzYW9knAuz5yxA==}
 
   '@ungap/structured-clone@1.3.1':
     resolution: {integrity: sha512-mUFwbeTqrVgDQxFveS+df2yfap6iuP20NAKAsBt5jDEoOTDew+zwLAOilHCeQJOVSvmgCX4ogqIrA0mnyr08yQ==}
@@ -6679,6 +6736,10 @@ packages:
     resolution: {integrity: sha512-hpbDzxUY9BFwX+UeBnxv3Sh1q7HFxj48DTmXchNgRa46lO8uj3/1iEn3MiNUYTg1g9ctIqXCCERn8gYZhHC5lQ==}
     engines: {node: '>=4'}
 
+  uniffi-bindgen-react-native@0.31.0-6:
+    resolution: {integrity: sha512-4SfjPl8b9oQQcLJRH7INa+DdWV2FKu9HAVOjHL0+rT8EniTG4qoxOdmDBw8Novq7vSqEFmiXbHaoArLFqWWEhg==}
+    hasBin: true
+
   unified@11.0.5:
     resolution: {integrity: sha512-xKvGhPWw3k84Qjh8bI3ZeJjqnyadK+GEFtazSfZv/rKeTkTjOJho6mFqh2SM96iIcZokxiOpg78GazTSg8+KHA==}
 
@@ -9540,6 +9601,15 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.1.17
 
+  '@react-native/virtualized-lists@0.81.4(@types/react@19.2.15)(react-native@0.81.4(@babel/core@7.29.7)(@types/react@19.2.15)(react@19.2.6))(react@19.2.6)':
+    dependencies:
+      invariant: 2.2.4
+      nullthrows: 1.1.1
+      react: 19.2.6
+      react-native: 0.81.4(@babel/core@7.29.7)(@types/react@19.2.15)(react@19.2.6)
+    optionalDependencies:
+      '@types/react': 19.2.15
+
   '@react-native/virtualized-lists@0.85.0(@types/react@19.2.15)(react-native@0.85.0(@babel/core@7.29.7)(@types/react@19.2.15)(react@19.2.6))(react@19.2.6)':
     dependencies:
       invariant: 2.2.4
@@ -10096,6 +10166,8 @@ snapshots:
 
   '@typescript/typescript-win32-x64@7.0.2':
     optional: true
+
+  '@ubjs/core@0.31.0-6': {}
 
   '@ungap/structured-clone@1.3.1': {}
 
@@ -13599,6 +13671,53 @@ snapshots:
       - supports-color
       - utf-8-validate
 
+  react-native@0.81.4(@babel/core@7.29.7)(@types/react@19.2.15)(react@19.2.6):
+    dependencies:
+      '@jest/create-cache-key-function': 29.7.0
+      '@react-native/assets-registry': 0.81.4
+      '@react-native/codegen': 0.81.4(@babel/core@7.29.7)
+      '@react-native/community-cli-plugin': 0.81.4
+      '@react-native/gradle-plugin': 0.81.4
+      '@react-native/js-polyfills': 0.81.4
+      '@react-native/normalize-colors': 0.81.4
+      '@react-native/virtualized-lists': 0.81.4(@types/react@19.2.15)(react-native@0.81.4(@babel/core@7.29.7)(@types/react@19.2.15)(react@19.2.6))(react@19.2.6)
+      abort-controller: 3.0.0
+      anser: 1.4.10
+      ansi-regex: 5.0.1
+      babel-jest: 29.7.0(@babel/core@7.29.7)
+      babel-plugin-syntax-hermes-parser: 0.29.1
+      base64-js: 1.5.1
+      commander: 12.1.0
+      flow-enums-runtime: 0.0.6
+      glob: 7.2.3
+      invariant: 2.2.4
+      jest-environment-node: 29.7.0
+      memoize-one: 5.2.1
+      metro-runtime: 0.83.7
+      metro-source-map: 0.83.7
+      nullthrows: 1.1.1
+      pretty-format: 29.7.0
+      promise: 8.3.0
+      react: 19.2.6
+      react-devtools-core: 6.1.5
+      react-refresh: 0.14.2
+      regenerator-runtime: 0.13.11
+      scheduler: 0.26.0
+      semver: 7.8.1
+      stacktrace-parser: 0.1.11
+      whatwg-fetch: 3.6.20
+      ws: 6.2.4
+      yargs: 17.7.2
+    optionalDependencies:
+      '@types/react': 19.2.15
+    transitivePeerDependencies:
+      - '@babel/core'
+      - '@react-native-community/cli'
+      - '@react-native/metro-config'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+
   react-native@0.85.0(@babel/core@7.29.7)(@types/react@19.2.15)(react@19.2.6):
     dependencies:
       '@react-native/assets-registry': 0.85.0
@@ -14475,6 +14594,8 @@ snapshots:
   unicode-match-property-value-ecmascript@2.2.1: {}
 
   unicode-property-aliases-ecmascript@2.2.0: {}
+
+  uniffi-bindgen-react-native@0.31.0-6: {}
 
   unified@11.0.5:
     dependencies:

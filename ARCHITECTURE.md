@@ -93,12 +93,14 @@ Zag, whose machines read props directly.)
 
 ## Project structure
 
-| File / location             | What it owns                                                      |
-| --------------------------- | ----------------------------------------------------------------- |
-| `packages/core/`            | State-machine engine (plain-mutation kernel)                      |
-| `packages/shared/bindings/` | Substrate-agnostic event + attr vocabulary (onPress, role, …)     |
-| `packages/shared/utils/`    | mergeProps, composeHandlers                                       |
-| `packages/<target>/`        | Hook + normalize per substrate (react, solid, native, opentui, …) |
+| File / location                  | What it owns                                                      |
+| -------------------------------- | ----------------------------------------------------------------- |
+| `packages/core/`                 | State-machine engine (plain-mutation kernel)                      |
+| `packages/shared/bindings/`      | Substrate-agnostic event + attr vocabulary (onPress, role, …)     |
+| `packages/shared/utils/`         | mergeProps, composeHandlers                                       |
+| `packages/<target>/`             | Hook + normalize per substrate (react, solid, native, opentui, …) |
+| `crates/core/`                   | Rust port of the engine (experimental, same SPEC)                 |
+| `crates/wasm/`, `packages/wasm/` | Rust machine → wasm → the TS `Machine` interface                  |
 
 ## The map
 
@@ -171,6 +173,30 @@ whether it needs props/platform or not:
    names it depends on. The agnostic _decision_ still lives in core; only the
    platform listener is per-target. On accept it `send()`s a plain event the
    machine already understands.
+
+## The Rust core (experimental)
+
+`crates/core` (`dunky-core`) is a Rust port of the engine. It implements the same
+[SPEC](packages/core/SPEC.md); its tests are ported from `packages/core/tests`.
+Machines are typed Rust (`#[derive(State, Event, Context)]`), the core owns no clock
+(`after` timers are commands the host runs), and every call reports a change mask.
+
+```
+crates/core  (Rust machines: engine + config + computed)
+   |
+   +-- crates/wasm --> .wasm + JS glue --> packages/wasm (fromWasm)
+   |                                          |
+   |                                          v
+   |                       the TS Machine interface: react, solid, native, opentui
+   |
+   +-- crates/uniffi --> native code + JSI (React Native; Hermes has no wasm)
+```
+
+A target never knows which engine runs: `useMachine` takes a config (TS engine) or a
+ready machine (`toMachine`), and `fromWasm(handle)` returns the same `Machine`
+interface. The adapter mirrors context into one plain JS object and re-reads only the
+fields the change mask names; observers are notified once per call. Build the demo
+machines with `pnpm build:wasm`; the spike numbers live in `benchmark/tests/wasm.ts`.
 
 ## Vocabulary
 

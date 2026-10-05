@@ -33,6 +33,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/ci-setup
+      # The demo-wasm parity tests load the generated wasm package.
+      - uses: ./.github/actions/wasm-setup
       - run: pnpm test:ci
 
   typecheck:
@@ -41,6 +43,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/ci-setup
+      # demo-wasm (and the benchmark, through it) import the generated wasm package.
+      - uses: ./.github/actions/wasm-setup
       - run: pnpm typecheck
 
   lint:
@@ -58,6 +62,32 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/ci-setup
       - run: pnpm format:check
+
+  rust:
+    # The Cargo workspace needs no Node, so no ci-setup.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            crates/uniffi -> target
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+      # Again in release: overflow checks and debug assertions are off there, as
+      # in the shipped wasm.
+      - run: cargo test --workspace --release
+      # crates/uniffi (React Native over JSI) sits outside the workspace with its own
+      # lockfile; its checks run on the host and need no mobile toolchain.
+      - run: cargo fmt --manifest-path crates/uniffi/Cargo.toml --check
+      - run: cargo clippy --manifest-path crates/uniffi/Cargo.toml --all-targets -- -D warnings
+      - run: cargo test --manifest-path crates/uniffi/Cargo.toml
 
   versioning:
     # The release PR consumes changesets rather than adding one — never flag it.

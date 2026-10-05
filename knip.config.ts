@@ -11,6 +11,10 @@ const config: KnipConfig = {
       // `pnpm -C <dir> dev` is a workspace script name knip mistakes for a binary.
       ignoreBinaries: ['dev'],
     },
+    'packages/native-rust': {
+      // Imported by the generated (gitignored) uniffi bindings, which knip can't see.
+      ignoreDependencies: ['@ubjs/core'],
+    },
   },
 }
 
