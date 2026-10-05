@@ -149,9 +149,10 @@ It:
   runs once per read rather than once per machine notification, and `api`'s
   identity changes only on a real change.
 - **runs the lifecycle in React's order** — `service.start()` after mount, then
-  the component's effects; on unmount, `service.stop()`, then the effect
-  cleanups, once the component's DOM is gone (as React's passive effects run).
-  The connector wired its
+  the component's effects. On unmount it stops the machine first, parent before
+  children as React's passive cleanups run top-down — so a part sending from its
+  own teardown reaches a stopped machine and fires no prop callback — then
+  cleans the effects up once the component's DOM is gone. The connector wired its
   [reactions](../core/README.md#reactions--firing-prop-callbacks-without-the-machine-knowing)
   to the machine's own `start`/`stop`, so prop callbacks follow automatically.
 - **pauses under `<KeepAlive>`** — deactivation stops the machine and tears the
@@ -195,6 +196,19 @@ props: {
 In an async `setup()` (a component under `<Suspense>`), Vue binds only the
 lifecycle hooks registered before the first `await`. Call `useMachine` before
 awaiting anything — otherwise the machine never starts and no effect runs.
+
+### Send from handlers, `watch` callbacks, or hooks
+
+`send()` runs the transition synchronously, prop callbacks included — so it runs
+inside whatever is tracking at that moment. From `watchEffect`, a `computed`, or
+a render function, every reactive value those callbacks read becomes a
+dependency, and an unrelated change re-runs the effect and sends again. Send
+from event handlers, `watch(source, callback)` callbacks, or lifecycle hooks,
+which Vue runs untracked:
+
+```ts
+watch(shouldOpen, open => open && machine.send({ type: 'open' })) // not watchEffect
+```
 
 ---
 
@@ -249,7 +263,7 @@ prop at event time sees its latest value.
 
 ## `useSelector` — fine-grained subscription
 
-Returns a **readonly ref** that updates only when one slice of the machine
+Returns a **computed ref** that updates only when one slice of the machine
 changes:
 
 ```ts
@@ -365,7 +379,7 @@ also falls the attrs through to the root element and every handler runs twice.
 | Export                                        | What it is                                                                                                                     |
 | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `useMachine(config, connect, effects, props)` | the bridge composable — build once + lifecycle + run effects + computed snapshot; returns `{ api, machine }`                   |
-| `useSelector(machine, selector, isEqual?)`    | fine-grained subscription to a derived slice (machine: value, ref, or getter); returns a readonly ref (`O(readers)`)           |
+| `useSelector(machine, selector, isEqual?)`    | fine-grained subscription to a derived slice (machine: value, ref, or getter); returns a computed ref (`O(readers)`)           |
 | `normalize(bindings)`                         | agnostic bindings → Vue DOM/ARIA props                                                                                         |
 | `mergeProps(consumer, library)`               | merge consumer + component props (handlers chained w/ `defaultPrevented` veto; `class`/`style` as `[consumer, library]` array) |
 | `ComponentEffect<M, P>`                       | `[ (machine, props) => cleanup, (keyof P)[] ]` — one platform effect + its prop deps; pass a static list of them               |
@@ -375,11 +389,12 @@ also falls the attrs through to the root element and every handler runs twice.
 
 ## Vue version support
 
-Peer range: `vue` `^3.3.0` — the bridge needs 3.3's `toValue` and
-`MaybeRefOrGetter`. The suite runs on Vue 3.5 and is verified on 3.3, 3.4,
-and the 3.6 release candidate, where the composables also work inside Vapor
-components: they use only the reactivity and lifecycle APIs both renderers
-share.
+Peer range: `vue` `^3.4.0`. `useSelector` relies on the computed of Vue 3.4's
+reactivity, which skips its readers when a re-evaluation returns the same value
+— on 3.3 every machine change would re-render every reader. The suite runs on
+Vue 3.5 and is verified on 3.4.0 and the 3.6 release candidate, where the
+composables also work inside Vapor components: they use only the reactivity and
+lifecycle APIs both renderers share.
 
 TypeScript 7 no longer ships the compiler's JS API, which the Vue toolchain
 still needs: `@vue/compiler-sfc` uses it to resolve an imported type in

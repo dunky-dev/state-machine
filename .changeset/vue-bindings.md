@@ -2,18 +2,18 @@
 '@dunky.dev/vue-state-machine': minor
 ---
 
-Add `@dunky.dev/vue-state-machine` — the Vue bindings target, for `vue` `^3.3.0`.
+Add `@dunky.dev/vue-state-machine` — the Vue bindings target, for `vue` `^3.4.0`.
 
 A first-class Vue bridge with the same four exports as the React and Solid
 targets. `useMachine` builds the machine and connector once in `setup()`,
 exposes the connector's memoized snapshot as a `ComputedRef`, keeps props fresh
 through `setProps`, and runs the lifecycle in React's order: `start()`, then
-each `ComponentEffect`, after mount; `stop()`, then the effect cleanups, once
-the component's DOM is gone. An effect re-runs only when one of its named prop deps changes, after
+each `ComponentEffect`, after mount; on unmount, `stop()` first (parent before
+its parts), then the effect cleanups once the component's DOM is gone. An effect re-runs only when one of its named prop deps changes, after
 the DOM has been patched. Under `<KeepAlive>` a deactivated component pauses —
 machine stopped, effects torn down — and resumes with its state intact, like
 React's `<Activity>`; server rendering starts nothing and runs no effect.
-`useSelector` returns a readonly ref holding the selected value as-is; it
+`useSelector` returns a computed ref holding the selected value as-is; it
 re-selects on machine changes and when a reactive value the selector reads
 changes, and takes the machine as a value, ref, or getter.
 `normalize` reuses the shared DOM translation from
@@ -39,8 +39,11 @@ const { api } = useMachine(createDialogConfig, connectDialog, dialogEffects, pro
 </template>
 ```
 
-Two Vue rules to know. Declare boolean props with `default: undefined`: an
+Three Vue rules to know. Declare boolean props with `default: undefined`: an
 absent `Boolean` prop is cast to `false`, which would make `open` permanently
-controlled and drop a `modal: true` default. And in an async `setup()`, call
+controlled and drop a `modal: true` default. In an async `setup()`, call
 `useMachine` before the first `await` — Vue binds only the lifecycle hooks
-registered before it.
+registered before it. And send from event handlers, `watch` callbacks, or hooks
+rather than `watchEffect`, a `computed`, or a render function: `send()` runs prop
+callbacks synchronously, so whatever they read would become a dependency of the
+effect that sent.

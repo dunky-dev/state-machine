@@ -7,7 +7,7 @@ import Install from '../../../components/install.astro'
 
 <Install pkg='@dunky.dev/vue-state-machine' />
 
-Targets Vue 3.3 and later (`vue` `^3.3.0`). The bridge uses only the reactivity and lifecycle APIs both Vue renderers share, so it also runs inside Vue 3.6's Vapor components (verified on the release candidate).
+Targets Vue 3.4 and later (`vue` `^3.4.0`). The bridge uses only the reactivity and lifecycle APIs both Vue renderers share, so it also runs inside Vue 3.6's Vapor components (verified on the release candidate).
 
 The Vue package is a thin edge layer. Behavior lives in the core machine and the component's `connect` function; this package only adapts them to Vue: lifecycle, reactivity, prop translation, and platform effects. **The machine itself is unchanged** — the same `createDialogConfig` and `connectDialog` run here as on any other target.
 
@@ -41,7 +41,7 @@ const { api } = useMachine(
 </template>
 ```
 
-`useMachine` builds the machine and connector **once** (`setup()` runs once per instance, so the first props seed context; later changes flow through `setProps`, not a rebuild), starts after mount, stops on unmount, and exposes the connect output as a computed ref. Inside `<KeepAlive>` it pauses while deactivated — the machine stops and its effects are torn down, then both resume with state intact — and on the server nothing starts: `renderToString` renders the initial snapshot. In an async `setup()`, call it before the first `await`: Vue only binds lifecycle hooks registered before it.
+`useMachine` builds the machine and connector **once** (`setup()` runs once per instance, so the first props seed context; later changes flow through `setProps`, not a rebuild), starts after mount, stops on unmount, and exposes the connect output as a computed ref. Inside `<KeepAlive>` it pauses while deactivated — the machine stops and its effects are torn down, then both resume with state intact — and on the server nothing starts: `renderToString` renders the initial snapshot. In an async `setup()`, call it before the first `await`: Vue only binds lifecycle hooks registered before it. And send from event handlers, `watch` callbacks, or hooks rather than `watchEffect`, a `computed`, or a render function — `send()` runs prop callbacks synchronously, so anything they read would become a dependency of the effect that sent.
 
 ### Boolean props
 
@@ -137,7 +137,7 @@ Turn `inheritAttrs` off when you spread `useAttrs()` like this, or Vue also fall
 
 ## `useSelector`: fine-grained leaf subscription
 
-For a leaf component that should only re-render when one slice of the machine changes (useful when a single machine drives many rows and each row should only wake for its own value). It returns a **readonly ref** — a template unwraps it:
+For a leaf component that should only re-render when one slice of the machine changes (useful when a single machine drives many rows and each row should only wake for its own value). It returns a **computed ref** — a template unwraps it:
 
 ```vue
 <script setup lang="ts">
