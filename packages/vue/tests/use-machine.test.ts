@@ -13,6 +13,7 @@ import {
   h,
   KeepAlive,
   nextTick,
+  onMounted,
   ref,
   Suspense,
   type PropType,
@@ -280,6 +281,34 @@ describe('useMachine — component effects', () => {
     const { Comp } = harness([loggingEffect(log)], log)
     mount(Comp).unmount()
     expect(log).toEqual(['start', 'effect', 'stop', 'cleanup'])
+  })
+})
+
+describe('useMachine — compound components', () => {
+  it("reflects a child's send from its own onMounted, which runs before the machine starts", async () => {
+    const log: string[] = []
+    const Child = defineComponent({
+      props: { machine: { type: Object as PropType<ToggleMachine>, required: true } },
+      setup(props) {
+        onMounted(() => {
+          log.push('child:send')
+          props.machine.send({ type: 'toggle' })
+        })
+        return () => null
+      },
+    })
+    const Parent = defineComponent({
+      setup() {
+        const props: ToggleProps = {}
+        const { api, machine } = useMachine(createToggleConfig, connectToggle, [], props)
+        machine.onStart(() => log.push('start'))
+        return () => h('div', [api.value.open ? 'open' : 'closed', h(Child, { machine })])
+      },
+    })
+    const wrapper = mount(Parent)
+    await nextTick()
+    expect(log).toEqual(['child:send', 'start'])
+    expect(wrapper.text()).toBe('open')
   })
 })
 
