@@ -1,9 +1,12 @@
 import type { AttrTargets, HandlerTargets } from '@dunky.dev/state-machine-bindings'
 
 /**
- * Handler names shared verbatim by every DOM target. The two divergent keys
+ * Handler names shared by every DOM target. The two divergent keys
  * (`onValueChange`, `onDoublePress`) are deliberately absent — each target
- * adds its own.
+ * adds its own. Each value is `on` + the camelCased DOM event: React and Solid
+ * use them verbatim, and Vue derives its listener names from them by
+ * lowercasing everything after the leading capital (`onPointerEnter` →
+ * `onPointerenter`), so a new entry must follow that shape.
  */
 export const DOM_HANDLER_MAP: HandlerTargets = {
   onPress: 'onClick',
@@ -26,7 +29,7 @@ export const DOM_HANDLER_MAP: HandlerTargets = {
 /**
  * The `aria-` projection of the logical attr vocabulary — pure DOM truth,
  * identical in every DOM target. `focusable` is deliberately absent: its
- * target prop differs in casing (React `tabIndex`, Solid `tabindex`).
+ * target prop differs in casing (React `tabIndex`, Solid and Vue `tabindex`).
  */
 export const DOM_ATTR_MAP: AttrTargets = {
   describedBy: 'aria-describedby',
@@ -84,8 +87,9 @@ export const DOM_ATTR_MAP: AttrTargets = {
 }
 
 /**
- * The DOM event fields the payload adapters read. React's synthetic events
- * and Solid's native events expose the same names, so one shape serves both.
+ * The DOM event fields the payload adapters read. React's synthetic events and
+ * the native events Solid and Vue hand over expose the same names, so one
+ * shape serves every target.
  */
 export type AnyEvent = {
   target?: { value?: unknown; checked?: unknown; type?: string }
