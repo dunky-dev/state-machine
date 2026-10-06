@@ -1,9 +1,8 @@
 /**
- * Svelte mergeProps — consumer + component props, Svelte-style. Inherits
- * handler composition (with the defaultPrevented veto) and library-wins from
- * the agnostic base, extends the composition to Svelte's lowercase event
- * props, and layers Svelte's attribute conventions: `class` of any shape
- * merged as `[consumer, library]`, `style` strings joined.
+ * Svelte mergeProps — consumer + component props, Svelte-style: the agnostic
+ * rules (handlers compose consumer-first with the defaultPrevented veto,
+ * library wins) over every `on*` key, Svelte's lowercase event props included,
+ * plus Svelte's attribute conventions for `class` and `style`.
  */
 import { describe, expect, expectTypeOf, it, vi } from 'vitest'
 import type { HTMLButtonAttributes } from 'svelte/elements'
@@ -29,7 +28,7 @@ describe('svelte mergeProps', () => {
     expect(library).not.toHaveBeenCalled()
   })
 
-  it('inherits camelCase handler composition from the agnostic base', () => {
+  it('composes camelCase handlers too', () => {
     const consumer = vi.fn()
     const library = vi.fn()
     const merged = mergeProps({ onClick: consumer }, { onClick: library })
@@ -38,7 +37,7 @@ describe('svelte mergeProps', () => {
     expect(library).toHaveBeenCalledOnce()
   })
 
-  it('inherits library-wins on plain attrs', () => {
+  it('library wins on plain attrs', () => {
     const out = mergeProps({ id: 'consumer' }, { id: 'lib' })
     expect(out.id).toBe('lib')
   })
@@ -53,12 +52,14 @@ describe('svelte mergeProps', () => {
     expect(mergeProps({ class: 'a' }, { class: { c: true } }).class).toEqual(['a', { c: true }])
   })
 
-  it("keeps the consumer's class and style when the library's are nullish", () => {
+  // A nullish handler still wins, as in the agnostic base every target shares.
+  it("keeps the consumer's class and style over nullish library ones, but not handlers", () => {
+    const onclick = vi.fn()
     const out = mergeProps(
-      { class: 'mine', style: 'color: red' },
-      { class: undefined, style: null },
+      { class: 'mine', style: 'color: red', onclick },
+      { class: undefined, style: null, onclick: null },
     )
-    expect(out).toMatchObject({ class: 'mine', style: 'color: red' })
+    expect(out).toMatchObject({ class: 'mine', style: 'color: red', onclick: null })
   })
 
   it('carries symbol keys (Svelte attachments) from both sides', () => {
