@@ -5,8 +5,21 @@
 import { render } from '@testing-library/svelte'
 import { flushSync } from 'svelte'
 import { describe, expect, it, vi } from 'vitest'
+import DropOnChange from './fixtures/drop-on-change.svelte'
 import UseSelector from './fixtures/use-selector.svelte'
 import { makeCounters, type CountersMachine } from './fixtures/counters'
+
+// Counts the subscriptions a reader opens on the machine.
+function counted(m: CountersMachine) {
+  const calls = { subscribe: 0 }
+  const machine = new Proxy(m, {
+    get: (target, key, receiver) =>
+      key === 'subscribe'
+        ? (listener: () => void) => (calls.subscribe++, target.subscribe(listener))
+        : Reflect.get(target, key, receiver),
+  })
+  return { machine, calls }
+}
 
 // Sends outside an event handler; flush so the reader's effects have run.
 const send = (m: CountersMachine, type: 'incA' | 'incB' | 'noop') => {
@@ -94,6 +107,39 @@ describe('useSelector', () => {
 
     send(first, 'incA') // the old machine no longer wakes the reader
     send(second, 'incA')
+    expect(getByTestId('value').textContent).toBe('2')
+  })
+
+  it('keeps one subscription while the machine stays the same, whatever else changes', async () => {
+    const { machine, calls } = counted(makeCounters())
+    const { rerender } = render(UseSelector, { machine, pick: (m: CountersMachine) => m.context.a })
+    await rerender({ wanted: 1 }) // props share one signal, as through a {...spread}
+    expect(calls.subscribe).toBe(1)
+  })
+
+  // The dropped reader still hears this change's notification, before its
+  // parent's re-render removes it; its stale selector must not throw out of send().
+  it('keeps a reader its parent drops on this change from throwing out of send()', () => {
+    const m = makeCounters()
+    const pick = (m: CountersMachine) => {
+      if (m.context.a > 0) throw new Error('stale index')
+      return m.context.a
+    }
+    render(DropOnChange, { machine: m, pick })
+    expect(() => m.send({ type: 'incA' })).not.toThrow()
+    expect(() => flushSync()).not.toThrow()
+  })
+
+  it("surfaces a mounted reader's selector error in the next flush, not in send()", () => {
+    const m = makeCounters()
+    const pick = (m: CountersMachine) => {
+      if (m.context.a === 1) throw new Error('bad state')
+      return m.context.a
+    }
+    const { getByTestId } = render(UseSelector, { machine: m, pick })
+    expect(() => m.send({ type: 'incA' })).not.toThrow()
+    expect(() => flushSync()).toThrow('bad state')
+    send(m, 'incA') // a later state the selector handles: the reader recovers
     expect(getByTestId('value').textContent).toBe('2')
   })
 

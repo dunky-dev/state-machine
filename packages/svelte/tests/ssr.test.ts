@@ -8,6 +8,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { mergeProps, normalize } from '@dunky.dev/svelte-state-machine'
 import Spread from './fixtures/spread.svelte'
 import UseMachine from './fixtures/use-machine.svelte'
+import UseSelector from './fixtures/use-selector.svelte'
+import { makeCounters, type CountersMachine } from './fixtures/counters'
 import type { ToggleMachine } from './fixtures/toggle'
 
 describe('svelte — server rendering', () => {
@@ -32,6 +34,17 @@ describe('svelte — server rendering', () => {
   it('renders the snapshot a send during script init produced', () => {
     const { body } = render(UseMachine, { props: { label: 'ssr', sendAtInit: { type: 'toggle' } } })
     expect(body).toContain('ssr open 1')
+  })
+
+  it('renders the selection a send during script init produced', () => {
+    const { body } = render(UseSelector, {
+      props: {
+        machine: makeCounters(),
+        pick: (m: CountersMachine) => m.context.a,
+        sendAtInit: { type: 'incA' },
+      },
+    })
+    expect(body).toContain('>1</span>')
   })
 
   it('serializes spread bindings like the client: ARIA tokens, tabindex, merged class, no handlers', () => {

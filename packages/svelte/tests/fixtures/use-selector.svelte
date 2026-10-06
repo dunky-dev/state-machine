@@ -10,6 +10,7 @@
     wanted = 0,
     isEqual,
     onread,
+    sendAtInit,
     sendOnMount,
   }: {
     machine: CountersMachine
@@ -19,6 +20,7 @@
     isEqual?: (a: unknown, b: unknown) => boolean
     // Called with every value the reader observes, once per wake.
     onread?: (value: unknown) => void
+    sendAtInit?: { type: 'incA' }
     sendOnMount?: { type: 'incA' }
   } = $props()
 
@@ -27,6 +29,8 @@
     () => pick(machine, wanted),
     (a, b) => (isEqual ?? Object.is)(a, b),
   )
+  // svelte-ignore state_referenced_locally
+  if (sendAtInit) machine.send(sendAtInit)
 
   // Tracks only the selection, so it re-runs exactly when the reader is woken.
   $effect(() => {
