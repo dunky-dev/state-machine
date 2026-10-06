@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { useMachine, type ComponentEffect } from '@dunky.dev/svelte-state-machine'
+  import { useMachine, useSelector, type ComponentEffect } from '@dunky.dev/svelte-state-machine'
   import Sender from './sender.svelte'
   import {
     connectToggle,
@@ -21,7 +21,10 @@
     // Deep reactive state a test's connect() reads through the props.
     box?: { n: number }
     sendAtInit?: ToggleEvent
-    sendInEffect?: ToggleEvent
+    // Runs in a consumer effect, after the bridge started the machine.
+    inEffect?: (view: ToggleView) => void
+    // Also select `view.api.label` — reading the api from inside notifications.
+    selectLabel?: boolean
     childSends?: { mount?: ToggleEvent; destroy?: ToggleEvent }
   }
 
@@ -32,7 +35,8 @@
     effects = [],
     copy = false,
     sendAtInit,
-    sendInEffect,
+    inEffect,
+    selectLabel = false,
     childSends,
     ...props
   }: Harness = $props()
@@ -43,16 +47,18 @@
   expose?.(view)
   // svelte-ignore state_referenced_locally
   if (sendAtInit) view.machine.send(sendAtInit)
+  // svelte-ignore state_referenced_locally
+  const selected = selectLabel ? useSelector(view.machine, () => view.api.label) : undefined
 
-  // A consumer effect that sends; it runs after the bridge started the machine.
-  $effect(() => {
-    if (sendInEffect) view.machine.send(sendInEffect)
-  })
+  $effect(() => inEffect?.(view))
 </script>
 
 <button data-testid="toggle" onclick={() => view.api.toggle()}>
   {`${view.api.label ?? '-'} ${view.api.open ? 'open' : 'closed'} ${view.api.count}`}
 </button>
+{#if selected}
+  <p data-testid="selected">{selected.current}</p>
+{/if}
 {#if childSends}
   <Sender machine={view.machine} mount={childSends.mount} destroy={childSends.destroy} />
 {/if}

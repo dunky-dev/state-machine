@@ -16,6 +16,7 @@ interface ToggleContext {
 
 export interface ToggleProps {
   label?: string
+  delay?: number
   onOpenChange?: (open: boolean) => void
 }
 

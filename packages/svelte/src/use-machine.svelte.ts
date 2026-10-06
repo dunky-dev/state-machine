@@ -1,5 +1,11 @@
 import { untrack } from 'svelte'
-import { connector, machine, type Connect, type TransitionConfig } from '@dunky.dev/state-machine'
+import {
+  connector,
+  machine,
+  type Connect,
+  type Reaction,
+  type TransitionConfig,
+} from '@dunky.dev/state-machine'
 
 /**
  * One substrate-specific effect: a setup/teardown function plus the prop names
@@ -11,6 +17,13 @@ export type ComponentEffect<Machine, Props> = [
   effect: (machine: Machine, props: Props) => (() => void) | void,
   deps: (keyof Props)[],
 ]
+
+// `$derived` dedups with ===; mapping NaN and -0 to their own keys gives deps
+// React's Object.is semantics.
+const NAN = Symbol('NaN')
+const NEGATIVE_ZERO = Symbol('-0')
+const asDep = (value: unknown): unknown =>
+  Number.isNaN(value) ? NAN : Object.is(value, -0) ? NEGATIVE_ZERO : value
 
 /**
  * The generic Svelte bridge: builds the machine + connector once, exposes the
@@ -38,18 +51,47 @@ export function useMachine<
   const currentProps = $derived.by(props)
   // Seed with a plain copy, never the live props proxy: setProps value-dedups,
   // and a held proxy would compare equal to itself and never wake.
-  const initialProps = { ...currentProps }
+  const initialProps = untrack(() => ({ ...currentProps }))
   const service = machine(createConfig(initialProps))
-  // Core notifies synchronously inside send(), so a send from inside an effect
-  // would make that effect depend on whatever wakes on it (reactions, their
-  // callbacks). Wrapped before the connector captures `service.send`.
+
+  // Core notifies synchronously, so whatever wakes on a notification would run
+  // in the tracking scope of the effect that caused it. Reactions are the
+  // consumer's code on that path (their callbacks are props): untracked here,
+  // whatever notified — a send, a context change, a timer.
+  type MachineReaction = Reaction<State, Context, Event, Props, Computed, unknown>
+  const untrackedConnect = Object.assign(
+    (snapshot: Parameters<typeof connect>[0]) => connect(snapshot),
+    {
+      reactions: connect.reactions?.map(
+        ([select, callback]): MachineReaction => [
+          m => untrack(() => select(m)),
+          (value, props) => untrack(() => callback(value, props)),
+        ],
+      ),
+    },
+  )
+
+  // Sends run untracked too (guards, actions, the consumer's own listeners),
+  // and count as in flight: a read of `api` from inside one runs after
+  // setState but before entry actions, so it gets the last settled snapshot
+  // instead of running connect() on a half-applied transition. Wrapped before
+  // the connector captures `service.send`.
+  let sending = 0
   const send = service.send
-  service.send = event => untrack(() => send(event))
-  const connection = connector(service, connect, initialProps)
+  service.send = event => {
+    sending++
+    try {
+      untrack(() => send(event))
+    } finally {
+      sending--
+    }
+  }
+  const connection = connector(service, untrackedConnect, initialProps)
+  let settled = untrack(() => connection.snapshot)
 
   // The listener only bumps a version (write-only: it must read nothing in the
-  // sender's scope) and `api` pulls the connector's lazy snapshot, so connect()
-  // runs once the transition settles, at most once per change, only if read.
+  // sender's scope); `api` reads the connector's lazy snapshot, so connect()
+  // runs once a send settles, at most once per change, and only if read.
   let notified = 0
   let version = $state(0)
 
@@ -75,7 +117,7 @@ export function useMachine<
   // The body runs untracked, so a prop it merely reads never becomes a dep.
   for (const [fn, deps] of effects) {
     const depValues = deps.map(key => {
-      const value = $derived(currentProps[key])
+      const value = $derived(asDep(currentProps[key]))
       return () => value
     })
     $effect(() => {
@@ -87,7 +129,8 @@ export function useMachine<
   return {
     get api() {
       void version // re-read on every connector notify
-      return untrack(() => connection.snapshot)
+      if (sending) return settled
+      return (settled = untrack(() => connection.snapshot))
     },
     machine: service,
   }

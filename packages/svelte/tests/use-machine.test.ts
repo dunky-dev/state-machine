@@ -7,7 +7,7 @@
 import { fireEvent, render } from '@testing-library/svelte'
 import { flushSync } from 'svelte'
 import { describe, expect, it, vi } from 'vitest'
-import { act as write } from '@dunky.dev/state-machine'
+import { act as write, createStore } from '@dunky.dev/state-machine'
 import type { ComponentEffect } from '@dunky.dev/svelte-state-machine'
 import { makeBox } from './fixtures/box.svelte'
 import UseMachine from './fixtures/use-machine.svelte'
@@ -33,6 +33,24 @@ const connectWithBox: typeof connectToggle = Object.assign(
   (snapshot: Parameters<typeof connectToggle>[0]) => ({
     ...connectToggle(snapshot),
     label: String((snapshot.props as { box?: { n: number } }).box?.n),
+  }),
+  { reactions: connectToggle.reactions },
+)
+
+// The entry action sets what this connect relies on: open => draft is a string.
+type Draft = { draft: string | null }
+const createDraftConfig = (() => ({
+  initial: 'closed',
+  context: { count: 0, draft: null },
+  states: {
+    closed: { on: { toggle: { target: 'open' } } },
+    open: { entry: write(() => ({ draft: 'ready' })) },
+  },
+})) as unknown as typeof createToggleConfig
+const connectDraft: typeof connectToggle = Object.assign(
+  (snapshot: Parameters<typeof connectToggle>[0]) => ({
+    ...connectToggle(snapshot),
+    label: snapshot.state === 'open' ? (snapshot.context as unknown as Draft).draft!.trim() : '-',
   }),
   { reactions: connectToggle.reactions },
 )
@@ -114,47 +132,96 @@ describe('useMachine — the api snapshot', () => {
   })
 
   it('runs connect() once the transition settles, never mid-transition', () => {
-    // The entry action sets what connect relies on: open => draft is a string.
-    type Draft = { draft: string | null }
-    const createConfig = (() => ({
-      initial: 'closed',
-      context: { count: 0, draft: null },
-      states: {
-        closed: { on: { toggle: { target: 'open' } } },
-        open: { entry: write(() => ({ draft: 'ready' })) },
-      },
-    })) as unknown as typeof createToggleConfig
-    const connect: typeof connectToggle = snapshot => ({
-      ...connectToggle(snapshot),
-      label: snapshot.state === 'open' ? (snapshot.context as unknown as Draft).draft!.trim() : '-',
-    })
-    const { view } = mount({ createConfig, connect })
+    const { view } = mount({ createConfig: createDraftConfig, connect: connectDraft })
     expect(() => view.machine.send({ type: 'toggle' })).not.toThrow()
     expect(view.api.label).toBe('ready')
   })
+
+  // A callback or selector runs inside the notification, after setState but
+  // before the entry action: it gets the last settled api, and a selector
+  // settles once the send is done.
+  it('serves reads from inside a send the last settled api, never a half-applied one', () => {
+    const seen: (string | undefined)[] = []
+    const { view, getByTestId } = mount({
+      createConfig: createDraftConfig,
+      connect: connectDraft,
+      selectLabel: true,
+      onOpenChange: () => seen.push(view.api.label),
+    })
+    expect(() => view.machine.send({ type: 'toggle' })).not.toThrow()
+    expect(seen).toEqual(['-'])
+    flushSync()
+    expect(getByTestId('selected').textContent).toBe('ready')
+  })
 })
 
-// Core notifies synchronously inside send(), so everything that wakes on it
-// would otherwise run in the tracking scope of whichever effect sent.
-describe('useMachine — sends from inside an effect', () => {
-  it("never lends connect()'s reads to the effect that sent", () => {
+// Core notifies synchronously, so whatever wakes on a notification would
+// otherwise run in the tracking scope of the effect that caused it.
+describe('useMachine — notifications from inside an effect', () => {
+  it("never lends a machine listener's reads to the effect that sent", () => {
     const box = makeBox()
-    const { view } = mount({
-      connect: connectWithBox,
-      box,
-      childSends: { mount: { type: 'toggle' } },
+    const inEffect = vi.fn((view: ToggleView) => view.machine.send({ type: 'toggle' }))
+    render(UseMachine, {
+      inEffect,
+      expose: (view: ToggleView) => view.machine.subscribe(() => void box.n),
     })
-    box.n = 5 // read by connect(), never by the child that sent
+    box.n = 5 // read by the listener, never by the effect
     flushSync()
-    expect(view.api).toMatchObject({ open: true, count: 1 }) // the child did not re-send
+    expect(inEffect).toHaveBeenCalledOnce()
   })
 
   it("never lends a reaction callback's reads or writes to the effect that sent", () => {
     const log = makeBox()
     const onOpenChange = vi.fn(() => log.n++) // reads and writes state, like a counter
-    const { view } = mount({ onOpenChange, sendInEffect: { type: 'toggle' } })
+    const { view } = mount({
+      onOpenChange,
+      inEffect: (v: ToggleView) => v.machine.send({ type: 'toggle' }),
+    })
     flushSync()
     expect(onOpenChange).toHaveBeenCalledOnce() // no self-invalidating loop
+    expect(view.api.open).toBe(true)
+  })
+
+  // Not every notification is a send through `view.machine`: a core effect can
+  // set context from an external store, and an action sends with the
+  // machine's own `send`.
+  it("never lends a reaction callback's reads to an effect that changed the machine another way", () => {
+    const box = makeBox()
+    const external = createStore({ n: 0 })
+    const createConfig = (() => ({
+      initial: 'closed',
+      context: { count: 0 },
+      states: {
+        closed: {
+          effects: [
+            ({ setContext }: { setContext: (patch: { count: number }) => void }) =>
+              external.subscribe(({ n }) => setContext({ count: n })),
+          ],
+          on: { toggle: { target: 'open' } },
+        },
+        open: { on: { toggle: { target: 'closed' } } },
+      },
+      watch: {
+        count: [({ send }: { send: (e: { type: 'toggle' }) => void }) => send({ type: 'toggle' })],
+      },
+    })) as unknown as typeof createToggleConfig
+    const onCount = vi.fn(() => box.n)
+    const connect: typeof connectToggle = Object.assign(
+      (s: Parameters<typeof connectToggle>[0]) => connectToggle(s),
+      {
+        reactions: [
+          ...(connectToggle.reactions ?? []),
+          [(m: ToggleMachine) => m.context.count, () => onCount()],
+        ] as typeof connectToggle.reactions,
+      },
+    )
+    const onOpenChange = vi.fn(() => box.n)
+    const inEffect = vi.fn(() => external.set({ n: 1 }))
+    const { view } = mount({ createConfig, connect, onOpenChange, inEffect })
+    expect([onCount, onOpenChange].map(fn => fn.mock.calls.length)).toEqual([1, 1])
+    box.n = 5 // read by both callbacks, never by the effect
+    flushSync()
+    expect(inEffect).toHaveBeenCalledOnce()
     expect(view.api.open).toBe(true)
   })
 })
@@ -204,6 +271,16 @@ describe('useMachine — component effects', () => {
       expect(fn).toHaveBeenCalledTimes(2)
     },
   )
+
+  it('compares deps like React (Object.is): NaN stays equal, -0 differs from 0', async () => {
+    const fn = vi.fn()
+    const { rerender } = mount({ delay: NaN, effects: [[fn, ['delay']]] })
+    await rerender({ label: 'b' }) // an unrelated change re-reads the NaN dep
+    expect(fn).toHaveBeenCalledTimes(1)
+    await rerender({ delay: 0 })
+    await rerender({ delay: -0 })
+    expect(fn).toHaveBeenCalledTimes(3)
+  })
 
   it('runs the previous cleanup BEFORE re-running on a dep change', async () => {
     // A listener-registering effect must tear down before it sets up again,
