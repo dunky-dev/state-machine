@@ -1,5 +1,6 @@
 import {
   computed,
+  getCurrentInstance,
   onActivated,
   onBeforeUnmount,
   onDeactivated,
@@ -8,6 +9,7 @@ import {
   onUnmounted,
   toValue,
   watch,
+  type ComponentInternalInstance,
   type ComputedRef,
   type MaybeRefOrGetter,
 } from 'vue'
@@ -140,7 +142,13 @@ export function useMachine<
     active = undefined
     return disposers
   }
-  onMounted(resume)
+  // Mounted into a <KeepAlive> view that is already deactivated — a part added while its
+  // cached view is hidden — hold still: Vue fires onMounted there, then onActivated when the
+  // view comes back.
+  const instance = getCurrentInstance()
+  onMounted(() => {
+    if (!inDeactivatedView(instance)) resume()
+  })
   onActivated(resume)
   onDeactivated(() => settle([service.stop, ...takeDisposers()]))
   // Unmounting stops the machine before the component's children unmount, so a part's own
@@ -150,6 +158,14 @@ export function useMachine<
   onUnmounted(() => settle(takeDisposers()))
 
   return { api, machine: service }
+}
+
+// The ancestor walk Vue's own activation hooks make: only a view's root is flagged.
+function inDeactivatedView(instance: ComponentInternalInstance | null): boolean {
+  for (let current = instance; current; current = current.parent) {
+    if (current.isDeactivated) return true
+  }
+  return false
 }
 
 // Runs every step even when one throws, so one failing effect or cleanup can't strand the

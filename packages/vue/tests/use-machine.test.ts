@@ -468,6 +468,28 @@ describe('useMachine — <KeepAlive> pauses like React <Activity>', () => {
   })
 })
 
+describe('useMachine — mounting into a deactivated <KeepAlive> view', () => {
+  it('holds still until the view activates, then starts', async () => {
+    const log: string[] = []
+    const { Comp } = harness([loggingEffect(log)], log)
+    const shown = ref(true)
+    const loaded = ref(false)
+    const Page = defineComponent({ render: () => (loaded.value ? h(Comp) : null) })
+    mount(
+      defineComponent({ render: () => h(KeepAlive, null, () => (shown.value ? h(Page) : null)) }),
+    )
+    shown.value = false
+    await nextTick()
+    loaded.value = true // mounts Comp into the cached, deactivated view
+    await nextTick()
+    expect(log).toEqual([])
+
+    shown.value = true
+    await nextTick()
+    expect(log).toEqual(['start', 'effect'])
+  })
+})
+
 describe('useMachine — async setup', () => {
   it('starts under <Suspense> when called before the first await', async () => {
     vi.spyOn(console, 'info').mockImplementation(() => {}) // Vue's "experimental" notice
