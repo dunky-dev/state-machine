@@ -176,8 +176,10 @@ It:
 - **pauses under `<KeepAlive>`** — deactivation stops the machine and tears the
   effects down; reactivation restarts both, state intact. That is React's
   `<Activity mode="hidden">` contract: a deactivated component keeps no
-  document listeners, timers, or reactions alive. (Vue runs the parts'
-  `onDeactivated` hooks before the root's, so a part shouldn't send from one.)
+  document listeners, timers, or reactions alive. A component mounted into a
+  view that is already deactivated holds still — no start, no effects — until
+  the view activates. (Vue runs the parts' `onDeactivated` hooks before the
+  root's, so a part shouldn't send from one.)
 - **runs nothing on the server** — Vue never mounts during SSR, so
   `renderToString` renders the initial snapshot without starting the machine
   or running an effect (a `document` listener can't crash the server).
@@ -288,6 +290,13 @@ deps. Each entry runs on its own: if one throws — on any run or in its
 cleanup — the others still run, a throwing cleanup doesn't block the next
 setup, and every error reaches Vue's error handling
 (`app.config.errorHandler`).
+
+An effect re-runs after the render its dep change caused, so a machine change it
+makes — a controlled option echoed into the machine — renders in the pass
+after. A `post` watcher queued by the same prop change runs before that render
+and reads the previous DOM. To act on what the new state rendered, use
+`onUpdated` (or `onMounted`), which runs after every render, the echoed state's
+included.
 
 > The agnostic _decision_ lives in the core component's resolver; only the
 > _transport_ (the DOM listener) is here. The machine just receives a plain event.

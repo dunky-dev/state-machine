@@ -14,7 +14,8 @@ snapshot of the props, so its cleanup undoes exactly what it set up. On unmount
 the machine stops before the component's children unmount, then the effect
 cleanups run. Under `<KeepAlive>` a deactivated component pauses — machine
 stopped, effects torn down — and resumes with its state intact, like React's
-`<Activity>`; server rendering starts nothing and runs no effect.
+`<Activity>`; one mounted into a view that is already deactivated holds still
+until the view activates. Server rendering starts nothing and runs no effect.
 `useSelector` returns a readonly ref holding the selected value as-is; it
 re-selects on machine changes and when a reactive value the selector reads
 changes, and takes the machine as a value, ref, or getter. `normalize` reuses
