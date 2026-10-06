@@ -4,15 +4,15 @@ import {
   inject,
   isRef,
   onScopeDispose,
-  shallowRef,
   ssrContextKey,
+  toRef,
   toValue,
-  triggerRef,
   watch,
-  type ComputedRef,
   type MaybeRefOrGetter,
+  type Ref,
 } from 'vue'
 import type { EqualityFn, Machine } from '@dunky.dev/state-machine'
+import { createTrigger } from './tracking'
 
 /**
  * Fine-grained subscription for leaf components — the ref updates only when the selected VALUE changes.
@@ -22,7 +22,7 @@ import type { EqualityFn, Machine } from '@dunky.dev/state-machine'
  *
  * Equality is `Object.is` by default; pass `isEqual` for object selections so a
  * re-derived equal object doesn't bump the ref. The selection comes back as-is,
- * never wrapped in a reactive proxy, behind a computed ref: it is derived state.
+ * never wrapped in a reactive proxy, behind a readonly ref: it is derived state.
  */
 export function useSelector<
   State extends string,
@@ -34,17 +34,22 @@ export function useSelector<
   machine: MaybeRefOrGetter<Machine<State, Context, Event, Computed>>,
   selector: () => T,
   isEqual?: EqualityFn<T>,
-): ComputedRef<T> {
+): Readonly<Ref<T>> {
+  // A server render is one pass. Nothing is subscribed there — Vue never disposes a scope on
+  // the server, so a listener would outlive the request — which leaves nothing to refresh a
+  // cached value: every read runs the selector.
+  if (hasInjectionContext() && inject(ssrContextKey, null)) return toRef(selector)
+
   const equals = isEqual ?? Object.is
-  // Triggered on every notification of the current machine. The computed re-runs the
-  // selector lazily, where it is read — after Vue has finished patching the props — and
-  // re-collects its reactive reads (a prop it compares against) on every run.
-  const notified = shallowRef()
+  // Triggered on every notification of the current machine. The computed re-runs the selector
+  // lazily, where it is read — after Vue has finished patching the props — and re-collects its
+  // reactive reads (a prop it compares against) on every run.
+  const { track, trigger } = createTrigger()
   // Held here rather than read from the getter's `previous` argument, which early Vue 3.5
   // releases never passed.
   let last: { value: T } | undefined
   const selected = computed(() => {
-    void notified.value
+    track()
     const next = selector()
     // An equal selection keeps the previous value's identity, so readers don't re-render.
     if (last && equals(last.value, next)) return last.value
@@ -52,20 +57,15 @@ export function useSelector<
     return next
   })
 
-  // A server render is one pass with nothing to follow, and Vue never disposes a scope
-  // there: a subscription would outlive the request.
-  if (hasInjectionContext() && inject(ssrContextKey, null)) return selected
-
-  const wake = () => triggerRef(notified)
-  let unsubscribe = toValue(machine).subscribe(wake)
+  let unsubscribe = toValue(machine).subscribe(trigger)
   // A ref or getter may swap the machine: the subscription moves with it.
   if (isRef(machine) || typeof machine === 'function') {
     watch(
       () => toValue(machine),
       current => {
         unsubscribe()
-        unsubscribe = current.subscribe(wake)
-        wake()
+        unsubscribe = current.subscribe(trigger)
+        trigger()
       },
     )
   }

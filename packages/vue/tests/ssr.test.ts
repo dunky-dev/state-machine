@@ -67,4 +67,18 @@ describe('server rendering', () => {
     expect(await renderToString(createSSRApp(Reader))).toBe('<span>false</span>')
     expect(subscribe).not.toHaveBeenCalled()
   })
+
+  it('renders a useSelector value that reflects a send made during setup', async () => {
+    const Reader = defineComponent({
+      setup() {
+        // Per request, and observed by nothing reactive: only the selector itself reads it.
+        const m = machine(createToggleConfig({}))
+        const open = useSelector(m, () => m.matches('open'))
+        void open.value // a read during setup must not pin the value for the render
+        m.send({ type: 'toggle' })
+        return () => h('span', String(open.value))
+      },
+    })
+    expect(await renderToString(createSSRApp(Reader))).toBe('<span>true</span>')
+  })
 })
