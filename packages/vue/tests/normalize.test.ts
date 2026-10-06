@@ -6,12 +6,12 @@
  * event, the payload adapters read real events, and ARIA values serialize as
  * the spec's tokens.
  */
-import { h, render } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 import type { ChangePayload, WheelPayload } from '@dunky.dev/state-machine-bindings'
 import { normalize } from '@dunky.dev/vue-state-machine'
 import { ATTR_MAP, HANDLER_MAP } from '../src/normalize'
 import { describeVocabularyAccounting } from '../../shared/bindings/tests/fixtures/vocabulary-accounting'
+import { renderElement } from './fixtures/render-element'
 
 // Each logical handler's Vue listener prop and the DOM event it must catch,
 // written out by hand: Vue derives the event by hyphenating the prop's camel
@@ -34,16 +34,6 @@ const LISTENERS: Record<string, [prop: string, event: string]> = {
   onWheel: ['onWheel', 'wheel'],
   onScroll: ['onScroll', 'scroll'],
   onScrollEnd: ['onScrollend', 'scrollend'],
-}
-
-// One element through Vue's DOM renderer — the real patchProp / patchEvent path.
-function renderElement<E extends Element = HTMLElement>(
-  tag: string,
-  props: Record<string, unknown>,
-  container: Element = document.createElement('div'),
-): E {
-  render(h(tag, props), container)
-  return container.firstElementChild as E
 }
 
 const attributesOf = (el: Element): Record<string, string> =>
