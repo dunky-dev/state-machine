@@ -20,7 +20,8 @@ The one bridge composable. Every component calls it with the four agnostic piece
 ```vue
 <script setup lang="ts">
 import { useMachine, normalize } from '@dunky.dev/vue-state-machine'
-import { createDialogConfig, connectDialog, dialogEffects, type DialogProps } from './dialog'
+import { createDialogConfig, connectDialog, type DialogProps } from './dialog'
+import { dialogEffects } from './dialog-effects'
 
 const props = withDefaults(defineProps<DialogProps>(), {
   open: undefined,
@@ -41,19 +42,23 @@ const { api } = useMachine(
 </template>
 ```
 
-`useMachine` builds the machine and connector **once** (`setup()` runs once per instance, so the first props seed context; later changes flow through `setProps`, not a rebuild), starts after mount, stops on unmount, and exposes the connect output as a computed ref. Inside `<KeepAlive>` it pauses while deactivated — the machine stops and its effects are torn down, then both resume with state intact — and on the server nothing starts: `renderToString` renders the initial snapshot. In an async `setup()`, call it before the first `await`: Vue only binds lifecycle hooks registered before it. And send from event handlers, `watch` callbacks, or hooks rather than `watchEffect`, a `computed`, or a render function — `send()` runs prop callbacks synchronously, so anything they read would become a dependency of the effect that sent.
+`useMachine` builds the machine and connector **once** (`setup()` runs once per instance, so the first props seed context; later changes flow through `setProps`, not a rebuild), starts after mount, stops on unmount, and exposes the connect output as a computed ref. Inside `<KeepAlive>` it pauses while deactivated — the machine stops and its effects are torn down, then both resume with state intact — and on the server nothing starts: `renderToString` renders the initial snapshot. In an async `setup()`, call it before the first `await`: Vue only binds lifecycle hooks registered before it. And send from event handlers, `watch` callbacks, or hooks rather than `watchEffect`, a `computed`, or a render function: the bridge runs its own callbacks untracked, but the machine's actions and guards run inside whatever sent.
 
 ### Boolean props
 
 Vue casts an **absent** `Boolean` prop to `false`, but the machine reads `undefined` as "not set". Left as-is, `open` would always look controlled and a `modal: true` default would be lost, so declare every boolean prop with `default: undefined` — as in the `withDefaults` call above, or `{ type: Boolean, default: undefined }` in a runtime declaration.
 
+### Replace prop values, don't mutate them
+
+Props reach the machine through `setProps`, which compares each prop by identity, as React does. A value mutated in place — `items.value.push(x)` on an array the parent passes down — keeps its identity, so the machine never sees the change; replace it instead: `items.value = [...items.value, x]`.
+
 ### The three imports
 
-Those three values are where the dialog's behavior actually lives, and none of it is Vue. You write them once, in a `./dialog` module, and they run unchanged on any platform:
+Those three values are where the dialog's behavior actually lives, and none of it is Vue. The machine and its `connect` live in a `./dialog` module, written once and run unchanged on any platform; the DOM listeners come from `./dialog-effects` (see [`ComponentEffect`](#componenteffect-platform-effects) below):
 
 ```ts
 // dialog.ts: plain functions, no Vue
-import { setup, type Connect } from '@dunky.dev/state-machine'
+import { setup, type Connect, type Machine } from '@dunky.dev/state-machine'
 
 export type DialogProps = {
   open?: boolean
@@ -66,12 +71,13 @@ type Context = { closeOnEscape: boolean }
 type Event = { type: 'open' } | { type: 'close' }
 type Api = {
   isOpen: boolean
-  triggerProps: object
-  contentProps: object
+  triggerProps: Record<string, unknown>
+  contentProps: Record<string, unknown>
 }
+export type DialogMachine = Machine<State, Context, Event>
 
 export const createDialogConfig = (props: DialogProps) =>
-  setup.infer().createMachine({
+  setup.as<Context, Event>().createMachine({
     initial: props.open ? 'open' : 'closed', // props seed the machine ONCE
     context: { closeOnEscape: props.closeOnEscape ?? true },
     states: {
@@ -91,8 +97,6 @@ export const connectDialog: Connect<State, Context, Event, DialogProps, Api> = (
   },
   contentProps: { role: 'dialog', modal: true },
 })
-
-export const dialogEffects = [onEscapeKey]
 ```
 
 So `useMachine` is the only Vue-specific piece: `createDialogConfig` is the machine definition, `connectDialog` is the snapshot-to-view-API mapping, and `dialogEffects` are the DOM listeners. Every target imports the **same** `./dialog` module — only the bridge differs. See [Setup](/api/setup) for configs and [Connector](/api/connector) for how `connect` works in depth.
@@ -117,11 +121,17 @@ When a consumer's props land on the same element the component controls:
 ```vue
 <script setup lang="ts">
 import { useAttrs } from 'vue'
-import { mergeProps, normalize } from '@dunky.dev/vue-state-machine'
+import { mergeProps, normalize, useMachine } from '@dunky.dev/vue-state-machine'
+import { createDialogConfig, connectDialog, type DialogProps } from './dialog'
+import { dialogEffects } from './dialog-effects'
 
 defineOptions({ inheritAttrs: false })
 const attrs = useAttrs()
-// …useMachine as above
+const props = withDefaults(defineProps<DialogProps>(), {
+  open: undefined,
+  closeOnEscape: undefined,
+})
+const { api } = useMachine(createDialogConfig, connectDialog, dialogEffects, props)
 </script>
 
 <template>
@@ -129,7 +139,7 @@ const attrs = useAttrs()
 </template>
 ```
 
-- **Event handlers are chained, consumer-first.** If the consumer calls `e.preventDefault()`, the component's handler is skipped — a clean veto. An array of consumer handlers composes like one.
+- **Event handlers are chained, consumer-first.** If the consumer calls `e.preventDefault()`, the component's handler is skipped — a clean veto. An array of consumer handlers stays an array with the component's handler appended, and a listener with an option modifier (`onClickCapture`) vetoes the plain `onClick` too.
 - **`class` and `style` are merged** into a `[consumer, library]` array, whatever shape each side uses; Vue normalizes it, and the library's style wins a conflicting key.
 - **Everything else: component wins** (`id`, `role`, `aria-*`).
 
@@ -137,7 +147,7 @@ Turn `inheritAttrs` off when you spread `useAttrs()` like this, or Vue also fall
 
 ## `useSelector`: fine-grained leaf subscription
 
-For a leaf component that should only re-render when one slice of the machine changes (useful when a single machine drives many rows and each row should only wake for its own value). It returns a **computed ref** — a template unwraps it:
+For a leaf component that should only re-render when one slice of the machine changes (useful when a single machine drives many rows and each row should only wake for its own value). It returns a **readonly ref** — a template unwraps it:
 
 ```vue
 <script setup lang="ts">
@@ -160,20 +170,21 @@ const isHighlighted = useSelector(
 The selector re-runs on every machine change and whenever a reactive value it reads changes — `props.value` above — and the ref updates only when the selected value changes: `Object.is` by default. Pass the machine as a getter (or a ref) so a swapped machine is followed. For object selections, pass a custom equality function so a re-derived equal object doesn't bump the ref:
 
 ```ts
-const pos = useSelector(
-  machine,
-  () => ({ x: machine.context.x, y: machine.context.y }),
+const position = useSelector(
+  () => props.machine,
+  () => ({ x: props.machine.context.x, y: props.machine.context.y }),
   (a, b) => a.x === b.x && a.y === b.y,
 )
 ```
 
-The selected value comes back as-is, never wrapped in a reactive proxy, and the subscription is disposed with the component — or with the surrounding `effectScope()`.
+The selected value comes back as-is, never wrapped in a reactive proxy, and the subscription is disposed with the component — or with the surrounding `effectScope()`. On the server nothing subscribes, and each read runs the selector afresh.
 
 ## `ComponentEffect`: platform effects
 
 Some behavior can't live in the machine because it touches the DOM or reads props the machine never sees. Declare each as a `[setup/teardown, depPropNames]` tuple; `useMachine` runs each entry after mount and re-runs it (cleanup → setup) when one of its named prop deps changes:
 
 ```ts
+// dialog-effects.ts
 import type { ComponentEffect } from '@dunky.dev/vue-state-machine'
 import type { DialogMachine, DialogProps } from './dialog'
 
@@ -194,6 +205,6 @@ const onEscapeKey: Effect = [
 export const dialogEffects = [onEscapeKey]
 ```
 
-The tuple shape is **identical to every other target** — the same `./dialog` effects run everywhere. The deps are prop NAMES (typed `(keyof Props)[]`, so a typo is a compile error); the Vue bridge watches exactly those props, compares each by value, and re-runs after the DOM update, so a prop the effect merely reads never becomes a hidden dependency. As on React, effects start once the machine has, and are cleaned up after it stops and the component's DOM is gone; if one throws, the others still run and the error goes to Vue's error handling. The machine only receives `send({ type: 'close' })`; it has no idea a keyboard event exists.
+The tuple shape is **identical to every other target** — the same effects run everywhere. The deps are prop NAMES (typed `(keyof Props)[]`, so a typo is a compile error); the Vue bridge watches exactly those props, compares each by value, and re-runs after the DOM update, so a prop the effect merely reads never becomes a hidden dependency. Each run gets its own snapshot of the props, as a React effect closes over its render's, so a cleanup undoes exactly what its run set up. As on React, effects start once the machine has; they're cleaned up after it stops, in `onUnmounted` — children before parents, unlike React. If one throws, the others still run and the error goes to Vue's error handling. The machine only receives `send({ type: 'close' })`; it has no idea a keyboard event exists.
 
 See [Effects](/api/effects) for the full mental model of where each type of effect lives.

@@ -48,13 +48,23 @@ Vue component (this package):
 
 ```ts
 // tooltip.ts — plain TypeScript, no Vue in sight
-import { setup } from '@dunky.dev/state-machine'
+import { setup, type Connect, type Machine } from '@dunky.dev/state-machine'
 
-export type TooltipProps = { defaultOpen?: boolean }
+export type TooltipProps = { defaultOpen?: boolean; closeOnEscape?: boolean }
+
+type State = 'closed' | 'opening' | 'open'
+type Context = Record<string, never>
+type Event = { type: 'hover' } | { type: 'leave' }
+type Api = {
+  open: boolean
+  triggerProps: Record<string, unknown>
+  contentProps: Record<string, unknown>
+}
+export type TooltipMachine = Machine<State, Context, Event>
 
 // 1 — behavior: a plain state machine.
 export const tooltipConfig = (props: TooltipProps) =>
-  setup.infer().createMachine({
+  setup.as<Context, Event>().createMachine({
     initial: props.defaultOpen ? 'open' : 'closed', // props seed the machine ONCE
     context: {},
     states: {
@@ -68,7 +78,10 @@ export const tooltipConfig = (props: TooltipProps) =>
   })
 
 // 2 — connect: machine snapshot -> what the view spreads onto elements.
-export const connectTooltip = ({ state, send }) => {
+export const connectTooltip: Connect<State, Context, Event, TooltipProps, Api> = ({
+  state,
+  send,
+}) => {
   const open = state === 'open'
   return {
     open,
@@ -80,18 +93,20 @@ export const connectTooltip = ({ state, send }) => {
     contentProps: { id: 'tip', role: 'tooltip' },
   }
 }
-
-export const tooltipEffects = []
 ```
 
 ```vue
 <!-- tooltip.vue — 3, the Vue edge: build + run the machine, render from its api -->
 <script setup lang="ts">
 import { useMachine, normalize } from '@dunky.dev/vue-state-machine'
-import { connectTooltip, tooltipConfig, tooltipEffects, type TooltipProps } from './tooltip'
+import { connectTooltip, tooltipConfig, type TooltipProps } from './tooltip'
+import { tooltipEffects } from './tooltip-effects' // see ComponentEffect below
 
 // `default: undefined` — see "Declare boolean props" below.
-const props = withDefaults(defineProps<TooltipProps>(), { defaultOpen: undefined })
+const props = withDefaults(defineProps<TooltipProps>(), {
+  defaultOpen: undefined,
+  closeOnEscape: undefined,
+})
 const { api } = useMachine(tooltipConfig, connectTooltip, tooltipEffects, props)
 </script>
 
@@ -124,7 +139,7 @@ Every component's generated `useXxxApi` calls this with the agnostic pieces:
 
 ```ts
 const { api, machine } = useMachine(
-  tooltipMachineConfig, // (props) => config  — config factory, props seed it ONCE
+  tooltipConfig, // (props) => config  — config factory, props seed it ONCE
   connectTooltip, // pure connect(): snapshot → view api
   tooltipEffects, // the component's substrate effects (ComponentEffect[])
   props, // the component's props — a reactive object, a ref, or a getter
@@ -148,13 +163,16 @@ It:
   its snapshot; the computed re-reads it lazily after a change, so `connect()`
   runs once per read rather than once per machine notification, and `api`'s
   identity changes only on a real change.
-- **runs the lifecycle in React's order** — `service.start()` after mount, then
-  the component's effects. On unmount it stops the machine first, parent before
-  children as React's passive cleanups run top-down — so a part sending from its
-  own teardown reaches a stopped machine and fires no prop callback — then
-  cleans the effects up once the component's DOM is gone. The connector wired its
-  [reactions](../core/README.md#reactions--firing-prop-callbacks-without-the-machine-knowing)
-  to the machine's own `start`/`stop`, so prop callbacks follow automatically.
+- **starts in React's order** — `service.start()` after mount, then the
+  component's effects. On unmount it stops the machine before the component's
+  children unmount, so a part sending from its own teardown reaches a stopped
+  machine and fires no prop callback. The effect cleanups follow in
+  `onUnmounted`, which Vue runs children first (React runs passive cleanups
+  parent first) and, under `<Transition>`, while the leaving element is still
+  in the document. The connector wired its
+  [reactions](../core/README.md#reactions-firing-prop-callbacks-without-the-machine-knowing)
+  to the machine's own `start`/`stop`, so prop callbacks follow automatically;
+  the bridge runs them untracked.
 - **pauses under `<KeepAlive>`** — deactivation stops the machine and tears the
   effects down; reactivation restarts both, state intact. That is React's
   `<Activity mode="hidden">` contract: a deactivated component keeps no
@@ -176,21 +194,25 @@ as "not set" — the uncontrolled mode, or the machine's own default — so a ca
 `default: undefined`:
 
 ```ts
-// <script setup>, type-based declaration
+// in <script setup lang="ts">
+type DialogProps = { open?: boolean; defaultOpen?: boolean; modal?: boolean }
+
 const props = withDefaults(defineProps<DialogProps>(), {
   open: undefined,
   defaultOpen: undefined,
   modal: undefined,
-  closeOnEscape: undefined,
 })
-
-// runtime declaration
-props: {
-  open: { type: Boolean, default: undefined },
-  modal: { type: Boolean, default: undefined },
-  closeOnEscape: { type: Boolean, default: undefined },
-}
 ```
+
+With a runtime declaration, the same rule reads
+`open: { type: Boolean, default: undefined }`.
+
+### Replace prop values, don't mutate them
+
+Props reach the machine through `setProps`, which compares each prop by
+identity, as React does. A value mutated in place — `items.value.push(x)` on an
+array the parent passes down — keeps its identity, so the machine never sees
+the change. Replace it instead: `items.value = [...items.value, x]`.
 
 ### Call it before any `await`
 
@@ -200,16 +222,21 @@ awaiting anything — otherwise the machine never starts and no effect runs.
 
 ### Send from handlers, `watch` callbacks, or hooks
 
-`send()` runs the transition synchronously, prop callbacks included — so it runs
-inside whatever is tracking at that moment. From `watchEffect`, a `computed`, or
-a render function, every reactive value those callbacks read becomes a
+`send()` runs the transition synchronously, inside whatever is tracking at that
+moment. The bridge runs its own callbacks — prop callbacks included —
+untracked, but the machine's actions and guards run as they are. From
+`watchEffect`, a `computed`, or a render function, anything they read becomes a
 dependency, and an unrelated change re-runs the effect and sends again. Send
 from event handlers, `watch(source, callback)` callbacks, or lifecycle hooks,
 which Vue runs untracked:
 
 ```ts
-watch(shouldOpen, open => open && machine.send({ type: 'open' })) // not watchEffect
+watch(shouldOpen, open => open && machine.send({ type: 'hover' })) // not watchEffect
 ```
+
+The other direction needs care too: don't watch `api` or a `useSelector` ref
+with `flush: 'sync'`. A sync watcher reads in the middle of a transition, before
+its entry actions have run; the default flush reads once it is done.
 
 ---
 
@@ -225,16 +252,18 @@ Each effect is a `[setup/teardown, depPropNames]` tuple (`ComponentEffect`) — 
 and run unchanged on React, Solid, and Vue:
 
 ```ts
+// tooltip-effects.ts
 import type { ComponentEffect } from '@dunky.dev/vue-state-machine'
+import type { TooltipMachine, TooltipProps } from './tooltip'
 
-type TooltipEffect = ComponentEffect<TooltipMachine, TooltipMachineProps>
+type TooltipEffect = ComponentEffect<TooltipMachine, TooltipProps>
 
-/** Escape-to-close (on unless closeOnEscape is false). */
+/** Escape closes the tooltip, unless closeOnEscape is false. */
 const trackEscape: TooltipEffect = [
   (machine, props) => {
     if (props.closeOnEscape === false) return
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') machine.send({ type: 'escape' })
+      if (e.key === 'Escape') machine.send({ type: 'leave' })
     }
     document.addEventListener('keydown', onKeyDown, true)
     return () => document.removeEventListener('keydown', onKeyDown, true)
@@ -251,11 +280,14 @@ of its named deps changes, and only after Vue has patched the DOM with that
 change (a `post`-flush watcher with one getter per dep, each compared by
 value). The body runs untracked, so a prop it merely reads never becomes a
 hidden dependency — the authored `deps`, typed `(keyof Props)[]`, are the whole
-re-run contract, as with React's dep array. Each entry runs on its own: if one
-throws, the others still run, and the first error then goes to Vue's error
-handling (`app.config.errorHandler`). The effect receives the machine and the
-current props: pass the component's props object and a listener reading a
-prop at event time sees its latest value.
+re-run contract, as with React's dep array. Each run receives the machine and
+its own plain snapshot of the props — as a React effect closes over its
+render's props — so a cleanup undoes exactly what its run set up; a listener
+that reads a prop later sees the setup-time value, so name that prop in the
+deps. Each entry runs on its own: if one throws — on any run or in its
+cleanup — the others still run, a throwing cleanup doesn't block the next
+setup, and every error reaches Vue's error handling
+(`app.config.errorHandler`).
 
 > The agnostic _decision_ lives in the core component's resolver; only the
 > _transport_ (the DOM listener) is here. The machine just receives a plain event.
@@ -264,13 +296,13 @@ prop at event time sees its latest value.
 
 ## `useSelector` — fine-grained subscription
 
-Returns a **computed ref** that updates only when one slice of the machine
+Returns a **readonly ref** that updates only when one slice of the machine
 changes:
 
 ```ts
 const open = useSelector(machine, () => machine.matches('open'))
 // a machine from props: pass a getter, and read props inside the selector freely
-const isHL = useSelector(
+const isHighlighted = useSelector(
   () => props.machine,
   () => props.machine.context.highlightedValue === props.value,
 )
@@ -294,9 +326,10 @@ The selection comes back as-is — never wrapped in a reactive proxy, so
 `selected.value === machine.context.item` holds. The machine may be a ref or a
 getter; swapping it re-subscribes. The subscription is disposed with the
 surrounding effect scope — the component's on unmount, or a bare
-`effectScope()` when it stops. A server render subscribes nothing: it is a
-single pass, and Vue never disposes a scope on the server. As with
-`useMachine`, call it before the first `await` in an async `setup()`.
+`effectScope()` when it stops. A server render subscribes nothing — it is a
+single pass, and Vue never disposes a scope on the server — so each read there
+runs the selector afresh. As with `useMachine`, call it before the first
+`await` in an async `setup()`.
 
 `api` from `useMachine` already updates only on a real change, so reach for
 `useSelector` when a leaf wants to track one slice of a machine it doesn't
@@ -308,7 +341,7 @@ for its own value (`O(readers)`).
 ## `normalize` — agnostic bindings → DOM props
 
 `connect` returns substrate-agnostic
-[bindings](../core/README.md#connector--the-view-boundary) (`onPress`, `role`).
+[bindings](../core/README.md#connector-the-view-boundary) (`onPress`, `role`).
 `normalize` translates them to the DOM/ARIA props `h()` and a template
 `v-bind` take:
 
@@ -346,11 +379,17 @@ When a consumer's props land on the same element the component controls,
 ```vue
 <script setup lang="ts">
 import { useAttrs } from 'vue'
-import { mergeProps, normalize } from '@dunky.dev/vue-state-machine'
+import { mergeProps, normalize, useMachine } from '@dunky.dev/vue-state-machine'
+import { connectTooltip, tooltipConfig, type TooltipProps } from './tooltip'
+import { tooltipEffects } from './tooltip-effects'
 
 defineOptions({ inheritAttrs: false }) // the attrs land on the button below, once
 const attrs = useAttrs()
-// …useMachine as above
+const props = withDefaults(defineProps<TooltipProps>(), {
+  defaultOpen: undefined,
+  closeOnEscape: undefined,
+})
+const { api } = useMachine(tooltipConfig, connectTooltip, tooltipEffects, props)
 </script>
 
 <template>
@@ -361,8 +400,11 @@ const attrs = useAttrs()
 - **Event handlers are chained, consumer-first** — both run, but if the
   consumer's handler marks the event `defaultPrevented`, the library handler is
   skipped (a clean veto). Every Vue listener key qualifies (`onClick`,
-  `onPointerenter`, `onUpdate:open`), and an **array** of consumer handlers —
-  what Vue puts in `attrs` when a listener is bound twice — composes like one.
+  `onPointerenter`, `onUpdate:open`). An **array** of consumer handlers — what
+  Vue puts in `attrs` when a listener is bound twice — stays an array, so Vue's
+  invoker semantics hold, with the library handler appended last; and a
+  consumer listening with an option modifier (`onClickCapture`, `onClickOnce`)
+  still vetoes the library's plain `onClick`.
 - **`class` and `style` merge as `[consumer, library]`** when both sides set
   them, in any shape Vue accepts (string, array, object); Vue normalizes the
   array, and the library entry, last, wins a conflicting style key.
@@ -381,7 +423,7 @@ also falls the attrs through to the root element and every handler runs twice.
 | Export                                        | What it is                                                                                                                     |
 | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `useMachine(config, connect, effects, props)` | the bridge composable — build once + lifecycle + run effects + computed snapshot; returns `{ api, machine }`                   |
-| `useSelector(machine, selector, isEqual?)`    | fine-grained subscription to a derived slice (machine: value, ref, or getter); returns a computed ref (`O(readers)`)           |
+| `useSelector(machine, selector, isEqual?)`    | fine-grained subscription to a derived slice (machine: value, ref, or getter); returns a readonly ref (`O(readers)`)           |
 | `normalize(bindings)`                         | agnostic bindings → Vue DOM/ARIA props                                                                                         |
 | `mergeProps(consumer, library)`               | merge consumer + component props (handlers chained w/ `defaultPrevented` veto; `class`/`style` as `[consumer, library]` array) |
 | `ComponentEffect<M, P>`                       | `[ (machine, props) => cleanup, (keyof P)[] ]` — one platform effect + its prop deps; pass a static list of them               |
