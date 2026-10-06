@@ -10,10 +10,12 @@ snapshot as `view.api`, read lazily — `connect()` runs once a transition
 settles, only when read. It starts the machine after mount and stops it on
 destroy before child components tear down (React's order), and runs each
 `ComponentEffect` as its own `$effect`, re-run only when the value of one of its
-named prop deps changes. Sends run untracked, so a send from inside an `$effect`
-never makes that effect depend on what wakes on it — `connect()`, reactions,
-your callbacks. `useSelector` returns `{ current }` and takes the machine as a
-value or a getter. `normalize` maps the agnostic bindings to the props a Svelte
+named prop deps changes (compared with `Object.is`, like React's dep array).
+Reactions and their callbacks never become dependencies of the `$effect` that
+changed the machine, and a read of `view.api` from inside a send gets the last
+settled snapshot rather than a half-applied transition. `useSelector` returns
+`{ current }`, takes the machine as a value or a getter, renders live on the
+server, and keeps a selector that throws mid-send out of the sender's `send()`. `normalize` maps the agnostic bindings to the props a Svelte
 element spread expects — the DOM's lowercase event attributes (`onclick`,
 `oninput`, `ondblclick`), `tabindex`, `aria-*` — and `mergeProps` chains
 handlers consumer-first with the `defaultPrevented` veto, joins `class` and
@@ -40,8 +42,12 @@ destructuring it, and read `$derived` slices of it in effects.
 
 The package ships `.svelte.js` runes modules and `.d.ts` files, built with
 `@sveltejs/package`, for the consumer's Svelte build to compile: use it through
-Vite with `@sveltejs/vite-plugin-svelte` or SvelteKit, and Vitest needs only
-that same plugin. The peer range, `svelte` `>=5.16.0 <5.33.5 || ^5.34.5`, is
-measured: 5.16 is where `class` arrays and objects resolve through clsx, which
-the `mergeProps` merge relies on, and 5.33.5–5.34.4 kept stale spread event
-handlers (sveltejs/svelte#16180).
+Vite with `@sveltejs/vite-plugin-svelte` or SvelteKit. Vitest needs only that
+same plugin, unless a test harness reaches the adapter solely through other
+packages' source files: then inline it with
+`test.server.deps.inline: [/@dunky\.dev\/svelte-/]`.
+
+The peer range, `svelte` `>=5.16.0 <5.33.5 || ^5.34.5`, is measured: 5.16 is
+where `class` arrays and objects resolve through clsx, which the `mergeProps`
+merge relies on, and 5.33.5–5.34.4 kept stale spread event handlers
+(sveltejs/svelte#16180).

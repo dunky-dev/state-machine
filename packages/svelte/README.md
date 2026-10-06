@@ -47,14 +47,18 @@ Svelte component (this package):
 ```svelte
 <!-- Tooltip.svelte -->
 <script lang="ts">
-  import { setup } from '@dunky.dev/state-machine'
-  import { useMachine, normalize } from '@dunky.dev/svelte-state-machine'
+  import { setup, type Connect } from '@dunky.dev/state-machine'
+  import { useMachine, normalize, type Bindings } from '@dunky.dev/svelte-state-machine'
 
   type TooltipProps = { defaultOpen?: boolean }
+  type State = 'closed' | 'opening' | 'open'
+  type Context = Record<string, never>
+  type Event = { type: 'hover' } | { type: 'leave' }
+  type Api = { open: boolean; triggerProps: Bindings; contentProps: Bindings }
 
   // 1 — behavior: a plain state machine. No Svelte in sight.
   const tooltipConfig = (props: TooltipProps) =>
-    setup.infer().createMachine({
+    setup.as<Context, Event>().createMachine({
       initial: props.defaultOpen ? 'open' : 'closed', // props seed the machine ONCE
       context: {},
       states: {
@@ -68,7 +72,7 @@ Svelte component (this package):
     })
 
   // 2 — connect: machine snapshot -> what the view spreads onto elements.
-  const connectTooltip = ({ state, send }) => {
+  const connectTooltip: Connect<State, Context, Event, TooltipProps, Api> = ({ state, send }) => {
     const open = state === 'open'
     return {
       open,
@@ -116,7 +120,7 @@ Every component calls it with the agnostic pieces, while it initializes:
 
 ```ts
 const view = useMachine(
-  tooltipMachineConfig, // (props) => config  — config factory, props seed it ONCE
+  tooltipConfig, // (props) => config  — config factory, props seed it ONCE
   connectTooltip, // pure connect(): snapshot → view api
   tooltipEffects, // the component's substrate effects (ComponentEffect[])
   () => props, // a GETTER for the props, so later changes keep flowing in
@@ -142,10 +146,15 @@ connect, props)`, seeded with a **plain copy** of the props, never the live
   `setProps` compares shallowly, as on every target: mutating a prop's value in
   place (`items.push(x)`) is not a change — pass a new reference
   (`items = [...items, x]`) for anything `connect()` reads.
-- **keeps sends untracked** — core notifies synchronously inside `send()`, so a
-  send from inside an `$effect` would make that effect depend on whatever wakes
-  on it (`connect()`, reactions, their callbacks), and a callback that writes
-  state would loop. The machine's `send` runs untracked.
+- **keeps notifications untracked** — core notifies synchronously, so code
+  that wakes on a notification would otherwise run inside whichever `$effect`
+  caused it, and a callback that writes state would loop. Reactions and their
+  callbacks always run untracked, however the machine changed (a send, a
+  context change, a timer), and so does everything a send runs.
+- **serves a consistent `api` mid-send** — a read of `view.api` from inside a
+  send (a reaction's callback, a selector) gets the last settled snapshot, not
+  `connect()` over a transition that set its state but hasn't run its entry
+  actions yet. A selector over `view.api` catches up once the send is done.
 - **runs the lifecycle** — `service.start()` after mount; `service.stop()` when
   the component is destroyed, **before** its child components tear down (React's
   order), so a child's cleanup send fires no reactions. The connector wired its
@@ -161,15 +170,19 @@ elements; `machine` is the running service (also handed to `useSelector`).
 Read `view.api.x` where you use it — **don't destructure** `api`
 (`const { api } = useMachine(…)` captures one snapshot and loses reactivity).
 
-`view.api` is a fresh object after every machine change, so two rules keep
-`$effect`s precise:
+`view.api` is a fresh object after every machine change, so a few rules keep
+reactive code precise:
 
-- **Read slices.** Derive what the effect needs —
+- **Read slices.** Derive what an `$effect` needs —
   `const open = $derived(view.api.open)` — or use `useSelector`; the effect then
   re-runs only when that value changes.
-- **Act without reading.** Call actions untracked
-  (`untrack(() => view.api.toggle())`) or send through `view.machine.send(…)`:
-  an effect that reads `view.api` and then changes it re-runs itself in a loop.
+- **Don't read `view.api` in an effect that acts.** An effect that reads
+  `view.api` and then sends (or calls an action) re-runs itself in a loop. Read
+  a derived slice instead, or keep the read untracked:
+  `untrack(() => view.api.toggle())`.
+- **Select from the machine.** Selectors and reaction callbacks run inside the
+  machine's notification: read `machine.context` / `machine.matches(…)` there,
+  not `view.api`, which they see at its last settled snapshot.
 
 ### Why a props getter
 
@@ -192,37 +205,36 @@ Svelte-side _effect_.
 
 Each effect is a `[setup/teardown, depPropNames]` tuple (`ComponentEffect`) — the
 **same shape as every other target**, so a component's effects are authored once
-and run unchanged on React, Solid, and Svelte:
+and run unchanged on React, Solid, and Svelte. A dialog's Escape-to-close, typed
+against its `./dialog` module:
 
 ```ts
 import type { ComponentEffect } from '@dunky.dev/svelte-state-machine'
+import type { DialogMachine, DialogProps } from './dialog'
 
-type TooltipEffect = ComponentEffect<TooltipMachine, TooltipMachineProps>
+type Effect = ComponentEffect<DialogMachine, DialogProps>
 
-/** Escape-to-close (gated by closeOnEscape). */
-const trackEscape: TooltipEffect = [
+export const onEscapeKey: Effect = [
   (machine, props) => {
-    if (!props.closeOnEscape) return
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') machine.send({ type: 'escape' })
+    if (props.closeOnEscape === false) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') machine.send({ type: 'close' })
     }
-    document.addEventListener('keydown', onKeyDown, true)
-    return () => document.removeEventListener('keydown', onKeyDown, true)
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
   },
-  ['closeOnEscape'], // ← re-run only when this prop changes
+  ['closeOnEscape'], // re-run only when this prop changes
 ]
-
-export const tooltipEffects = [trackEscape]
 ```
 
 `useMachine` runs the list — **one `$effect` per entry**. Each named dep is read
 through its own `$derived`, so the effect re-runs (cleanup → setup) only when
-one of those prop VALUES actually changes, never on unrelated changes; the body
-runs `untrack`ed, so a prop it merely reads never becomes a hidden dependency.
-The deps are prop NAMES — typed `(keyof Props)[]`, so a typo is a compile error —
-and the authored list is the whole re-run contract, identical to every other
-target. There is no rules-of-hooks constraint, but the list stays a module
-constant by convention.
+one of those prop VALUES changes — compared with `Object.is`, as React compares
+its dep array — never on unrelated changes; the body runs `untrack`ed, so a prop
+it merely reads never becomes a hidden dependency. The deps are prop NAMES —
+typed `(keyof Props)[]`, so a typo is a compile error — and the authored list is
+the whole re-run contract, identical to every other target. There is no
+rules-of-hooks constraint, but the list stays a module constant by convention.
 
 > The agnostic _decision_ lives in the core component's resolver; only the
 > _transport_ (the DOM listener) is here. The machine just receives a plain event.
@@ -261,6 +273,12 @@ re-runs, and `isEqual` gates both kinds of change against one baseline. Pass the
 machine as a getter when it can change — a prop: the subscription follows it,
 and Svelte doesn't warn about capturing a prop's initial value. Like
 `useMachine`, call it while a component initializes.
+
+A selector that throws during a notification — a row its parent is removing on
+that very change, reading an index that no longer exists — doesn't throw out of
+the sender's `send()`: it is retried in the next flush, which skips a reader
+that has been destroyed; a reader that is still mounted surfaces the error
+there.
 
 Reach for `useSelector` when a leaf wants to track one slice of a machine it
 doesn't otherwise own — e.g. thousands of rows backed by one machine, each
@@ -315,7 +333,11 @@ flavor:
 - **`style` strings are joined**, the library's declarations last so they win.
 - A nullish library `class`/`style` keeps the consumer's, and symbol-keyed
   attachments from both sides are kept.
-- **Everything else: library wins** (`id`, `role`, `aria-*`).
+- **Everything else: library wins** (`id`, `role`, `aria-*`) — a nullish
+  library handler included, as on every target.
+
+A composed handler calls both sides without `this` (Svelte would pass the
+element): read `event.currentTarget` instead.
 
 ---
 
@@ -337,7 +359,9 @@ flavor:
 Peer range: `svelte` `>=5.16.0 <5.33.5 || ^5.34.5` — Svelte 5, tested against
 5.57.1. The bridge is written in runes, so Svelte 4 is not supported. The bounds
 are measured, not guessed — the suite runs green on the range's edges (5.16.0,
-5.33.4, 5.34.5) and on the last patch of every minor from 5.16 to 5.57 but 5.33:
+5.33.4, 5.34.5) and on the last patch of every minor from 5.16 to 5.57 but 5.33,
+except the attachment test before 5.29, the release that added attachments
+(`mergeProps` and `normalize` only carry their symbol keys):
 
 - **5.16** is where Svelte started resolving `class` arrays and objects through
   clsx, which `mergeProps`'s `[consumer, library]` merge relies on.
@@ -353,6 +377,20 @@ The package ships `.svelte.js` runes modules plus `.d.ts` files, built with
 Its `exports` resolve only through the `types` and `svelte` conditions, so use
 it through Vite with `@sveltejs/vite-plugin-svelte` (or SvelteKit, which
 includes it): the plugin resolves the `svelte` condition and compiles the
-modules for the client and for SSR. Vitest needs nothing beyond that same
-plugin — no `server.deps.inline`. A tool without the Svelte compiler fails at
+modules for the client and for SSR. A tool without the Svelte compiler fails at
 resolution instead of loading uncompiled runes.
+
+Vitest needs nothing beyond that same plugin while the adapter is in your
+package's dependency graph — a dependency of it, or of a Svelte library it
+depends on — because the plugin finds it there. A test harness that reaches the
+adapter only through other packages' source files, imported by path, must
+inline it; otherwise Vitest loads the runes uncompiled from `node_modules`
+(`rune_outside_svelte`):
+
+```ts
+// vitest.config.ts
+export default defineConfig({
+  plugins: [svelte(), svelteTesting()],
+  test: { server: { deps: { inline: [/@dunky\.dev\/svelte-/] } } },
+})
+```
