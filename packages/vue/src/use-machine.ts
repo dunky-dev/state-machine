@@ -6,14 +6,20 @@ import {
   onMounted,
   onScopeDispose,
   onUnmounted,
-  shallowRef,
   toValue,
-  triggerRef,
   watch,
   type ComputedRef,
   type MaybeRefOrGetter,
 } from 'vue'
-import { connector, machine, type Connect, type TransitionConfig } from '@dunky.dev/state-machine'
+import {
+  connector,
+  machine,
+  type Connect,
+  type ConnectSnapshot,
+  type Reaction,
+  type TransitionConfig,
+} from '@dunky.dev/state-machine'
+import { createTrigger, untracked } from './tracking'
 
 /**
  * A substrate-specific effect: a setup/teardown function plus the prop names it depends on.
@@ -32,7 +38,7 @@ export type ComponentEffect<Machine, Props> = [
 
 /**
  * The generic Vue bridge. Builds the machine once from the setup-time props, keeps props
- * fresh via setProps, runs the lifecycle and the component's effects in React's order, and
+ * fresh via setProps, starts the machine and then the component's effects after mount, and
  * exposes the connector's memoized snapshot as a computed ref. Call it in setup before any
  * `await`: Vue only binds lifecycle hooks registered before the first one.
  */
@@ -49,65 +55,85 @@ export function useMachine<
   effects: ComponentEffect<ReturnType<typeof machine<State, Context, Event, Computed>>, Props>[],
   props: MaybeRefOrGetter<Props>,
 ): { api: ComputedRef<Api>; machine: ReturnType<typeof machine<State, Context, Event, Computed>> } {
-  // A fresh plain copy per read: a component's props proxy keeps one identity and
-  // mutates in place, so setProps' shallow dedup would never see it change.
+  // A fresh plain copy per read: a component's props proxy keeps one identity and mutates
+  // in place, so setProps' shallow dedup would never see it change — and an effect handed
+  // the live proxy would clean up with the next run's props.
   const read = (): Props => ({ ...toValue(props) })
 
+  // Reactions call consumer code (onOpenChange…) inside send(); run untracked, they can't hand
+  // their reads to a watchEffect, computed, or render that sent.
+  const bridged: Connect<State, Context, Event, Props, Api, Computed> = Object.assign(
+    (snapshot: ConnectSnapshot<State, Context, Event, Props, Computed>) => connect(snapshot),
+    {
+      reactions: connect.reactions?.map(
+        ([select, react]): Reaction<State, Context, Event, Props, Computed, unknown> => [
+          select,
+          (value, current) => untracked(() => react(value, current)),
+        ],
+      ),
+    },
+  )
   const service = machine(createConfig(read()))
-  const connection = connector(service, connect, read())
+  const connection = connector(service, bridged, read())
 
   // The connector memoizes its snapshot but isn't reactive: a wake only marks the computed
-  // stale, and the computed re-reads the snapshot lazily — connect() runs once per read
-  // after a change, not once per machine notification. Per-instance, so a server render
-  // (which never disposes a scope) leaves nothing behind once the instance is collected.
-  const source = shallowRef(connection)
-  onScopeDispose(connection.subscribe(() => triggerRef(source)))
-  const api = computed(() => source.value.snapshot)
+  // stale, and the computed re-reads the snapshot lazily — connect() runs once per read after
+  // a change, never in the middle of a transition. destroy() also unhooks the reactions, so a
+  // machine kept past unmount and restarted can't call back into a component that is gone;
+  // <KeepAlive> never disposes the scope.
+  const { track, trigger } = createTrigger()
+  connection.subscribe(trigger)
+  onScopeDispose(() => connection.destroy())
+  const api = computed(() => {
+    track()
+    return connection.snapshot
+  })
 
   // Not deep: setProps compares top-level identities, so walking prop values is wasted work.
   watch(read, next => connection.setProps(next))
 
-  // React's order: start, then the effects, after mount; teardown stops the machine, then
-  // cleans the effects up once the DOM is gone, as React's passive effects do. A <KeepAlive>
-  // deactivation pauses both, like React's <Activity>; onActivated also fires on the first
-  // mount, hence the guard.
+  // After mount: start, then the effects, as React orders them. A <KeepAlive> deactivation
+  // pauses both, like React's <Activity>; onActivated also fires on the first mount, hence the
+  // guard.
   let active: (() => void)[] | undefined
   const resume = () => {
     if (active) return
-    try {
-      service.start()
-    } finally {
-      // Even if a core effect threw while starting, the component's own effects still run;
-      // each is recorded as it starts, so whatever happens next can tear it down.
-      const disposers: (() => void)[] = (active = [])
-      for (const [fn, deps] of effects) {
-        // Held here, not passed to onCleanup: the instance scope stops its watchers before
-        // the DOM is removed, and the cleanup must wait for that — and for stop().
+    const disposers: (() => void)[] = (active = [])
+    settle([
+      service.start,
+      ...effects.map(([fn, deps]) => () => {
+        // Held here, not passed to onCleanup: the instance scope stops its watchers before the
+        // DOM is removed, and the cleanup must wait for that — and for stop().
         let cleanup: (() => void) | undefined
         const teardown = () => {
           const previous = cleanup
           cleanup = undefined
           previous?.()
         }
-        // Each effect runs in its own watcher, so Vue reports one that throws and the rest
-        // still start. One getter per dep is compared by value, so no other prop re-runs it;
-        // the constant first source only keeps the array non-empty, since before Vue 3.5.36
-        // an immediate watcher over an empty source never runs. `post`: a re-run sees the
-        // DOM already patched with the props that caused it.
-        const stop = watch(
-          [() => service, ...deps.map(key => () => toValue(props)[key])],
-          () => {
+        // Each run gets its own snapshot of the props, so its cleanup undoes exactly what it
+        // set up, as with React's render props; a cleanup that throws can't block the setup.
+        const run = () => {
+          try {
             teardown()
-            cleanup = fn(service, toValue(props)) || undefined
-          },
-          { immediate: true, flush: 'post' },
+          } finally {
+            cleanup = fn(service, read()) || undefined
+          }
+        }
+        // One getter per dep, compared by value: no other prop re-runs the effect. `post`
+        // lets a re-run see the DOM already patched with the props that caused it.
+        const stop = watch(
+          deps.map(key => () => toValue(props)[key]),
+          run,
+          { flush: 'post' },
         )
+        // Recorded before the first run, so an effect that throws still gets torn down.
         disposers.push(() => {
           stop()
           teardown()
         })
-      }
-    }
+        run()
+      }),
+    ])
   }
   const takeDisposers = (): (() => void)[] => {
     const disposers = active ?? []
@@ -117,17 +143,17 @@ export function useMachine<
   onMounted(resume)
   onActivated(resume)
   onDeactivated(() => settle([service.stop, ...takeDisposers()]))
-  // Unmounting stops the machine first and parent-first, like React's top-down passive
-  // cleanups — a part's own teardown send then fires no reactions — and cleans the effects
-  // up once the DOM is gone.
+  // Unmounting stops the machine before the component's children unmount, so a part's own
+  // teardown send fires no reactions; the effect cleanups follow in onUnmounted, after the DOM
+  // has been patched away.
   onBeforeUnmount(service.stop)
   onUnmounted(() => settle(takeDisposers()))
 
   return { api, machine: service }
 }
 
-// Runs every step even when one throws, so a failing cleanup can't strand the others'
-// listeners; then reports every failure — a lone one as-is.
+// Runs every step even when one throws, so one failing effect or cleanup can't strand the
+// others; then reports every failure — a lone one as-is.
 function settle(steps: (() => void)[]): void {
   let failures: unknown[] | undefined
   for (const step of steps) {
@@ -140,6 +166,6 @@ function settle(steps: (() => void)[]): void {
   if (failures) {
     throw failures.length === 1
       ? failures[0]
-      : new AggregateError(failures, 'useMachine: several teardown steps threw')
+      : new AggregateError(failures, 'useMachine: several lifecycle steps threw')
   }
 }

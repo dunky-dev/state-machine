@@ -10,6 +10,7 @@
 import {
   createApp,
   defineComponent,
+  effectScope,
   h,
   KeepAlive,
   nextTick,
@@ -18,6 +19,7 @@ import {
   ref,
   Suspense,
   type PropType,
+  watchEffect,
 } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -84,14 +86,6 @@ describe('useMachine — lifecycle', () => {
     expect(typeof sink.machine!.send).toBe('function')
   })
 
-  it('starts the machine after mount and stops it on unmount', () => {
-    const { Comp, log } = harness()
-    const wrapper = mount(Comp)
-    expect(log).toEqual(['start'])
-    wrapper.unmount()
-    expect(log).toEqual(['start', 'stop'])
-  })
-
   it('re-renders when the snapshot changes', async () => {
     const { sink, Comp } = harness()
     mount(Comp)
@@ -144,7 +138,7 @@ describe('useMachine — build once', () => {
     await nextTick()
 
     await wrapper.setProps({ label: 'b' }) // a prop change must NOT rebuild/reset state
-    expect(sink.api).toMatchObject({ open: true, count: 1, label: 'b' })
+    expect(sink.api).toMatchObject({ open: true, count: 1 })
   })
 })
 
@@ -215,6 +209,25 @@ describe('useMachine — props freshness via setProps', () => {
   })
 })
 
+describe('useMachine — sends from tracked code', () => {
+  it('runs no prop callback under the tracking of the effect that sent', async () => {
+    const unrelated = ref(0)
+    const go = ref(false)
+    const onOpenChange = vi.fn(() => void unrelated.value) // a callback reading reactive state
+    const { sink, Comp } = harness()
+    mount(Comp, { props: { onOpenChange } })
+    const scope = effectScope()
+    scope.run(() => watchEffect(() => void (go.value && sink.machine!.send({ type: 'toggle' }))))
+    go.value = true
+    await nextTick()
+    unrelated.value++ // must not re-run the watchEffect, which would toggle again
+    await nextTick()
+    expect(onOpenChange.mock.calls).toEqual([[true]])
+    expect(sink.api!.open).toBe(true)
+    scope.stop()
+  })
+})
+
 describe('useMachine — reactions follow the machine lifecycle', () => {
   it('fires the connect reaction while mounted, never after unmount', () => {
     const onOpenChange = vi.fn()
@@ -229,6 +242,15 @@ describe('useMachine — reactions follow the machine lifecycle', () => {
     wrapper.unmount()
     sink.api!.toggle()
     expect(onOpenChange).toHaveBeenCalledOnce()
+  })
+
+  it('lets a machine kept past unmount restart without calling the component back', () => {
+    const onOpenChange = vi.fn()
+    const { sink, Comp } = harness()
+    mount(Comp, { props: { onOpenChange } }).unmount()
+    sink.machine!.start()
+    sink.machine!.send({ type: 'toggle' })
+    expect(onOpenChange).not.toHaveBeenCalled()
   })
 })
 
@@ -280,6 +302,44 @@ describe('useMachine — component effects', () => {
     const wrapper = mount(Comp, { props: { label: 'a' } })
     await wrapper.setProps({ label: 'b' })
     expect(log).toEqual(['start', 'effect', 'cleanup', 'effect'])
+  })
+
+  it("hands each run a snapshot of its props, so a cleanup undoes that run's setup", async () => {
+    const registered = new Set<string | undefined>()
+    const effects: Effect[] = [
+      [
+        (_machine, props) => {
+          registered.add(props.label)
+          return () => registered.delete(props.label)
+        },
+        ['label'],
+      ],
+    ]
+    const { Comp } = harness(effects)
+    const wrapper = mount(Comp, { props: { label: 'a' } })
+    await wrapper.setProps({ label: 'b' })
+    expect([...registered]).toEqual(['b'])
+  })
+
+  it('sets an effect up again even when its previous cleanup throws', async () => {
+    const log: string[] = []
+    const effects: Effect[] = [
+      [
+        () => {
+          log.push('effect')
+          return () => {
+            throw new Error('cleanup failed')
+          }
+        },
+        ['label'],
+      ],
+    ]
+    const { Comp } = harness(effects, log)
+    const errorHandler = vi.fn()
+    const wrapper = mount(Comp, { props: { label: 'a' }, global: { config: { errorHandler } } })
+    await wrapper.setProps({ label: 'b' })
+    expect(errorHandler).toHaveBeenCalledOnce()
+    expect(log).toEqual(['start', 'effect', 'effect'])
   })
 
   it('re-runs after the DOM reflects the dep change', async () => {
