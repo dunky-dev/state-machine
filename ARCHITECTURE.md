@@ -12,7 +12,7 @@ runtime: same machine, same behavior, same accessibility intent, different rende
 The host
 +----------------------------------------------------------------------+
 |  packages/core                                                       |
-|  No runtime render — pure JS, runs anywhere                          |
+|  No runtime render — TS over the Rust engine (wasm), runs anywhere   |
 |  states, events, context, guards, actions, effects, select           |
 +----------------------------------------------------------------------+
                                |  consumed by every target
@@ -42,16 +42,15 @@ The host
 This repo is the **engine** — the agnostic machine plus its per-target bridges.
 The components that consume it (and their style/codegen pipeline) live elsewhere.
 
-> **Status: experimental, but it compiles and runs.** The `packages/core` engine
-> is a stable plain-mutation kernel (no signals; see
-> [`packages/core/README.md`](./packages/core/README.md)). The
-> suite is green and `tsc` is clean. It's an in-progress exploration — the API may
-> still move — not a 1.0.
+> **Status: experimental, but it compiles and runs.** The engine is a Rust
+> plain-mutation kernel compiled to wasm (no signals; see
+> [The engine](#the-engine)). The suite is green and `tsc` is clean. It's an
+> in-progress exploration — the API may still move.
 
 ## Three layers
 
-The repo splits in three layers. **`core/`** is the agnostic side — pure JS,
-no renderer. It says _what_ behavior is: states, transitions, context, guards,
+The repo splits in three layers. **`core/`** is the agnostic side — TS over the
+Rust engine, no renderer. It says _what_ behavior is: states, transitions, context, guards,
 actions. Nothing in `core/` knows that React or the DOM exists.
 
 **`shared/`** is the cross-target side — `shared/bindings` owns the
@@ -93,14 +92,16 @@ Zag, whose machines read props directly.)
 
 ## Project structure
 
-| File / location                  | What it owns                                                      |
-| -------------------------------- | ----------------------------------------------------------------- |
-| `packages/core/`                 | State-machine engine (plain-mutation kernel)                      |
-| `packages/shared/bindings/`      | Substrate-agnostic event + attr vocabulary (onPress, role, …)     |
-| `packages/shared/utils/`         | mergeProps, composeHandlers                                       |
-| `packages/<target>/`             | Hook + normalize per substrate (react, solid, native, opentui, …) |
-| `crates/core/`                   | Rust port of the engine (experimental, same SPEC)                 |
-| `crates/wasm/`, `packages/wasm/` | Rust machine → wasm → the TS `Machine` interface                  |
+| File / location             | What it owns                                                           |
+| --------------------------- | ---------------------------------------------------------------------- |
+| `packages/core/`            | The TS API: `machine()`, `fromWasm()`, connector, the `Machine` facade |
+| `packages/shared/bindings/` | Substrate-agnostic event + attr vocabulary (onPress, role, …)          |
+| `packages/shared/utils/`    | mergeProps, composeHandlers                                            |
+| `packages/<target>/`        | Hook + normalize per substrate (react, solid, native, opentui, …)      |
+| `crates/core/`              | The engine (Rust; implements the core SPEC)                            |
+| `crates/wasm/`              | The JS protocol: runtime for TS machines, `export_machine!` for Rust   |
+| `crates/core-wasm/`         | The wasm `packages/core` ships (built into `packages/core/wasm`)       |
+| `crates/uniffi/`            | React Native over JSI (in progress)                                    |
 
 ## The map
 
@@ -174,29 +175,52 @@ whether it needs props/platform or not:
    platform listener is per-target. On accept it `send()`s a plain event the
    machine already understands.
 
-## The Rust core (experimental)
+## The engine
 
-`crates/core` (`dunky-core`) is a Rust port of the engine. It implements the same
-[SPEC](packages/core/SPEC.md); its tests are ported from `packages/core/tests`.
-Machines are typed Rust (`#[derive(State, Event, Context)]`), the core owns no clock
-(`after` timers are commands the host runs), and every call reports a change mask.
+The engine is Rust: `crates/core` (`dunky-core`), compiled to WebAssembly. It runs the
+graph — the run-to-completion queue, transition resolution, entry/exit order, the
+effects lifecycle, `after` timers, watchers and computed bookkeeping — and implements
+[`packages/core/SPEC.md`](packages/core/SPEC.md); its Rust tests are ported from
+`packages/core/tests`. A machine is written in TypeScript or in Rust, and both run on it:
 
 ```
-crates/core  (Rust machines: engine + config + computed)
-   |
-   +-- crates/wasm --> .wasm + JS glue --> packages/wasm (fromWasm)
-   |                                          |
-   |                                          v
-   |                       the TS Machine interface: react, solid, native, opentui
-   |
-   +-- crates/uniffi --> native code + JSI (React Native; Hermes has no wasm)
+TS machine: machine(config)            Rust machine: dunky-core types
+     |                                      |
+     | compiled to numbers + JS tables      | export_machine! (your crate)
+     v                                      v
+crates/core-wasm (inside the package)  your wasm module
+     |                                      |
+     +------------------+-------------------+
+                        |  one protocol (crates/wasm): events in by kind,
+                        |  a notify per change, timers on the host clock
+                        v
+          packages/core: the Machine facade (machine() / fromWasm())
+                        |
+                        v
+          the targets: react, solid, native, opentui
 ```
 
-A target never knows which engine runs: `useMachine` takes a config (TS engine) or a
-ready machine (`toMachine`), and `fromWasm(handle)` returns the same `Machine`
-interface. The adapter mirrors context into one plain JS object and re-reads only the
-fields the change mask names; observers are notified once per call. Build the demo
-machines with `pnpm build:wasm`; the spike numbers live in `benchmark/tests/wasm.ts`.
+- **TS machines.** `machine(config)` compiles the config once: states and event types
+  become numbers, the user code (guards, actions, effects, delays, computed) becomes
+  tables. Rust calls back into them by index; the context stays a plain JS object,
+  and each `setContext` reports its change mask so Rust drives watchers and computed
+  staleness. The wasm is inlined in the package and starts on the first `machine()`.
+- **Rust machines.** Typed Rust (`#[derive(State, Event, Context)]`), exported to JS
+  with `dunky_wasm::export_machine!` and wrapped with `fromWasm`: the facade keeps a
+  JS mirror of the context and re-reads only the fields each notify names.
+- **One facade.** Both kinds share the `Machine` facade and the host functions
+  (`notify`, `startTimer`, `cancelTimer`), which take numbers and return status codes.
+  JS passes the facade with each call; Rust holds no JS object between calls, so only JS
+  references keep a machine alive, and a pending timer holds its machine, like a JS
+  timer holds `this`.
+- **Few crossings.** A TS machine announces its own context writes in JS; a run of
+  actions, a guard walk, and a state change with its entry actions each cost one call
+  into JS.
+- **React Native.** Hermes has no WebAssembly; `crates/uniffi` is the start of a native
+  engine over JSI.
+
+The sandbox and the benchmark write machines in Rust too (`sandbox/shared/rust`,
+`benchmark/rust`); `pnpm build:wasm` builds every module.
 
 ## Vocabulary
 

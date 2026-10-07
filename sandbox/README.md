@@ -44,21 +44,19 @@ pnpm -C sandbox/native dev      # then press i / a, or scan the QR
 All four consume the workspace packages straight from their TypeScript `src/`
 (Vite alias / Bun workspace / Metro watch-folders) — no build step.
 
-## The same palette on the Rust core
+## The same palette, written in Rust
 
-Every sandbox can also run the palette from `crates/demo` (the Rust port of
-`shared/src/machine.ts`) — same `connect()`, same markup, only the machine differs:
+Both palettes run on the Rust engine. By default the sandboxes run the one written in
+TypeScript (`shared/src/machine.ts`); each web and terminal sandbox can also run its
+Rust twin (`shared/rust`, wrapped with `fromWasm`) — same `connect()`, same markup,
+only the machine's source language differs:
 
 ```bash
 pnpm build:wasm                          # once: Rust → wasm (see CONTRIBUTING.md)
-pnpm -C sandbox/react dev                # then open http://localhost:5173/?engine=rust
-pnpm -C sandbox/solid dev                # then open http://localhost:5173/?engine=rust
+pnpm -C sandbox/react dev                # then open http://localhost:5173/?machine=rust
+pnpm -C sandbox/solid dev                # then open http://localhost:5173/?machine=rust
 pnpm -C sandbox/opentui dev:rust         # Bun runs the wasm
-
-pnpm -C packages/native-rust ubrn:ios    # React Native: Rust → native code over JSI
-pnpm -C packages/native-rust ubrn:android
-pnpm -C sandbox/native ios               # then tap "Engine: TypeScript" to switch
 ```
 
-Without those builds the TS engine still runs everywhere; the Rust switch is the only
-thing that needs them.
+React Native has no WebAssembly (Hermes), so the native sandbox waits for the engine
+over JSI.

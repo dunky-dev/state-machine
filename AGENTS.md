@@ -4,10 +4,10 @@ The working contract for anyone — human or agent — modifying code in this
 repo. This file is the canonical entry point: read it first, every time.
 
 This is Dunky's state-machine monorepo: UI behavior authored once as
-plain TypeScript state machines (`packages/core`), rendered anywhere
-through thin per-substrate targets (`react`, `solid`, `native`, `opentui`), with
-a benchmark suite, per-substrate sandboxes, and the docs website
-alongside.
+state machines — in TypeScript (`packages/core`) or Rust (`crates/core`) —
+running on one Rust engine, rendered anywhere through thin per-substrate
+targets (`react`, `solid`, `native`, `opentui`), with a benchmark suite,
+per-substrate sandboxes, and the docs website alongside.
 
 ## Preflight
 
@@ -27,6 +27,7 @@ editing files in that scope — it overrides anything here for that scope
 | Scope     | Path          | What it is                                                                                |
 | --------- | ------------- | ----------------------------------------------------------------------------------------- |
 | Packages  | `packages/**` | The core machine, substrate targets (react, solid, native, opentui), and shared internals |
+| Crates    | `crates/**`   | The Rust engine and its bindings (wasm for JS, JSI for React Native)                      |
 | Benchmark | `benchmark/`  | Perf suite comparing against competitor libraries                                         |
 | Sandbox   | `sandbox/`    | Per-substrate demo apps for manual verification                                           |
 | Website   | `website/`    | The docs site                                                                             |
@@ -41,9 +42,10 @@ These are invariants, not preferences. Violating them breaks the
 layered model:
 
 - **Core never imports a substrate.** No React, no React Native, no
-  DOM, no `window`, no `document`. `packages/core/*` is pure
-  TypeScript. If you reach for a substrate API in `core/`, stop — the
-  code belongs in a target.
+  DOM, no `window`, no `document`. `packages/core/*` is TypeScript over
+  the Rust engine (`crates/core`, compiled to wasm), and the engine is
+  just as substrate-free. If you reach for a substrate API in `core/`,
+  stop — the code belongs in a target.
 - **Targets never reimplement state.** Targets read from the machine
   via its connector. They do not fork the state graph, mirror context,
   or shadow transitions. If a target needs new state, the state goes in

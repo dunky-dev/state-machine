@@ -4,8 +4,10 @@ A tiny, **renderer-agnostic state-machine engine** for building UI component
 logic once and running it anywhere. It owns _behavior_, states, transitions,
 side-effects, derived state, and knows nothing about the render environment.
 
-It's pure JavaScript: it runs in any JS runtime (browser, Node, the React
-Native JS thread), but not in native platform code (e.g. Swift/Kotlin).
+The engine is Rust, compiled to WebAssembly and inlined in the package: it starts
+synchronously, with no `await init()`, in any JS runtime with WebAssembly (browsers,
+Node, Bun, Deno). React Native's Hermes has none, so it does not run there yet. You
+write machines in TypeScript, as below, or [in Rust](#machines-written-in-rust).
 
 ```ts
 import { machine, act } from '@dunky.dev/state-machine'
@@ -112,9 +114,9 @@ monitoring walls, game HUDs). Context is one plain object mutated in place behin
 a value-deduping bus, so a transition allocates nothing and an irrelevant write
 wakes no observers.
 
-In practice that's **up to ~7× the event throughput** of the alternatives, flat
-memory as context grows wide, and surgical re-renders that wake only the rows
-that actually changed.
+In practice that's **~6× the event throughput** of the alternatives (~10× once
+thousands of observers watch one machine), flat memory as context grows wide, and
+surgical re-renders that wake only the rows that actually changed.
 
 **[See the benchmark →](../../benchmark/README.md)** for what's measured, how, and
 the full per-scenario tables vs. XState and Zag.
@@ -911,6 +913,44 @@ forward the change as an event the machine already handles.
 ```ts
 const off = tooltipStore.subscribe(s => m.send({ type: 'activeChanged', openId: s.openId }))
 ```
+
+---
+
+## Machines written in Rust
+
+A machine can also be written in Rust, with the [`dunky-core`](../../crates/core)
+crate, and exported to JS with one macro from [`dunky-wasm`](../../crates/wasm):
+
+```rust
+dunky_wasm::export_machine! {
+    pub struct PaletteMachine(palette::Palette);
+    new(commands: JsValue) {
+        // A Result body throws its error from the JS constructor.
+        dunky_wasm::from_js(commands).map(|c| Machine::with_context(&CONFIG.with(Clone::clone), palette::context(c)))
+    }
+    computed { palette::RESULTS => Vec<Command>, palette::ACTIVE_ID => Option<String> }
+}
+```
+
+Build it with `wasm-bindgen`, then wrap an instance with `fromWasm`. The result is a
+`Machine` like any other: the connector, `useMachine` and every target consume it
+unchanged, with the same notifications as a TS machine.
+
+```ts
+import { fromWasm } from '@dunky.dev/state-machine'
+import init, { PaletteMachine } from './pkg/machines.js' // your wasm-bindgen output
+
+await init()
+const palette = fromWasm<PaletteState, PaletteContext, PaletteEvent, PaletteComputed>(
+  new PaletteMachine(commands),
+  // Optional: rebuild a computed value from another one, e.g. indices that crossed
+  // the boundary back onto your own objects. Runs only when the value changed.
+  { computed: { results: { from: 'resultIndices', map: i => i.map(n => commands[n]) } } },
+)
+```
+
+`context` is a plain JS mirror of the Rust context, with a stable identity; each change
+re-reads only the fields it touched.
 
 ---
 
