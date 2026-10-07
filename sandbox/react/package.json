@@ -9,7 +9,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@dunky.dev/demo-wasm": "workspace:^",
     "@dunky.dev/react-state-machine": "workspace:^",
     "@dunky.dev/state-machine": "workspace:^",
     "@dunky.dev/state-machine-bindings": "workspace:^",

@@ -1,13 +1,18 @@
 [package]
 name = "dunky-wasm"
-description = "wasm-bindgen glue for dunky-core machines: export a Rust machine to JS with one macro."
+description = "Run dunky-core machines from JavaScript: export a Rust machine with one macro; the runtime for TS-authored machines."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[features]
+# The runtime for TS-authored machines (JsConfig, JsMachine): what
+# @dunky.dev/state-machine ships as its wasm.
+runtime = []
+
 [dependencies]
-dunky-core = { workspace = true }
+dunky-core = { workspace = true, features = ["host"] }
 wasm-bindgen = { workspace = true }
 js-sys = { workspace = true }
 serde = { workspace = true }

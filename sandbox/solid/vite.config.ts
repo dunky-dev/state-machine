@@ -18,9 +18,6 @@ export default defineConfig({
       '@dunky.dev/state-machine-bindings': resolve(__dirname, '../../packages/shared/bindings/src'),
       '@dunky.dev/state-machine-dom': resolve(__dirname, '../../packages/dom/src'),
       '@sandbox/cmdk-core': resolve(__dirname, '../shared/src'),
-      // The Rust engine (?engine=rust): the adapter and the demo machines built to wasm.
-      '@dunky.dev/state-machine-wasm': resolve(__dirname, '../../packages/wasm/src'),
-      '@dunky.dev/demo-wasm': resolve(__dirname, '../../packages/demo-wasm/src'),
     },
   },
 })

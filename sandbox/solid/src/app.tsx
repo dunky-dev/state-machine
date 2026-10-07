@@ -2,9 +2,10 @@ import { createSignal } from 'solid-js'
 import { DEMO_COMMANDS, type CommandPaletteSource } from '@sandbox/cmdk-core'
 import { CommandPalette } from './command-palette'
 
-export type Engine = 'ts' | 'rust'
+/** The language the palette machine is written in. Both run on the Rust engine. */
+export type Language = 'ts' | 'rust'
 
-export function App(props: { engine: Engine; source: CommandPaletteSource }) {
+export function App(props: { language: Language; source: CommandPaletteSource }) {
   const [last, setLast] = createSignal('—')
 
   return (
@@ -29,9 +30,9 @@ export function App(props: { engine: Engine; source: CommandPaletteSource }) {
         <strong>Last selected: {last()}</strong>
       </p>
       <p class='demo-hint'>
-        Engine: {props.engine === 'rust' ? 'Rust (wasm)' : 'TypeScript'} ·{' '}
-        <a href={props.engine === 'rust' ? '?' : '?engine=rust'}>
-          Switch to {props.engine === 'rust' ? 'TypeScript' : 'Rust'}
+        Machine written in {props.language === 'rust' ? 'Rust' : 'TypeScript'} ·{' '}
+        <a href={props.language === 'rust' ? '?' : '?machine=rust'}>
+          Switch to {props.language === 'rust' ? 'TypeScript' : 'Rust'}
         </a>
       </p>
     </main>

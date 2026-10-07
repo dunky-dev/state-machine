@@ -14,7 +14,6 @@
     "strict": true,
     "paths": {
       "@dunky.dev/state-machine": ["./packages/core/src"],
-      "@dunky.dev/state-machine-wasm": ["./packages/wasm/src"],
       "@dunky.dev/react-state-machine": ["./packages/react/src"],
       "@dunky.dev/solid-state-machine": ["./packages/solid/src"],
       "@dunky.dev/native-state-machine": ["./packages/native/src"],

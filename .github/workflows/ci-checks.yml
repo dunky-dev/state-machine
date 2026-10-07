@@ -25,6 +25,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/ci-setup
+      # @dunky.dev/state-machine ships the engine's wasm (packages/core/wasm).
+      - uses: ./.github/actions/wasm-setup
       - run: pnpm build
 
   test:
@@ -33,7 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/ci-setup
-      # The demo-wasm parity tests load the generated wasm package.
+      # The engine (packages/core/wasm) and the Rust machines of the sandbox tests.
       - uses: ./.github/actions/wasm-setup
       - run: pnpm test:ci
 
@@ -43,7 +45,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/ci-setup
-      # demo-wasm (and the benchmark, through it) import the generated wasm package.
+      # The core package and the Rust-machine loaders import the generated bindings.
       - uses: ./.github/actions/wasm-setup
       - run: pnpm typecheck
 

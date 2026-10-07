@@ -23,6 +23,8 @@ jobs:
       - uses: ./.github/actions/ci-setup
         with:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # @dunky.dev/state-machine ships the engine's wasm (packages/core/wasm).
+      - uses: ./.github/actions/wasm-setup
 
       - name: Create release PR or publish
         id: changesets

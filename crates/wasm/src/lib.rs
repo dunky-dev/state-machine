@@ -1,32 +1,40 @@
-//! `dunky-wasm` — export a `dunky-core` machine to JavaScript.
+//! `dunky-wasm` — run `dunky-core` machines from JavaScript.
 //!
-//! One macro, [`export_machine!`], turns a machine type into a `#[wasm_bindgen]` class that
-//! speaks the handle protocol the TS adapter (`@dunky.dev/state-machine-wasm`) consumes:
+//! - [`export_machine!`] turns a machine written in Rust into a JS class. The core package
+//!   (`@dunky.dev/state-machine`) wraps an instance with `fromWasm`, so every target —
+//!   react, solid, native, opentui — consumes it as a `Machine`.
+//! - The `runtime` feature is the engine for machines written in TS: the core package
+//!   ships it (`crates/core-wasm`).
 //!
-//! - **Event in**: `sendKind(kind)` for payload-less events (one number across the
-//!   boundary), `sendPayload(kind, { ...fields })` for the rest (only the payload fields
-//!   are read), `sendEvent({ type, ... })` as the generic serde path.
-//! - **Changes out**: every mutating call returns a `u32` change mask (see [`STATE_BIT`],
-//!   [`COMMANDS_BIT`], [`FIELD_SHIFT`]), so JS re-reads only the fields that changed.
-//! - **Commands out**: `takeCommands()` returns the timer commands as a flat `Uint32Array`
-//!   (`[op, id, ms, …]`, op 1 = start, 2 = cancel); JS runs them with `setTimeout` and
-//!   calls `fireTimer(id)`.
+//! Both speak one protocol with the core package's JS host: events in by kind number,
+//! a `notify(handle, state, changedLo, changedHi)` per effective change (synchronously,
+//! like the TS subscribers), timers on the host clock (`startTimer` / `cancelTimer`, then
+//! `fire(id)`), and a status code back from every call (see [`bridge`]).
 //!
 //! The crate using the macro must also depend on `wasm-bindgen`.
 
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use dunky_core::{
-    Context, DeserializeEvent, EventEnum, Machine, SerializeFields, StateEnum, Types,
+    Changes, Cleanup, ComputedKey, ComputedParams, Context, DeserializeEvent, EventEnum, Host,
+    Machine, SerializeFields, StateEnum, Types,
 };
 use serde::Serialize;
 use serde::de::DeserializeOwned;
+use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 
-// The protocol layout is shared with every binding (see `dunky_core::protocol`).
-pub use dunky_core::protocol::{COMMANDS_BIT, FIELD_SHIFT, HIGH_FIELD, STATE_BIT};
+pub mod bridge;
+#[cfg(feature = "runtime")]
+pub mod runtime;
+
+use bridge::Link;
+pub use bridge::{Bridge, ENGINE_FAILED, FAILED, HostObject, OK};
 
 #[doc(hidden)]
 pub mod __private {
-    pub use js_sys;
+    pub use dunky_core::ComputedKey;
 }
 
 /// What an [`export_machine!`] constructor body may evaluate to: a machine, or a
@@ -49,12 +57,13 @@ impl<T: Types> IntoMachine<T> for Result<Machine<T>, JsError> {
 
 /// Deserialize a JS value (constructor arguments, props).
 pub fn from_js<V: DeserializeOwned>(value: JsValue) -> Result<V, JsError> {
-    serde_wasm_bindgen::from_value(value).map_err(|e| JsError::new(&e.to_string()))
-}
-
-/// The protocol implementation behind every exported class.
-pub struct Handle<T: Types> {
-    pub machine: Machine<T>,
+    serde_wasm_bindgen::from_value(value).map_err(|e| {
+        let error: js_sys::Error = JsValue::from(e).unchecked_into();
+        JsError::new(&format!(
+            "[machine] bad argument: {}",
+            String::from(error.message())
+        ))
+    })
 }
 
 // `None` becomes `null`, matching the TS machines (`lastExecuted: null`, `activeId: null`).
@@ -62,162 +71,205 @@ fn serializer() -> serde_wasm_bindgen::Serializer {
     serde_wasm_bindgen::Serializer::new().serialize_missing_as_null(true)
 }
 
-/// Serialize any value for JS (plain objects, arrays, `undefined` for `None`).
+/// Serialize any value for JS (plain objects, arrays, `null` for `None`).
 pub fn to_js<V: Serialize + ?Sized>(value: &V) -> JsValue {
     value.serialize(&serializer()).unwrap_or(JsValue::UNDEFINED)
 }
 
-impl<T: Types> Handle<T>
+/// A Rust machine's host: it only hears changes (its guards, actions and effects are Rust).
+struct Observer {
+    link: Rc<Link>,
+}
+
+impl<T: Types> Host<T> for Observer {
+    fn guard(&self, _: u32, _: Option<&T::Event>) -> bool {
+        unreachable!("a Rust machine has no external guards")
+    }
+    fn action(&self, _: u32, _: Option<&T::Event>) {
+        unreachable!("a Rust machine has no external actions")
+    }
+    fn effect(&self, _: u32, _: Option<&T::Event>) -> Option<Cleanup> {
+        unreachable!("a Rust machine has no external effects")
+    }
+    fn delay(&self, _: u32, _: Option<&T::Event>) -> u32 {
+        unreachable!("a Rust machine has no external delays")
+    }
+    fn computed(&self, _: u32, _: &ComputedParams<'_, T>) -> Rc<dyn std::any::Any> {
+        unreachable!("a Rust machine has no external computed values")
+    }
+    fn pick(&self, _: u32, _: Option<&T::Event>) -> Option<usize> {
+        unreachable!("a Rust machine has no external guards")
+    }
+    fn actions(&self, _: u32, _: Option<&T::Event>) {
+        unreachable!("a Rust machine has no external actions")
+    }
+    fn notify(&self, state: T::State, changes: Changes) {
+        self.link.notify(state.index() as u32, changes);
+    }
+    fn settle(&self) {}
+}
+
+/// The implementation behind every class [`export_machine!`] generates.
+pub struct Exported<T: Types> {
+    bridge: Bridge<T>,
+    /// Per computed value: the version and the JS value last served.
+    computed: RefCell<Vec<Option<(u64, JsValue)>>>,
+}
+
+impl<T: Types> Exported<T>
 where
-    T::Event: DeserializeOwned + DeserializeEvent,
+    T::Event: DeserializeEvent,
     T::Context: SerializeFields,
 {
     pub fn new(machine: Machine<T>) -> Self {
-        Self { machine }
-    }
-
-    /// Pack what changed since the last call into the change mask.
-    pub fn changes(&self) -> u32 {
-        dunky_core::protocol::take_change_mask(&self.machine)
-    }
-
-    pub fn send_kind(&self, kind: u32) -> Result<u32, JsError> {
-        let names = <T::Event as EventEnum>::KIND_NAMES;
-        if kind as usize >= names.len() {
-            return Err(JsError::new(&format!("[machine] no event type #{kind}")));
+        let count = machine.config().computed_names().count();
+        Self {
+            bridge: Bridge::new(machine),
+            computed: RefCell::new(vec![None; count]),
         }
+    }
+
+    pub fn machine(&self) -> &Machine<T> {
+        self.bridge.machine()
+    }
+
+    /// Connect to the JS host; `facade` is the JS facade calling. Returns a status; a
+    /// second attach is an engine failure.
+    pub fn attach(&self, host: HostObject, facade: JsValue) -> u32 {
+        let link = Rc::new(Link::new(host, self.machine().halt_flag()));
+        if !self.bridge.connect(link.clone()) {
+            return self.bridge.fail("[machine] already attached".into());
+        }
+        self.machine().set_host(Rc::new(Observer { link }));
+        // Run what the machine did before it had a host (e.g. timers of a start in Rust).
+        self.bridge.call(facade, |_| {})
+    }
+
+    /// The facade a call runs for. `fromWasm` passes it; a bare call has none, which is
+    /// fine until a host is attached: then the host needs it for every callback.
+    fn facade(&self, facade: Option<JsValue>) -> Result<JsValue, u32> {
+        match facade {
+            Some(facade) => Ok(facade),
+            None if self.bridge.attached() => Err(self.bridge.fail(
+                "[machine] this machine is attached: call it through its fromWasm machine".into(),
+            )),
+            None => Ok(JsValue::UNDEFINED),
+        }
+    }
+
+    /// Send event `kind`; `event` (the JS event object) supplies the payload, if any.
+    pub fn send(&self, kind: u32, event: JsValue, facade: Option<JsValue>) -> u32 {
+        let facade = match self.facade(facade) {
+            Ok(facade) => facade,
+            Err(status) => return status,
+        };
+        let names = <T::Event as EventEnum>::KIND_NAMES;
+        let Some(name) = names.get(kind as usize) else {
+            return self.bridge.fail(format!("[machine] no event type #{kind}"));
+        };
         let k = <T::Event as EventEnum>::kind_from_index(kind as usize);
-        match <T::Event as EventEnum>::from_kind(k) {
-            Some(event) => {
-                self.machine.send(event);
-                Ok(self.changes())
+        let event = match <T::Event as EventEnum>::from_kind(k) {
+            Some(event) => event,
+            None => {
+                let deserializer = serde_wasm_bindgen::Deserializer::from(event);
+                match <T::Event as DeserializeEvent>::deserialize_payload(
+                    kind as usize,
+                    deserializer,
+                ) {
+                    Ok(event) => event,
+                    Err(e) => {
+                        return self
+                            .bridge
+                            .fail(format!("[machine] bad \"{name}\" event: {e}"));
+                    }
+                }
             }
-            None => Err(JsError::new(&format!(
-                "[machine] event \"{}\" carries data; use sendEvent",
-                names[kind as usize]
-            ))),
-        }
+        };
+        self.bridge.call(facade, |m| m.send(event))
     }
 
-    pub fn send_event(&self, event: JsValue) -> Result<u32, JsError> {
-        let event: T::Event = serde_wasm_bindgen::from_value(event)
-            .map_err(|e| JsError::new(&format!("[machine] bad event: {e}")))?;
-        self.machine.send(event);
-        Ok(self.changes())
+    pub fn start(&self, facade: Option<JsValue>) -> u32 {
+        self.facade(facade)
+            .map_or_else(|status| status, |facade| self.bridge.start(facade))
     }
 
-    /// The fast path for events with a payload: the caller already knows the kind, so
-    /// only the payload fields are read from the object (no tagged-enum buffering).
-    pub fn send_payload(&self, kind: u32, event: JsValue) -> Result<u32, JsError> {
-        let names = <T::Event as EventEnum>::KIND_NAMES;
-        if kind as usize >= names.len() {
-            return Err(JsError::new(&format!("[machine] no event type #{kind}")));
-        }
-        let deserializer = serde_wasm_bindgen::Deserializer::from(event);
-        let event =
-            <T::Event as DeserializeEvent>::deserialize_payload(kind as usize, deserializer)
-                .map_err(|e| {
-                    JsError::new(&format!(
-                        "[machine] bad \"{}\" event: {e}",
-                        names[kind as usize]
-                    ))
-                })?;
-        self.machine.send(event);
-        Ok(self.changes())
+    pub fn stop(&self, facade: Option<JsValue>) -> u32 {
+        self.facade(facade)
+            .map_or_else(|status| status, |facade| self.bridge.stop(facade))
     }
 
-    pub fn state_index(&self) -> u32 {
-        self.machine.state().index() as u32
+    pub fn fire(&self, id: u32, facade: Option<JsValue>) -> u32 {
+        self.facade(facade)
+            .map_or_else(|status| status, |facade| self.bridge.fire(id, facade))
+    }
+
+    /// The engine's failure behind status 3.
+    pub fn take_failure(&self) -> Option<String> {
+        self.bridge.take_failure()
+    }
+
+    pub fn running(&self) -> bool {
+        self.machine().is_running()
+    }
+
+    pub fn state(&self) -> u32 {
+        self.machine().state().index() as u32
     }
 
     pub fn field(&self, index: u32) -> JsValue {
-        let ctx = self.machine.context();
-        ctx.serialize_field(index as usize, &serializer())
+        self.machine()
+            .context()
+            .serialize_field(index as usize, &serializer())
             .unwrap_or(JsValue::UNDEFINED)
     }
 
-    /// Every field, in order (the initial mirror).
-    pub fn fields(&self) -> js_sys::Array {
-        let ctx = self.machine.context();
-        let out = js_sys::Array::new();
-        for i in 0..<T::Context as Context>::FIELDS.len() {
-            out.push(
-                &ctx.serialize_field(i, &serializer())
-                    .unwrap_or(JsValue::UNDEFINED),
-            );
+    /// The value of `key`, serialized only when it changed since the last read.
+    pub fn computed<V: Serialize + 'static>(&self, key: ComputedKey<V>) -> JsValue {
+        let version = self.machine().computed_version(key.id());
+        if let Some((seen, value)) = &self.computed.borrow()[key.id()]
+            && *seen == version
+        {
+            return value.clone();
         }
-        out
+        let value = to_js(&*self.machine().computed(key));
+        self.computed.borrow_mut()[key.id()] = Some((version, value.clone()));
+        value
     }
 
-    pub fn computed_version(&self, index: u32) -> f64 {
-        self.machine.computed_version(index as usize) as f64
-    }
-
-    pub fn start(&self) -> u32 {
-        self.machine.start();
-        self.changes()
-    }
-
-    pub fn stop(&self) -> u32 {
-        self.machine.stop();
-        self.changes()
-    }
-
-    pub fn fire_timer(&self, id: u32) -> u32 {
-        self.machine.fire_timer(id);
-        self.changes()
-    }
-
-    pub fn take_commands(&self) -> Vec<u32> {
-        dunky_core::protocol::encode_commands(&self.machine.take_commands())
-    }
-
-    /// Static description for the adapter: names, which events are payload-less, tags.
+    /// The names `fromWasm` maps the numbers onto, once per machine type.
     pub fn meta(&self) -> JsValue {
         #[derive(Serialize)]
-        #[serde(rename_all = "camelCase")]
         struct Meta<'a> {
             states: &'a [&'a str],
             events: &'a [&'a str],
-            unit_events: Vec<bool>,
             fields: &'a [&'a str],
             computed: Vec<&'a str>,
             tags: Vec<&'a [&'a str]>,
-            field_shift: u32,
-            high_field: usize,
         }
-        let config = self.machine.config();
-        let events = <T::Event as EventEnum>::KIND_NAMES;
+        let config = self.machine().config();
         let states = <T::State as StateEnum>::NAMES;
         to_js(&Meta {
             states,
-            events,
-            unit_events: (0..events.len())
-                .map(|i| {
-                    let k = <T::Event as EventEnum>::kind_from_index(i);
-                    <T::Event as EventEnum>::from_kind(k).is_some()
-                })
-                .collect(),
+            events: <T::Event as EventEnum>::KIND_NAMES,
             fields: <T::Context as Context>::FIELDS,
             computed: config.computed_names().collect(),
             tags: (0..states.len())
                 .map(|i| config.tags(<T::State as StateEnum>::from_index(i)))
                 .collect(),
-            field_shift: FIELD_SHIFT,
-            high_field: HIGH_FIELD,
         })
     }
 }
 
-/// Export a machine type as a JS class.
+/// Export a machine type as a JS class. Wrap an instance with `fromWasm` from
+/// `@dunky.dev/state-machine`.
 ///
 /// ```ignore
 /// dunky_wasm::export_machine! {
 ///     /// The command palette.
-///     pub struct PaletteMachine(dunky_demo::palette::Palette);
+///     pub struct PaletteMachine(palette::Palette);
 ///     new(commands: JsValue) {
 ///         // A `Result` body throws its error from the JS constructor.
-///         dunky_wasm::from_js(commands).map(|c| Machine::new(&dunky_demo::palette::config(c)))
+///         dunky_wasm::from_js(commands).map(|c| Machine::new(&palette::config(c)))
 ///     }
 ///     computed { palette::RESULTS => Vec<Command>, palette::ACTIVE_ID => Option<String> }
 /// }
@@ -233,7 +285,7 @@ macro_rules! export_machine {
         $(#[$meta])*
         #[::wasm_bindgen::prelude::wasm_bindgen]
         $vis struct $name {
-            handle: $crate::Handle<$types>,
+            inner: $crate::Exported<$types>,
         }
 
         #[::wasm_bindgen::prelude::wasm_bindgen]
@@ -243,63 +295,51 @@ macro_rules! export_machine {
             #[allow(unused_braces)] // `$make` is the caller's block, passed as an argument
             pub fn new($($arg: $argty),*) -> ::core::result::Result<$name, ::wasm_bindgen::JsError> {
                 let machine = $crate::IntoMachine::<$types>::into_machine($make)?;
-                ::core::result::Result::Ok($name { handle: $crate::Handle::new(machine) })
+                ::core::result::Result::Ok($name { inner: $crate::Exported::new(machine) })
             }
-            /// Payload-less event by kind index. Returns the change mask.
-            #[wasm_bindgen(js_name = sendKind)]
-            pub fn send_kind(&self, kind: u32) -> ::core::result::Result<u32, ::wasm_bindgen::JsError> {
-                self.handle.send_kind(kind)
+            /// Connect to the JS host (`fromWasm` does). Calls return a status: 0, 1 when
+            /// JS code failed (the host holds the error), 3 when the engine failed.
+            pub fn attach(&self, host: $crate::HostObject, facade: ::wasm_bindgen::JsValue) -> u32 {
+                self.inner.attach(host, facade)
             }
-            /// Any event object `{ type, ...payload }`. Returns the change mask.
-            #[wasm_bindgen(js_name = sendEvent)]
-            pub fn send_event(&self, event: ::wasm_bindgen::JsValue) -> ::core::result::Result<u32, ::wasm_bindgen::JsError> {
-                self.handle.send_event(event)
+            /// `facade` is passed by `fromWasm`; leave it out when calling directly.
+            pub fn send(&self, kind: u32, event: ::wasm_bindgen::JsValue, facade: ::core::option::Option<::wasm_bindgen::JsValue>) -> u32 {
+                self.inner.send(kind, event, facade)
             }
-            /// An event with a payload, by kind index. Returns the change mask.
-            #[wasm_bindgen(js_name = sendPayload)]
-            pub fn send_payload(&self, kind: u32, event: ::wasm_bindgen::JsValue) -> ::core::result::Result<u32, ::wasm_bindgen::JsError> {
-                self.handle.send_payload(kind, event)
+            pub fn start(&self, facade: ::core::option::Option<::wasm_bindgen::JsValue>) -> u32 {
+                self.inner.start(facade)
             }
-            #[wasm_bindgen(js_name = stateIndex)]
-            pub fn state_index(&self) -> u32 {
-                self.handle.state_index()
+            pub fn stop(&self, facade: ::core::option::Option<::wasm_bindgen::JsValue>) -> u32 {
+                self.inner.stop(facade)
+            }
+            pub fn fire(&self, id: u32, facade: ::core::option::Option<::wasm_bindgen::JsValue>) -> u32 {
+                self.inner.fire(id, facade)
+            }
+            #[wasm_bindgen(js_name = takeFailure)]
+            pub fn take_failure(&self) -> ::core::option::Option<::std::string::String> {
+                self.inner.take_failure()
+            }
+            pub fn running(&self) -> bool {
+                self.inner.running()
+            }
+            pub fn state(&self) -> u32 {
+                self.inner.state()
             }
             pub fn field(&self, index: u32) -> ::wasm_bindgen::JsValue {
-                self.handle.field(index)
-            }
-            pub fn fields(&self) -> $crate::__private::js_sys::Array {
-                self.handle.fields()
+                self.inner.field(index)
             }
             #[allow(unused_variables)]
-            pub fn computed(&self, index: u32) -> ::wasm_bindgen::JsValue {
+            pub fn computed(&self, id: u32) -> ::wasm_bindgen::JsValue {
                 $(
-                    if index as usize == ($key).id() {
-                        let value: ::std::rc::Rc<$cty> = self.handle.machine.computed($key);
-                        return $crate::to_js(&*value);
+                    let key: $crate::__private::ComputedKey<$cty> = $key;
+                    if id as usize == key.id() {
+                        return self.inner.computed(key);
                     }
                 )*
                 ::wasm_bindgen::JsValue::UNDEFINED
             }
-            #[wasm_bindgen(js_name = computedVersion)]
-            pub fn computed_version(&self, index: u32) -> f64 {
-                self.handle.computed_version(index)
-            }
-            pub fn start(&self) -> u32 {
-                self.handle.start()
-            }
-            pub fn stop(&self) -> u32 {
-                self.handle.stop()
-            }
-            #[wasm_bindgen(js_name = fireTimer)]
-            pub fn fire_timer(&self, id: u32) -> u32 {
-                self.handle.fire_timer(id)
-            }
-            #[wasm_bindgen(js_name = takeCommands)]
-            pub fn take_commands(&self) -> ::std::vec::Vec<u32> {
-                self.handle.take_commands()
-            }
             pub fn meta(&self) -> ::wasm_bindgen::JsValue {
-                self.handle.meta()
+                self.inner.meta()
             }
         }
     };

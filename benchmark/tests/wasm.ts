@@ -1,12 +1,12 @@
 /**
- * SPIKE — the TS core vs the Rust core (crates/core) compiled to wasm.
+ * A machine written in TS vs the same machine written in Rust — both on the Rust engine.
  *
- * Every Rust row runs the SAME machine as its TS row (crates/demo ports them 1:1):
+ * Every Rust row runs the SAME machine as its TS row (benchmark/rust ports them 1:1):
  *
- *   wasm/adapter — through @dunky.dev/state-machine-wasm: the TS `Machine` interface
- *                  over the wasm handle (JS context mirror, change mask, timers). This
- *                  is what a React/Solid target actually calls.
- *   wasm/raw     — the bare wasm-bindgen handle, no adapter: the boundary floor.
+ *   ts machine   — `machine(config)`: the engine (wasm) calls back into the TS user code.
+ *   rust machine — through `fromWasm`: the `Machine` interface over a Rust machine in its
+ *                  own wasm module. This is what a React/Solid target actually calls.
+ *   rust raw     — the bare wasm-bindgen handle, no facade: the boundary floor.
  *
  * Needs the wasm build (`pnpm build:wasm`). Set SPIKE_OUT=<file.json> to also write the
  * numbers as JSON (the spike report reads them).
@@ -24,10 +24,11 @@ import {
   createPalette,
   createPaletteObjects,
   createPingPong,
-  loadDemoNode,
+  loadRust,
   noop,
   raw,
-} from '@dunky.dev/demo-wasm/node'
+  WASM_URL,
+} from '../rust'
 import { report } from '../report'
 
 const SINK = { n: 0 }
@@ -66,7 +67,7 @@ async function run(id: string, title: string, bench: Bench): Promise<void> {
 
 const newBench = () => new Bench({ time: 500, warmupTime: 100 })
 
-// --- TS twins of the Rust demo machines (crates/demo) ------------------------
+// --- TS twins of the Rust machines (benchmark/rust) --------------------------
 type CellCtx = { value: number; other: number }
 const cellConfig = {
   initial: 'idle' as const,
@@ -163,11 +164,9 @@ function benchCell(field: 'hit' | 'miss') {
   handle.start()
   const kind = field === 'hit' ? 0 : 1
   const event = { type: field } as const
-  b.add('ts core', () => ts.send(event))
-  b.add('wasm/adapter', () => rs.send(event))
-  b.add('wasm/raw sendKind', () => {
-    SINK.n += handle.sendKind(kind)
-  })
+  b.add('ts machine', () => ts.send(event))
+  b.add('rust machine', () => rs.send(event))
+  b.add('rust raw', () => handle.send(kind, event))
   return b
 }
 
@@ -181,11 +180,9 @@ function benchPingPong() {
   const handle = new raw.PingPongMachine()
   handle.start()
   const go = { type: 'go' } as const
-  b.add('ts core', () => ts.send(go))
-  b.add('wasm/adapter', () => rs.send(go))
-  b.add('wasm/raw sendKind', () => {
-    SINK.n += handle.sendKind(0)
-  })
+  b.add('ts machine', () => ts.send(go))
+  b.add('rust machine', () => rs.send(go))
+  b.add('rust raw', () => handle.send(0, go))
   return b
 }
 
@@ -197,8 +194,8 @@ function benchGuards(k: number) {
   const rs = createGuards(k)
   rs.start()
   const go = { type: 'go' } as const
-  b.add('ts core', () => ts.send(go))
-  b.add('wasm/adapter', () => rs.send(go))
+  b.add('ts machine', () => ts.send(go))
+  b.add('rust machine', () => rs.send(go))
   return b
 }
 
@@ -220,47 +217,46 @@ function benchPalette(n: number) {
     m.send({ type: 'query.set', query: QUERIES[i++ % QUERIES.length]! })
     SINK.n += m.computed.results.length + (m.computed.activeId?.length ?? 0)
   }
-  b.add('ts core', () => typeAndRead(ts))
-  b.add('wasm/adapter (indices → own objects)', () => typeAndRead(rsIdx))
-  b.add('wasm/adapter (objects cross)', () => typeAndRead(rsObj))
+  b.add('ts machine', () => typeAndRead(ts))
+  b.add('rust machine (indices → own objects)', () => typeAndRead(rsIdx))
+  b.add('rust machine (objects cross)', () => typeAndRead(rsObj))
   return b
 }
 
 // --- F. construction: build + start one machine ---------------------------------
 function benchConstruct() {
   const b = newBench()
-  b.add('ts core: machine(config) + start', () => {
+  b.add('ts machine: machine(config) + start', () => {
     const m = tsCell()
     m.start()
     SINK.n += m.context.value
   })
-  b.add('wasm/adapter: createCell() + start', () => {
+  b.add('rust machine: createCell() + start', () => {
     const m = createCell()
     m.start()
     SINK.n += m.context.value
   })
-  b.add('wasm/raw: new CellMachine() + start', () => {
+  b.add('rust raw: new CellMachine() + start', () => {
     const h = new raw.CellMachine()
-    SINK.n += h.start()
+    SINK.n += h.start() === 0 ? 1 : 0
   })
   return b
 }
 
 function measureInit(): { compileMs: number; firstInitMs: number } {
-  const url = new URL('../../packages/demo-wasm/pkg/dunky_demo_wasm_bg.wasm', import.meta.url)
-  const bytes = readFileSync(url)
+  const bytes = readFileSync(WASM_URL)
   const runs = 20
   const t0 = performance.now()
   for (let i = 0; i < runs; i++) new WebAssembly.Module(bytes)
   const compileMs = (performance.now() - t0) / runs
   const t1 = performance.now()
-  loadDemoNode()
+  loadRust()
   const firstInitMs = performance.now() - t1
   return { compileMs, firstInitMs }
 }
 
 export async function runWasm() {
-  console.log('\n========== SPIKE — TS core vs Rust core (wasm) ==========')
+  console.log('\n========== TS machines vs Rust machines (both on the Rust engine) ==========')
   const init = measureInit()
   console.log(
     `wasm init: compile ${init.compileMs.toFixed(2)} ms (avg of 20) · first initSync ${init.firstInitMs.toFixed(2)} ms`,

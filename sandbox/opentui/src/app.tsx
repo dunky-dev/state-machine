@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { DEMO_COMMANDS, type CommandPaletteSource } from '@sandbox/cmdk-core'
 import { CommandPalette } from './command-palette'
 
-export type Engine = 'ts' | 'rust'
+/** The language the palette machine is written in. Both run on the Rust engine. */
+export type Language = 'ts' | 'rust'
 
-export function App({ engine, source }: { engine: Engine; source: CommandPaletteSource }) {
+export function App({ language, source }: { language: Language; source: CommandPaletteSource }) {
   const [last, setLast] = useState('—')
 
   return (
@@ -25,7 +26,7 @@ export function App({ engine, source }: { engine: Engine; source: CommandPalette
       <text attributes={1}>⌘K Command Pallete</text>
 
       <CommandPalette source={source} commands={DEMO_COMMANDS} onSelect={c => setLast(c.label)} />
-      <text>Engine: {engine === 'rust' ? 'Rust (wasm)' : 'TypeScript'}</text>
+      <text>Machine written in {language === 'rust' ? 'Rust' : 'TypeScript'}</text>
 
       <box style={{ flexDirection: 'column', alignItems: 'center' }}>
         <text>One state machine drives this ⌘K palette.</text>

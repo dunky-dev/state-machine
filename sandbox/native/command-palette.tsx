@@ -5,8 +5,8 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import { useMachine } from '@dunky.dev/react-state-machine'
 import { mergeProps, normalize } from '@dunky.dev/native-state-machine'
 import {
+  commandPaletteMachineConfig,
   type CommandPaletteProps,
-  type CommandPaletteSource,
   connectCommandPalette,
 } from '@sandbox/cmdk-core'
 
@@ -15,12 +15,8 @@ import {
 // elements differ. There's no global keyboard on mobile, so the trigger is a tap
 // and rows are tapped to execute; arrow-key nav simply isn't part of this
 // substrate. The machine doesn't care — it just receives `highlight`/`execute`.
-// `source` is the TS config or the Rust machine (see app.tsx); nothing else differs.
-export function CommandPalette({
-  source,
-  ...props
-}: CommandPaletteProps & { source: CommandPaletteSource }) {
-  const { api, machine } = useMachine(source, connectCommandPalette, [], props)
+export function CommandPalette(props: CommandPaletteProps) {
+  const { api, machine } = useMachine(commandPaletteMachineConfig, connectCommandPalette, [], props)
   const inputRef = useRef<TextInput>(null)
 
   useEffect(() => {

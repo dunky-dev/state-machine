@@ -1,5 +1,5 @@
 name: Setup wasm
-description: Build the generated wasm package (packages/demo-wasm/pkg) for jobs that import it. Runs after ci-setup.
+description: Build the wasm modules (pnpm build:wasm) — the engine inside @dunky.dev/state-machine, and the Rust machines of the sandbox and the benchmark — for jobs that import them. Runs after ci-setup.
 
 runs:
   using: composite

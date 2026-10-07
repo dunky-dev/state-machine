@@ -1,10 +1,9 @@
 //! React Native binding of the engine, exported over JSI by
-//! uniffi-bindgen-react-native (see `packages/native-rust`).
+//! uniffi-bindgen-react-native: the sandbox palette written in Rust.
 //!
-//! It speaks the handle protocol of `crates/wasm` (`dunky_wasm::Handle`), so one TS
-//! adapter (`@dunky.dev/state-machine-wasm`) drives both bindings: events in by kind
-//! index, a u32 change mask out, timers as flat commands. Values cross as JSON strings
-//! instead of JS values.
+//! Events go in by kind index; a u32 change mask comes out, and timers come out as
+//! flat commands (`dunky_core::protocol`). Values cross as JSON strings instead of JS
+//! values. Pending its rework onto the host protocol `crates/wasm` speaks.
 
 use std::mem::ManuallyDrop;
 use std::sync::Arc;
@@ -13,7 +12,7 @@ use std::thread::{self, ThreadId};
 use dunky_core::{
     Config, Context, DeserializeEvent, EventEnum, Machine, SerializeFields, StateEnum, Types,
 };
-use dunky_demo::palette::{self, Palette, PaletteEvent};
+use dunky_sandbox::palette::{self, Palette, PaletteEvent};
 
 uniffi::setup_scaffolding!();
 
@@ -79,7 +78,7 @@ impl<T> Drop for ThreadBound<T> {
     }
 }
 
-/// The event type name at `kind`, or the error `dunky_wasm::Handle` throws for it.
+/// The event type name at `kind`, or the error for an unknown kind.
 fn event_name<T: Types>(kind: u32) -> Result<&'static str, MachineError> {
     <T::Event as EventEnum>::KIND_NAMES
         .get(kind as usize)
@@ -138,12 +137,12 @@ fn meta_json<T: Types>(machine: &Machine<T>) -> String {
 }
 
 thread_local! {
-    // One config shared by every palette, as in crates/demo-wasm. Palettes never leave
+    // One config shared by every palette, as in the sandbox wasm. Palettes never leave
     // the JS thread, so a thread-local is enough.
     static PALETTE: Config<Palette> = palette::config(Vec::new());
 }
 
-/// The command palette of `crates/demo`, behind the handle protocol.
+/// The sandbox command palette (`dunky_sandbox::palette`), behind the handle protocol.
 #[derive(uniffi::Object)]
 pub struct PaletteMachine {
     machine: ThreadBound<Machine<Palette>>,
@@ -261,8 +260,7 @@ impl PaletteMachine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use dunky_core::protocol::STATE_BIT;
-    use dunky_demo::palette::{MoveTo, PaletteCtx, PaletteEventKind};
+    use dunky_sandbox::palette::{PaletteCtx, PaletteEventKind};
     use serde_json::{Value, json};
     use std::panic::{AssertUnwindSafe, catch_unwind};
     use std::sync::atomic::{AtomicBool, Ordering};
@@ -301,39 +299,6 @@ mod tests {
 
         drop(ThreadBound::new(Flag(dropped.clone())));
         assert!(dropped.load(Ordering::SeqCst));
-    }
-
-    #[test]
-    fn change_masks_match_the_wasm_binding() {
-        let native = palette();
-        let wasm =
-            dunky_wasm::Handle::new(Machine::new(&palette::config(palette::demo_commands())));
-        let send = |event: PaletteEvent| {
-            wasm.machine.send(event);
-            wasm.changes()
-        };
-
-        assert_eq!(native.start(), wasm.start());
-        let open = native.send_kind(kind(PaletteEventKind::Open)).unwrap();
-        assert_eq!(open & STATE_BIT, STATE_BIT);
-        assert_eq!(open, send(PaletteEvent::Open));
-        assert_eq!(
-            native
-                .send_payload_json(kind(PaletteEventKind::QuerySet), r#"{"query":"go"}"#.into())
-                .unwrap(),
-            send(PaletteEvent::QuerySet { query: "go".into() })
-        );
-        assert_eq!(
-            native
-                .send_payload_json(kind(PaletteEventKind::Move), r#"{"to":"down"}"#.into())
-                .unwrap(),
-            send(PaletteEvent::Move { to: MoveTo::Down })
-        );
-        assert_eq!(
-            native.send_kind(kind(PaletteEventKind::Execute)).unwrap(),
-            send(PaletteEvent::Execute)
-        );
-        assert_eq!(native.stop(), wasm.stop());
     }
 
     #[test]

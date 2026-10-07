@@ -13,7 +13,9 @@ dist
 # Rust
 /target
 # wasm-bindgen output (built by `pnpm build:wasm`)
-packages/demo-wasm/pkg
+packages/core/wasm
+sandbox/shared/rust/pkg
+benchmark/rust/pkg
 
 # Expo prebuild output (`expo prebuild` / `expo run:*` in the RN sandbox)
 sandbox/native/ios

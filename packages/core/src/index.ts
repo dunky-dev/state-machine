@@ -7,10 +7,13 @@ export { connector } from './connector'
 export { makeReaction } from './reaction'
 export { compose, type Composition } from './compose'
 export { createStore, type Store, type Listener, type SetStateAction } from './store'
-// Building blocks for other Machine implementations (e.g. the wasm adapter), so every
-// implementation shares one broadcast and one selection semantics.
-export { makeBroadcast, type Broadcast } from './broadcast'
-export { makeSelection } from './selection'
+export {
+  fromWasm,
+  type ComputedMapping,
+  type FromWasmOptions,
+  type WasmMachine,
+  type WasmMachineMeta,
+} from './from-wasm'
 
 export type {
   Machine,

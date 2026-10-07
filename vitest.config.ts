@@ -11,7 +11,7 @@ export default defineConfig({
           name: 'default',
           globals: false,
           environment: 'node',
-          include: ['packages/**/tests/**/*.test.{ts,tsx}'],
+          include: ['packages/**/tests/**/*.test.{ts,tsx}', 'sandbox/shared/tests/**/*.test.ts'],
           exclude: ['**/node_modules/**', '**/dist/**', 'packages/solid/**'],
         },
       },

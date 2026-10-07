@@ -1,6 +1,6 @@
-# React Native binding of the engine, built by uniffi-bindgen-react-native
-# (packages/native-rust). Standalone on purpose: the root workspace excludes it,
-# so its mobile-only toolchain can never break the other crates' builds.
+# React Native binding of the engine, built by uniffi-bindgen-react-native.
+# Standalone on purpose: the root workspace excludes it, so its mobile-only
+# toolchain can never break the other crates' builds.
 [package]
 name = "dunky-uniffi"
 version = "0.1.0"
@@ -17,12 +17,8 @@ crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
 dunky-core = { path = "../core" }
-dunky-demo = { path = "../demo" }
+dunky-sandbox = { path = "../../sandbox/shared/rust" }
 serde_json = "1"
 # Must stay on the uniffi minor that uniffi-bindgen-react-native is built with
 # (ubrn 0.31.0-6 -> uniffi 0.31): the generated C++/TS check the contract version.
 uniffi = "=0.31"
-
-[dev-dependencies]
-# The change-mask parity test drives the wasm binding's `Handle` next to this one.
-dunky-wasm = { path = "../wasm" }

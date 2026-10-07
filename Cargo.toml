@@ -1,8 +1,16 @@
-# Rust port of the engine. Members are listed explicitly so a half-built crate
+# The Rust engine, its bindings, and the machines the sandbox and the benchmark
+# write in Rust. Members are listed explicitly so a half-built crate
 # never breaks `cargo test --workspace` for the others.
 [workspace]
 resolver = "3"
-members = ["crates/core", "crates/macros", "crates/wasm", "crates/demo", "crates/demo-wasm"]
+members = [
+  "crates/core",
+  "crates/macros",
+  "crates/wasm",
+  "crates/core-wasm",
+  "sandbox/shared/rust",
+  "benchmark/rust",
+]
 # Built by its own pipeline (uniffi-bindgen-react-native) for iOS/Android.
 exclude = ["crates/uniffi"]
 
@@ -17,7 +25,7 @@ rust-version = "1.85"
 dunky-core = { path = "crates/core" }
 dunky-macros = { path = "crates/macros" }
 dunky-wasm = { path = "crates/wasm" }
-dunky-demo = { path = "crates/demo" }
+dunky-sandbox = { path = "sandbox/shared/rust" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Must match the installed wasm-bindgen CLI exactly (wasm-bindgen --version).

@@ -15,6 +15,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
 
 [[package]]
+name = "dunky-benchmark"
+version = "0.1.0"
+dependencies = [
+ "dunky-core",
+ "dunky-sandbox",
+ "dunky-wasm",
+ "serde",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "dunky-core"
 version = "0.1.0"
 dependencies = [
@@ -24,20 +35,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "dunky-demo"
+name = "dunky-core-wasm"
 version = "0.1.0"
 dependencies = [
- "dunky-core",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "dunky-demo-wasm"
-version = "0.1.0"
-dependencies = [
- "dunky-core",
- "dunky-demo",
  "dunky-wasm",
  "wasm-bindgen",
 ]
@@ -49,6 +49,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "dunky-sandbox"
+version = "0.1.0"
+dependencies = [
+ "dunky-core",
+ "dunky-wasm",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
 ]
 
 [[package]]

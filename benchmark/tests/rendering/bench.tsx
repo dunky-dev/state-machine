@@ -114,7 +114,7 @@ const renderCounts = {
   'core/instance': 0,
   'zag/instance': 0,
   'xstate/selector': 0,
-  // The same rows over the Rust core (crates/demo → wasm, via @dunky.dev/state-machine-wasm).
+  // The same rows over machines written in Rust (benchmark/rust → wasm, via fromWasm).
   'wasm/selector': 0,
   'wasm/instance': 0,
 }
@@ -319,11 +319,11 @@ export async function runRenderingBench(N: number, moves: number) {
   }
 
   // --- The same two arenas over the Rust core (wasm), when it is built ---
-  const demo = wasmBuilt() ? await import('@dunky.dev/demo-wasm/node') : null
-  if (!demo) console.warn(WASM_SKIPPED)
-  if (demo) {
-    demo.loadDemoNode() // idempotent; the suite's wasm section already loaded it
-    const { createHighlight, createList } = demo
+  const rust = wasmBuilt() ? await import('../../rust') : null
+  if (!rust) console.warn(WASM_SKIPPED)
+  if (rust) {
+    rust.loadRust() // idempotent; the suite's wasm section already loaded it
+    const { createHighlight, createList } = rust
     const m = createList()
     m.start()
     results['wasm/selector'] = run(

@@ -11,7 +11,6 @@ export default defineConfig({
   // choice. Keep in sync with the publish set in .changeset/config.json.
   workspace: [
     'packages/core',
-    'packages/wasm',
     'packages/dom',
     'packages/react',
     'packages/solid',

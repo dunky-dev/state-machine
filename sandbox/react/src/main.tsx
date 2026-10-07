@@ -1,7 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { commandPaletteMachineConfig, type CommandPaletteSource } from '@sandbox/cmdk-core'
-import { App, type Engine } from './app'
+import { App, type Language } from './app'
 
 // The stylesheet both web sandboxes share.
 import '../../shared/src/styles.css'
@@ -9,21 +9,22 @@ import '../../shared/src/styles.css'
 const root = document.getElementById('root')
 if (!root) throw new Error('missing #root')
 
-// `?engine=rust` runs the same palette on the Rust machine (crates/demo → wasm).
-// Build the wasm first: `pnpm build:wasm`.
-const engine: Engine = new URLSearchParams(location.search).get('engine') === 'rust' ? 'rust' : 'ts'
+// `?machine=rust` runs the palette written in Rust (sandbox/shared/rust → wasm) instead
+// of the one written in TS. Build the wasm first: `pnpm build:wasm`.
+const language: Language =
+  new URLSearchParams(location.search).get('machine') === 'rust' ? 'rust' : 'ts'
 
 async function boot(target: HTMLElement) {
   let source: CommandPaletteSource = commandPaletteMachineConfig
-  if (engine === 'rust') {
-    // Imported only for the Rust engine, so the TS page runs without the wasm build.
-    const demo = await import('@dunky.dev/demo-wasm')
-    await demo.loadDemo()
-    source = props => demo.createPalette(props.commands)
+  if (language === 'rust') {
+    // Imported only for the Rust machine, so the TS page loads no second wasm module.
+    const rust = await import('@sandbox/cmdk-core/rust')
+    await rust.loadRust()
+    source = props => rust.createRustPalette(props.commands)
   }
   createRoot(target).render(
     <StrictMode>
-      <App engine={engine} source={source} />
+      <App language={language} source={source} />
     </StrictMode>,
   )
 }
