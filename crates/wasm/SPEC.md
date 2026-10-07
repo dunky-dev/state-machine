@@ -69,13 +69,22 @@ machines; the conversion helpers between JS values and Rust values.
 - `startTimer(facade, id, ms)` returns the host's timeout; `cancelTimer(timeout)` cancels
   it. A due timer calls back into the machine with its id.
 - For TS machines only, by index in the JS tables, with the event that caused the call
-  (none for a boot or a data-reaction): `guard`, `action`, `actions` (a run of actions
-  in one call), `pick` (a guard walk in one call: the first candidate that passes),
-  `effect` (returns a cleanup id, or 0), `cleanup`, `delay` and `computed` (reports its
-  value and its reads back before it returns).
-- A TS machine's state change rides on the next `action`, `actions` or `effect` call of
-  its transition and is announced first; without one, it is delivered on its own before
-  the transition ends.
+  (none for a boot or a data-reaction):
+  - `guard`; `pick`, a guard walk in one call (the first candidate that passes);
+  - `action`; `actions`, a run of actions in one call;
+  - `effect`: starts an effect, and the facade keeps its cleanup;
+  - `delay`; `computed`, which reports its value and its reads back before it returns;
+  - `transition`: a leaving transition run whole (see below).
+- What the engine holds back rides on the next `action`, `actions`, `effect` or
+  `transition` call as `pre`, and runs first: bit 0 stops the effects (the facade runs
+  every cleanup, in start order, even past one that throws), the bits above announce a
+  state change (the state + 1). With no such call, `pre` is delivered on its own, before
+  the state switches and when the transition ends.
+- A **whole transition** is one call for a TS machine without computed values, when the
+  target has no named delay: stop the effects, exit actions, the transition's actions,
+  announce the switch, entry actions, start the target's effects. It returns where it
+  failed: before the switch (the machine stays put), after it, or while starting the
+  effects.
 
 ### Calls
 

@@ -114,13 +114,27 @@ A **host** (cargo feature `host`) connects a machine to another runtime. It has 
 - **Run the external parts.** A config may reference guards, actions, effects, delays
   and derived definitions by number instead of Rust code — for example, the user code of
   a machine written in TypeScript. The engine calls the host for them while it holds no
-  mutable borrow, so the host may read derived values, write context, and dispatch. A
-  run of external actions can be one host call, and so can a guard walk over a handler's
-  candidates (the host returns the first that passes).
+  mutable borrow, so the host may read derived values, write context, and dispatch.
 - **Hear every change.** After each effective change the engine notifies the host: once
   per change, in order, with no borrow held, with the current state and what changed
-  since the previous notify. A host may hold a notification back and deliver it with its
-  next callback, first, and no later than when the transition ends.
+  since the previous notify.
+
+Fewer calls, same order:
+
+- A run of external actions is one host call, and so is a guard walk over a handler's
+  candidates (the host returns the first that passes).
+- The host keeps the cleanups of the effects it starts. When the state's effects stop,
+  the engine tells it once, and the host runs them all, in start order, even past one
+  that fails.
+- A host may hold a notification or an effects stop back and deliver it first with its
+  next callback. The engine settles the host — everything held back is delivered — before
+  it switches state, when a transition ends, and when the machine stops.
+- A transition with a host id that leaves its state runs **whole** on the host, in one
+  call: the effects stop, exit actions, the transition's actions, the switch and its
+  notification, entry actions, the target's effects. The engine switches state after the
+  call, so a binding gives a host id only when nothing the host runs can read the
+  engine's state mid-transition (no derived values) and the target has no host delay. If
+  the call fails before the switch, the machine stays where it was.
 
 The contract:
 

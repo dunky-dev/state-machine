@@ -57,8 +57,12 @@ elements — the left two are agnostic, the right three are per-target:
 
 ![How Dunky works, from agnostic to substrate: the dunky engine powers, the machine decides, the binding connects, the behavior appears](./website/src/assets/diagrams/flow-animated.svg)
 
-- **core** — the state-machine engine. Pure behavior: states, transitions,
-  context, effects. Knows nothing about a renderer.
+- **engine** — the state-machine runtime, in Rust (`crates/core`). Pure behavior:
+  states, transitions, context, effects. Knows nothing about a renderer, and runs
+  machines written in TypeScript or in Rust.
+- **core** — the TS API over the engine (`@dunky.dev/state-machine`): `machine()`
+  for machines written in TS, `fromWasm()` for machines written in Rust, and the
+  `Machine` object every target consumes.
 - **connector** — turns machine state into agnostic _bindings_ and keeps that
   view in sync as the machine changes.
 - **normalize** — per target, translates those bindings into real props
@@ -70,8 +74,9 @@ elements — the left two are agnostic, the right three are per-target:
 
 The full layered model and the "the machine never sees props" rule are in:
 
-- **[`ARCHITECTURE.md`](./ARCHITECTURE.md)** — the big-picture map and the layered model.
-- **[`packages/core/README.md`](./packages/core/README.md)** — the state machine engine and its full API.
+- **[`ARCHITECTURE.md`](./ARCHITECTURE.md)** — the big-picture map, the layered model, and the vocabulary.
+- **[`packages/core/README.md`](./packages/core/README.md)** — the TS API, its quick reference; [`SPEC.md`](./packages/core/SPEC.md) defines it.
+- **[`crates/core/README.md`](./crates/core/README.md)** — the Rust engine and writing machines in Rust; [`SPEC.md`](./crates/core/SPEC.md) defines it.
 - **[`benchmark/README.md`](./benchmark/README.md)** — what's measured, the methodology, and results vs. XState & Zag.
 - **[`ACCESSIBILITY.md`](./ACCESSIBILITY.md)** — the external specs every package answers to.
 - **[`AGENTS.md`](./AGENTS.md)** — the contributor / agent contract.
