@@ -146,9 +146,11 @@ The contract:
   machine) reports which fields a write changed, and announces the write to its own
   observers. The engine stamps the fields at once, or at its next safe point when it is
   in the middle of a step, then runs the watchers; it does not notify for that write.
-- **Dependencies of external derived values.** The host reports what an evaluation read
-  — context fields, the state, other derived values — and the engine tracks staleness
-  from that report.
+  Without watchers, a report only stamps: it runs no code and cannot fail.
+- **External derived values.** The host keeps their values. An evaluation tells the
+  engine whether the value changed, by the host's own equality, and what it read —
+  context fields, the state, other derived values — or nothing when it read the same
+  inputs as the previous evaluation. The engine tracks staleness from what it read.
 - A machine written in Rust has no external parts: its host only hears changes.
 
 ## Performance guarantees

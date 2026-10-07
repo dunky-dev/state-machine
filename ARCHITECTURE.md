@@ -214,8 +214,8 @@ crates/core-wasm (inlined in the package)  your wasm module
   call, and — when the machine has no computed values — a whole leaving transition
   (cleanups, exit, actions, the switch and its notification, entry, effects) is one call.
 - JS announces its own context writes to the subscribers. The engine hears about a write
-  only when watchers or computed values need it, and a computed value read again with
-  no change in between comes from a JS cache, with no call.
+  only when watchers or computed values need it. JS keeps each computed value with what
+  it read: a value whose inputs did not change comes from that cache, with no call.
 - The wasm (`crates/core-wasm`) is inlined in the package and starts synchronously on the
   first `machine()` call.
 

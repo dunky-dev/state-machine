@@ -73,7 +73,10 @@ machines; the conversion helpers between JS values and Rust values.
   - `guard`; `pick`, a guard walk in one call (the first candidate that passes);
   - `action`; `actions`, a run of actions in one call;
   - `effect`: starts an effect, and the facade keeps its cleanup;
-  - `delay`; `computed`, which reports its value and its reads back before it returns;
+  - `delay`;
+  - `computed`: runs a derived definition. The value stays in JS, and the status says
+    whether it changed (`Object.is`). What the definition read crosses before it
+    returns, and only when it differs from the previous evaluation;
   - `transition`: a leaving transition run whole (see below).
 - What the engine holds back rides on the next `action`, `actions`, `effect` or
   `transition` call as `pre`, and runs first: bit 0 stops the effects (the facade runs
@@ -105,7 +108,7 @@ machines; the conversion helpers between JS values and Rust values.
 ### Values
 
 - **TS machines** keep JS values: the context is a JS object, and a derived value is a
-  JS value compared with `Object.is`.
+  JS value, kept in JS and compared with `Object.is`.
 - **Rust machines** convert with serde: `None` becomes `null`. A derived value is
   serialized only when its version changed, and the same JS value is served until then,
   so its identity marks a change.
@@ -117,10 +120,13 @@ machines; the conversion helpers between JS values and Rust values.
 - The context lives in JS, and JS announces its own writes to the subscribers. It
   reports a write's change mask to Rust only when the machine has watchers or derived
   values: one bit per field, 64 bits, and every field past the 63rd shares the last bit.
-  JS also reports what each derived evaluation read: fields, the state, other derived
-  values.
-- Every input of a derived value changes through JS, so JS serves a value read again
-  with no change in between without calling Rust.
+  Without watchers the report only stamps, so it is a plain call: no facade, no status.
+- JS keeps each derived value with what its last evaluation read: fields, the state,
+  other derived values. A write clears the values that read a written field, a state
+  change clears the values that read the state, and a cleared value clears the values
+  that read it. JS serves a value that is not cleared without calling Rust; for a
+  cleared one it asks Rust, which checks again and evaluates only what changed. Every
+  input of a derived value changes through JS, so the cache misses no change.
 - The event object crosses as is: the engine carries it — also for a timed transition
   scheduled by that event — and hands it back to the callbacks.
 

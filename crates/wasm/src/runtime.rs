@@ -5,22 +5,22 @@
 //! user code — guards, actions, effects, delays, computed definitions — through the
 //! host functions (see `crate::bridge`), by the callback's number in the JS-side tables.
 //!
-//! The context lives in JS (it holds arbitrary JS values). JS reports which fields a
-//! write changed (`markChanged`) and which fields a computed value read (`reportDeps`);
-//! Rust keeps the change stamps that drive watchers and computed staleness.
+//! The context and the computed values live in JS (they hold arbitrary JS values). JS
+//! reports which fields a write changed (`markChanged`, or `stamp` without watchers) and
+//! what a computed evaluation read (`report`); Rust keeps the change stamps that drive
+//! watchers and computed staleness.
 
-use std::any::Any;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use dunky_core::{
-    Action, Branch, Changes, ComputedParams, Config, Context, Delay, Effect, EventEnum, Field,
-    Guard, Host, HostTransition, Machine, StateEnum, TransitionBuilder, Types,
+    Action, Branch, Changes, Config, Context, Delay, Effect, Evaluation, EventEnum, Field, Guard,
+    Host, HostTransition, Machine, Reads, StateEnum, TransitionBuilder, Types,
 };
 use serde::Deserialize;
 use wasm_bindgen::prelude::*;
 
-use crate::bridge::{Bridge, HostObject, Link, OK};
+use crate::bridge::{Bridge, FAILED, HostObject, Link, OK};
 
 // ---------------------------------------------------------------------------------
 // The machine type of every TS-authored machine: states and event types are numbers
@@ -68,28 +68,15 @@ impl EventEnum for JsEvent {
 #[derive(Clone, Default)]
 pub struct JsContext;
 
-/// Records the fields a computed value read, as reported by JS.
-#[derive(Clone, Copy)]
-pub struct JsReader<'a> {
-    deps: &'a Cell<u64>,
-}
-
-impl JsReader<'_> {
-    fn mark(&self, fields: u64) {
-        self.deps.set(self.deps.get() | fields);
-    }
-}
-
 impl Context for JsContext {
     type Patch = u64;
-    type Reader<'a> = JsReader<'a>;
+    // JS evaluates the computed values and reports what they read.
+    type Reader<'a> = ();
     const FIELDS: &'static [&'static str] = &[];
     fn apply(&mut self, changed: u64) -> u64 {
         changed
     }
-    fn reader<'a>(&'a self, deps: &'a Cell<u64>) -> JsReader<'a> {
-        JsReader { deps }
-    }
+    fn reader<'a>(&'a self, _deps: &'a Cell<u64>) {}
 }
 
 pub struct Js;
@@ -230,14 +217,6 @@ fn candidate(mut t: TransitionBuilder<Js>, spec: &CandidateSpec) -> TransitionBu
     t
 }
 
-/// Computed values of a TS machine compare like the TS engine: `Object.is`.
-fn js_is(a: &dyn Any, b: &dyn Any) -> bool {
-    match (a.downcast_ref::<JsValue>(), b.downcast_ref::<JsValue>()) {
-        (Some(a), Some(b)) => js_sys::Object::is(a, b),
-        _ => false,
-    }
-}
-
 fn build(spec: &Spec) -> Config<Js> {
     let mut b = Config::<Js>::builder_sized(
         DynState(spec.initial),
@@ -246,7 +225,7 @@ fn build(spec: &Spec) -> Config<Js> {
         spec.kinds as usize,
     );
     for _ in 0..spec.computed {
-        b.computed_external("", js_is);
+        b.computed_external("");
     }
     for (index, state) in spec.states.iter().enumerate() {
         b.state(DynState(index as u32), |mut s| {
@@ -331,7 +310,9 @@ extern "C" {
     /// The delay in ms, or -1 when it failed.
     #[wasm_bindgen(method)]
     fn delay(this: &HostObject, facade: &JsValue, f: u32, event: &JsValue) -> f64;
-    /// 0 once the value is reported (`JsMachine::report`), or 1 when it failed.
+    /// 0, `CHANGED` when the value changed (it stays in JS), or 1 when it failed. What
+    /// the evaluation read arrives first (`JsMachine::report`) when it differs from the
+    /// previous evaluation.
     #[wasm_bindgen(method)]
     fn computed(this: &HostObject, facade: &JsValue, id: u32) -> u32;
     /// The index of the first candidate of guard list `list` that passes, -1 for none,
@@ -358,17 +339,13 @@ extern "C" {
     ) -> u32;
 }
 
-/// What one computed evaluation returned and read, reported by JS before it returns.
-struct Report {
-    value: JsValue,
-    fields: u64,
-    state: bool,
-    computed: Option<Vec<u32>>,
-}
+/// The host's `computed` status bit: the value changed.
+const CHANGED: u32 = 2;
 
 struct JsHost {
     link: Rc<Link>,
-    report: RefCell<Option<Report>>,
+    /// What the computed evaluation in progress read, when JS reported it.
+    report: RefCell<Option<Reads>>,
     /// What rides on the next action or effect call, delivered first (one crossing
     /// instead of two), or at `settle`: bit 0 stops the effects, the bits above hold a
     /// state change (the state + 1; 0 for none).
@@ -451,22 +428,16 @@ impl Host<Js> for JsHost {
         ms as u32
     }
 
-    fn computed(&self, id: u32, params: &ComputedParams<'_, Js>) -> Rc<dyn Any> {
+    fn computed(&self, id: u32) -> Evaluation {
         self.deliver();
-        if self.link.host.computed(&self.link.facade(), id) != OK {
+        let status = self.link.host.computed(&self.link.facade(), id);
+        if status & FAILED != 0 {
             self.link.fail();
         }
-        let Some(report) = self.report.borrow_mut().take() else {
-            return Rc::new(JsValue::UNDEFINED);
-        };
-        params.context.mark(report.fields);
-        if report.state {
-            params.state();
+        Evaluation {
+            changed: status & CHANGED != 0,
+            reads: self.report.borrow_mut().take(),
         }
-        for c in report.computed.into_iter().flatten() {
-            params.track_computed(c as usize);
-        }
-        Rc::new(report.value)
     }
 
     fn pick(&self, list: u32, event: Option<&JsEvent>) -> Option<usize> {
@@ -606,8 +577,8 @@ impl JsMachine {
         self.bridge.machine().state().0
     }
 
-    /// JS changed context fields (`lo`/`hi`: the low and high 32 bits of the mask). Only
-    /// a machine with watchers or computed values needs to say so.
+    /// JS changed context fields (`lo`/`hi`: the low and high 32 bits of the mask), and
+    /// the machine has watchers: they may run.
     #[wasm_bindgen(js_name = markChanged)]
     pub fn mark_changed(&self, lo: u32, hi: u32, facade: JsValue) -> u32 {
         self.bridge.call(facade, |m| {
@@ -615,31 +586,32 @@ impl JsMachine {
         })
     }
 
-    /// The value of computed `id` (`undefined` when its definition failed).
-    pub fn computed(&self, id: u32, facade: JsValue) -> JsValue {
-        let mut value = JsValue::UNDEFINED;
-        self.bridge.call(facade, |m| {
-            if let Some(v) = m.computed_any(id as usize).downcast_ref::<JsValue>() {
-                value = v.clone();
-            }
-        });
-        value
+    /// JS changed context fields, and the machine has computed values but no watchers:
+    /// only stamp them. No code runs, so there is no facade and no status.
+    pub fn stamp(&self, lo: u32, hi: u32) {
+        self.bridge
+            .machine()
+            .mark_changed((u64::from(hi) << 32) | u64::from(lo));
     }
 
-    /// What the computed evaluation in progress returned and read.
-    pub fn report(
-        &self,
-        value: JsValue,
-        lo: u32,
-        hi: u32,
-        state: bool,
-        computed: Option<Vec<u32>>,
-    ) {
-        *self.host.report.borrow_mut() = Some(Report {
-            value,
+    /// Bring computed `id` up to date, evaluating what changed. JS holds the values.
+    pub fn computed(&self, id: u32, facade: JsValue) -> u32 {
+        self.bridge.call(facade, |m| {
+            m.computed_version(id as usize);
+        })
+    }
+
+    /// What the computed evaluation in progress read, when it differs from the previous
+    /// evaluation (`lo`/`hi`: the fields; `state`; the other computed values).
+    pub fn report(&self, lo: u32, hi: u32, state: bool, computed: Option<Vec<u32>>) {
+        *self.host.report.borrow_mut() = Some(Reads {
             fields: (u64::from(hi) << 32) | u64::from(lo),
             state,
-            computed,
+            computed: computed
+                .into_iter()
+                .flatten()
+                .map(|id| id as usize)
+                .collect(),
         });
     }
 

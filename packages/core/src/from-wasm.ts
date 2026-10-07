@@ -6,6 +6,7 @@ export interface WasmMachine extends Engine {
   /** Connect to the host; `facade` is the facade calling. Returns a status. */
   attach: (host: object, facade: object) => number
   field: (index: number) => unknown
+  computed: (id: number, facade: object) => unknown
   meta: () => WasmMachineMeta
 }
 

@@ -16,7 +16,7 @@ use std::collections::VecDeque;
 use std::rc::{Rc, Weak};
 
 use crate::broadcast::{Broadcast, Subscription};
-use crate::computed::{self, ComputedKey, ComputedParams, ComputedRuntime};
+use crate::computed::{self, ComputedKey, ComputedRuntime, Evaluation};
 use crate::config::{
     Action, Cleanup, Config, Delay, Effect, Entry, Guard, Transition, WatchSource, missing,
 };
@@ -48,8 +48,9 @@ pub trait Host<T: Types> {
     /// switches state.
     fn stop_effects(&self);
     fn delay(&self, id: u32, event: Option<&T::Event>) -> u32;
-    /// Evaluate computed value `id`, reporting what it read through `params`.
-    fn computed(&self, id: u32, params: &ComputedParams<'_, T>) -> Rc<dyn Any>;
+    /// Evaluate external computed value `id`. The host keeps the value; the engine keeps
+    /// what the evaluation read, to tell when the value goes stale.
+    fn computed(&self, id: u32) -> Evaluation;
     /// Evaluate the guards of candidate list `list` in order: the index of the first that
     /// passes (a candidate without a guard passes).
     fn pick(&self, list: u32, event: Option<&T::Event>) -> Option<usize>;
@@ -388,7 +389,8 @@ impl<T: Types> Machine<T> {
 
     /// A host changed fields of a context it owns (a TS machine's JS context): stamp them
     /// and run the watchers — right away when possible, else at the next safe point. The
-    /// host notifies its own observers of the write.
+    /// host notifies its own observers of the write. Without watchers it only stamps: no
+    /// code runs.
     #[cfg(feature = "host")]
     pub fn mark_changed(&self, mask: u64) {
         if mask == 0 {
@@ -404,6 +406,9 @@ impl<T: Types> Machine<T> {
         };
         if !applied {
             inner.external_mask.set(inner.external_mask.get() | mask);
+            return;
+        }
+        if inner.config.0.watch.is_empty() {
             return;
         }
         inner.with_flush(|inner| {

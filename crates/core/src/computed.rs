@@ -60,6 +60,27 @@ impl<V> std::fmt::Debug for ComputedKey<V> {
     }
 }
 
+/// What a host's evaluation of an external computed value reports ([`Host::computed`]).
+///
+/// [`Host::computed`]: crate::Host::computed
+#[cfg_attr(not(feature = "host"), allow(dead_code))]
+pub struct Evaluation {
+    /// The value changed, by the host's own equality.
+    pub changed: bool,
+    /// What the evaluation read, or `None` when it read the same inputs as the previous one.
+    pub reads: Option<Reads>,
+}
+
+/// The inputs an evaluation read.
+#[cfg_attr(not(feature = "host"), allow(dead_code))]
+pub struct Reads {
+    /// Context fields, one bit each.
+    pub fields: u64,
+    pub state: bool,
+    /// Other computed values, by id.
+    pub computed: Vec<usize>,
+}
+
 /// What a computed definition reads. Reads are tracked: `context.<field>()`, `state()` and
 /// `computed(key)` each become an input of this value.
 pub struct ComputedParams<'a, T: Types> {
@@ -76,19 +97,13 @@ impl<T: Types> ComputedParams<'_, T> {
         self.core.state
     }
     pub fn computed<V: 'static>(&self, key: ComputedKey<V>) -> Rc<V> {
-        self.record_dep(key.id);
-        downcast(get(self.core, self.inner, key.id), self.inner, key.id)
-    }
-    /// Record that this value read computed `id` (for a host that evaluated it itself).
-    #[cfg(feature = "host")]
-    pub fn track_computed(&self, id: usize) {
-        self.record_dep(id);
-    }
-    fn record_dep(&self, id: usize) {
-        let mut deps = self.computed_deps.borrow_mut();
-        if !deps.contains(&id) {
-            deps.push(id);
+        {
+            let mut deps = self.computed_deps.borrow_mut();
+            if !deps.contains(&key.id) {
+                deps.push(key.id);
+            }
         }
+        downcast(get(self.core, self.inner, key.id), self.inner, key.id)
     }
 }
 
@@ -187,6 +202,11 @@ fn fresh<T: Types>(core: &Core<T>, inner: &Inner<T>, id: usize) -> Option<Rc<dyn
 
 fn recompute<T: Types>(core: &Core<T>, inner: &Inner<T>, id: usize) -> Rc<dyn Any> {
     let def = &inner.config.0.computed[id];
+    let eval = match &def.eval {
+        ComputedSource::Fn(f) => f,
+        #[cfg(feature = "host")]
+        ComputedSource::External(ext) => return recompute_external(core, inner, id, *ext),
+    };
     let slot_cell = &core.computed.slots[id];
     let buffer = {
         let mut slot = slot_cell.borrow_mut();
@@ -222,16 +242,9 @@ fn recompute<T: Types>(core: &Core<T>, inner: &Inner<T>, id: usize) -> Rc<dyn An
         computed_deps: &computed_deps,
         reads_state: &reads_state,
     };
-    let next = match &def.eval {
-        ComputedSource::Fn(f) => f(&params),
-        #[cfg(feature = "host")]
-        ComputedSource::External(ext) => match inner.host() {
-            Some(host) => host.computed(*ext, &params),
-            None => panic!("[machine] computed \"{}\" needs a host", def.name),
-        },
-    };
+    let next = eval(&params);
     if inner.aborted() {
-        // The host failed mid-evaluation: do not cache what it returned.
+        // A host callback failed mid-evaluation: do not cache what it returned.
         let mut slot = slot_cell.borrow_mut();
         slot.evaluating = false;
         slot.value = None;
@@ -256,4 +269,47 @@ fn recompute<T: Types>(core: &Core<T>, inner: &Inner<T>, id: usize) -> Rc<dyn An
     slot.reads_state = reads_state.get();
     slot.computed_deps = computed_deps.into_inner();
     slot.value.clone().expect("computed value just set")
+}
+
+/// The host evaluates an external value and keeps it; the slot keeps what it read, and a
+/// marker in place of the value.
+#[cfg(feature = "host")]
+fn recompute_external<T: Types>(
+    core: &Core<T>,
+    inner: &Inner<T>,
+    id: usize,
+    ext: u32,
+) -> Rc<dyn Any> {
+    let def = &inner.config.0.computed[id];
+    let Some(host) = inner.host() else {
+        panic!("[machine] computed \"{}\" needs a host", def.name)
+    };
+    let slot_cell = &core.computed.slots[id];
+    {
+        let mut slot = slot_cell.borrow_mut();
+        if slot.evaluating {
+            panic!("[machine] computed \"{}\" depends on itself", def.name);
+        }
+        slot.evaluating = true;
+    }
+    let evaluation = host.computed(ext);
+    let mut slot = slot_cell.borrow_mut();
+    slot.evaluating = false;
+    // Kept even after a failure: the host compares its next reads with these.
+    if let Some(reads) = evaluation.reads {
+        slot.ctx_deps = reads.fields;
+        slot.reads_state = reads.state;
+        slot.computed_deps = reads.computed;
+    }
+    if inner.aborted() {
+        slot.value = None;
+        return Rc::new(());
+    }
+    let changed = evaluation.changed || slot.value.is_none();
+    let marker = slot.value.get_or_insert_with(|| Rc::new(())).clone();
+    if changed {
+        slot.changed_at = core.tick;
+    }
+    slot.validated_at = core.tick;
+    marker
 }

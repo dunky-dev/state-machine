@@ -57,6 +57,8 @@ export interface Compiled {
   fieldBits: Map<string, number>
   /** Whether the engine needs to hear about context writes (watchers, computed values). */
   tracksContext: boolean
+  /** Whether a context write can run code in the engine (watchers). */
+  watches: boolean
   computedIndex: Map<string, number>
   computedDefs: Fn[]
   guards: Fn[]
@@ -261,6 +263,7 @@ export function compile(config: AnyConfig): Compiled {
     tags: stateNames.map(name => new Set(config.states[name]!.tags ?? [])),
     fieldBits,
     tracksContext: watch.length > 0 || computedNames.length > 0,
+    watches: watch.length > 0,
     computedIndex,
     computedDefs: computedNames.map(name => (config.computed as Record<string, Fn>)[name]!),
     guards,

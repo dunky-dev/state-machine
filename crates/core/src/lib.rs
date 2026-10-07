@@ -34,6 +34,8 @@ pub mod testing;
 pub use broadcast::Subscription;
 pub use compose::{Combined, Composition, Member};
 pub use computed::{ComputedKey, ComputedParams};
+#[cfg(feature = "host")]
+pub use computed::{Evaluation, Reads};
 pub use config::{
     Action, ActionFn, Branch, Cleanup, Config, ConfigBuilder, Delay, Effect, Guard, StateBuilder,
     TransitionBuilder,

@@ -600,19 +600,16 @@ impl<T: Types> ConfigBuilder<T> {
         ComputedKey::new(id)
     }
 
-    /// A computed value the machine's [`Host`](crate::Host) evaluates (e.g. a JS function
-    /// of a TS-authored machine). `eq` decides whether a new value changed. Returns its id.
+    /// A computed value the machine's [`Host`](crate::Host) evaluates and keeps (e.g. a JS
+    /// function of a TS-authored machine). Returns its id.
     #[cfg(feature = "host")]
-    pub fn computed_external(
-        &mut self,
-        name: &'static str,
-        eq: fn(&dyn Any, &dyn Any) -> bool,
-    ) -> usize {
+    pub fn computed_external(&mut self, name: &'static str) -> usize {
         let id = self.inner.computed.len();
         self.inner.computed.push(ComputedDef {
             name,
             eval: ComputedSource::External(id as u32),
-            eq,
+            // The host decides whether a new value changed.
+            eq: |_, _| false,
         });
         id
     }

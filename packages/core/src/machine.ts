@@ -25,7 +25,6 @@ export interface Engine {
   stop: (facade: object) => number
   running: () => boolean
   state: () => number
-  computed: (id: number, facade: object) => unknown
   /** The host clock: timer `id` came due. */
   fire: (id: number, facade: object) => number
   /** The engine's failure behind `ENGINE_FAILED`. */
@@ -37,6 +36,8 @@ export interface Engine {
 const OK = 0
 const FAILED = 1
 const ENGINE_FAILED = 3
+/** The host's `computed` status bit: the value changed. */
+const CHANGED = 2
 const NONE = Symbol('none')
 
 /** The names the facade maps the engine's numbers onto. */
@@ -74,9 +75,6 @@ export class MachineClass<
   selectFacade: Select<State, Context, Computed> | null = null
   /** The first error user code threw in the current call. */
   error: unknown = NONE
-  /** Bumped on every change (a context write, a state change): a computed value read at
-   * the same epoch is still valid. */
-  epoch = 0
   /** Nesting of engine calls: JS code calls back in from inside one. */
   depth = 0
   /** Started and not stopped (mirrors the engine, so JS needs no call to ask). */
@@ -94,7 +92,6 @@ export class MachineClass<
   /** The machine is in `state` now: tell the subscribers. */
   enter(state: number): void {
     this.current = state
-    this.epoch++
     this.broadcast.notify()
   }
 
@@ -200,6 +197,58 @@ function markRead(bit: number): void {
   else readHi |= 1 << (bit - 32)
 }
 
+/** What JS keeps of one computed value of a TS machine. */
+interface CacheEntry {
+  value: unknown
+  /** No input changed since the value was evaluated or checked. */
+  valid: boolean
+  /** What the last evaluation read: fields (the low and high 32 bits of the mask), the
+   * state, other computed values. */
+  lo: number
+  hi: number
+  state: boolean
+  computed: number[] | null
+  /** The computed values that read this one. */
+  readers: number[] | null
+  /** Rust has the reads (false until the first evaluation). */
+  reported: boolean
+  /** The last clearing pass that reached this entry. */
+  pass: number
+}
+
+function newEntry(): CacheEntry {
+  return {
+    value: undefined,
+    valid: false,
+    lo: 0,
+    hi: 0,
+    state: false,
+    computed: null,
+    readers: null,
+    reported: false,
+    pass: 0,
+  }
+}
+
+let clearPass = 0
+
+// Walk past an entry that is already cleared: Rust may have checked its readers since
+// (an input changed but kept its value), so they can be valid.
+function clearEntry(cache: CacheEntry[], entry: CacheEntry, pass: number): void {
+  if (entry.pass === pass) return
+  entry.pass = pass
+  entry.valid = false
+  const readers = entry.readers
+  if (readers) for (let i = 0; i < readers.length; i++) clearEntry(cache, cache[readers[i]!]!, pass)
+}
+
+function sameIds(a: number[] | null, b: number[] | null): boolean {
+  if (a === b) return true
+  if (!a || !b || a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false
+  return true
+}
+
 // The params of the dispatch in progress: its guards and actions share them. One slot
 // for all machines, so no machine keeps a dispatch's params alive.
 let paramsOf: object | null = null
@@ -231,9 +280,8 @@ class TsMachine<
   declare handle: JsMachine
   /** The cleanups of the effects started in the current state, in start order. */
   effectCleanups: Array<() => void> = []
-  /** Per computed value: the epoch it was last read at, and the value. */
-  readAt: number[]
-  readValue: unknown[]
+  /** Per computed value, its cached value and inputs; null without computed values. */
+  cache: CacheEntry[] | null
   tracked: { context: Context; computed: Computed; readonly state: State } | null = null
 
   constructor(c: Compiled, context: Context) {
@@ -241,8 +289,7 @@ class TsMachine<
     // Refs captured in effects/actions always see the live context.
     super(c, { ...context }, c.initial)
     this.c = c
-    this.readAt = c.computedDefs.map(() => -1)
-    this.readValue = c.computedDefs.map(() => undefined)
+    this.cache = c.computedDefs.length === 0 ? null : c.computedDefs.map(newEntry)
     for (const [name, id] of c.computedIndex) {
       Object.defineProperty(this.computed, name, { enumerable: true, get: () => this.read(id) })
     }
@@ -262,10 +309,7 @@ class TsMachine<
         ctx[key] = value // in place — ctx identity never changes
         changed = true
       }
-      if (changed) {
-        this.epoch++
-        this.broadcast.notify()
-      }
+      if (changed) this.broadcast.notify()
       return
     }
     let lo = 0
@@ -279,27 +323,51 @@ class TsMachine<
       else hi |= 1 << (bit - 32)
     }
     if ((lo | hi) === 0) return
-    this.epoch++
-    this.depth++
-    const status = this.handle.markChanged(lo >>> 0, hi >>> 0, this)
-    this.depth--
-    if (status !== OK) this.raise(status)
+    const read = this.cache !== null && this.clear(lo, hi, false)
+    if (this.c.watches) {
+      this.depth++
+      const status = this.handle.markChanged(lo >>> 0, hi >>> 0, this)
+      this.depth--
+      if (status !== OK) this.raise(status)
+    } else if (read) {
+      // The engine's stamps only matter for fields a computed value read.
+      this.handle.stamp(lo >>> 0, hi >>> 0)
+    }
     this.broadcast.notify()
+  }
+
+  override enter(state: number): void {
+    if (this.cache) this.clear(0, 0, true)
+    super.enter(state)
+  }
+
+  /** Clear the cached values that read a field of `lo`/`hi` (or the state, with
+   * `state`), and the values that read a cleared one. True when one read them. */
+  clear(lo: number, hi: number, state: boolean): boolean {
+    const cache = this.cache!
+    const pass = ++clearPass
+    let read = false
+    for (let i = 0; i < cache.length; i++) {
+      const entry = cache[i]!
+      if ((entry.lo & lo) !== 0 || (entry.hi & hi) !== 0 || (state && entry.state)) {
+        read = true
+        clearEntry(cache, entry, pass)
+      }
+    }
+    return read
   }
 
   /** Read computed `id`; throw if its definition failed during this read. */
   read(id: number): unknown {
-    // Every input of a TS machine changes through JS, so an unchanged epoch means an
-    // unchanged value: no call into the engine.
-    if (this.readAt[id] === this.epoch) return this.readValue[id]
-    const before = this.error
+    // Every input of a TS machine changes through JS, so a valid entry is the value.
+    const entry = this.cache![id]!
+    if (entry.valid) return entry.value
     this.depth++
-    const value = this.handle.computed(id, this)
+    const status = this.handle.computed(id, this)
     this.depth--
-    if (this.error !== before) this.raise(FAILED)
-    this.readAt[id] = this.epoch
-    this.readValue[id] = value
-    return value
+    if (status !== OK) this.raise(status)
+    entry.valid = true
+    return entry.value
   }
 
   /** Run compiled action specs in order: callbacks, runs of callbacks, `oneOf`s. */
@@ -376,8 +444,11 @@ class TsMachine<
     )) as GuardParams<Context, Event, Computed>
   }
 
-  /** Run computed `id`; report its value and what it read to Rust, which owns its staleness. */
+  /** Run computed `id` for the engine, which owns its staleness. The value stays here;
+   * the status says whether it changed, and what it read crosses only when it differs
+   * from the previous evaluation. */
   evaluate(id: number): number {
+    const entry = this.cache![id]!
     const lo = readLo
     const hi = readHi
     const state = readsState
@@ -386,21 +457,50 @@ class TsMachine<
     readHi = 0
     readsState = false
     reads = null
+    entry.valid = false
     try {
       const value = this.c.computedDefs[id]!(this.trackedParams())
-      this.handle.report(
-        value,
-        readLo >>> 0,
-        readHi >>> 0,
-        readsState,
-        reads ? Uint32Array.from(reads) : undefined,
-      )
-      return OK
+      const changed = !Object.is(entry.value, value)
+      entry.value = value
+      entry.valid = true
+      const sameComputed = sameIds(reads, entry.computed)
+      if (
+        !entry.reported ||
+        !sameComputed ||
+        readLo !== entry.lo ||
+        readHi !== entry.hi ||
+        readsState !== entry.state
+      ) {
+        entry.reported = true
+        entry.lo = readLo
+        entry.hi = readHi
+        entry.state = readsState
+        if (!sameComputed) {
+          entry.computed = reads
+          this.linkReaders()
+        }
+        this.handle.report(
+          readLo >>> 0,
+          readHi >>> 0,
+          readsState,
+          reads ? Uint32Array.from(reads) : undefined,
+        )
+      }
+      return changed ? CHANGED : OK
     } finally {
       readLo = lo
       readHi = hi
       readsState = state
       reads = outer
+    }
+  }
+  /** Rebuild who reads whom, after an evaluation read other computed values. */
+  linkReaders(): void {
+    const cache = this.cache!
+    for (let i = 0; i < cache.length; i++) cache[i]!.readers = null
+    for (let i = 0; i < cache.length; i++) {
+      const read = cache[i]!.computed
+      if (read) for (let j = 0; j < read.length; j++) (cache[read[j]!]!.readers ??= []).push(i)
     }
   }
   trackedParams(): { context: Context; computed: Computed; readonly state: State } {
@@ -455,6 +555,7 @@ interface Host {
   pre: (m: TsFacade, pre: number) => number
   /** The delay in ms, -1 failed. */
   delay: (m: TsFacade, fn: number, event: unknown) => number
+  /** 0, `CHANGED` when the value changed (it stays in JS), 1 failed. */
   computed: (m: TsFacade, id: number) => number
   /** The first candidate of guard list `list` that passes, -1 for none, -2 failed. */
   pick: (m: TsFacade, list: number, event: unknown) => number

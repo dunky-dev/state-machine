@@ -17,7 +17,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use dunky_core::{
-    Changes, ComputedKey, ComputedParams, Context, DeserializeEvent, EventEnum, Host, Machine,
+    Changes, ComputedKey, Context, DeserializeEvent, Evaluation, EventEnum, Host, Machine,
     SerializeFields, StateEnum, Types,
 };
 use serde::Serialize;
@@ -95,7 +95,7 @@ impl<T: Types> Host<T> for Observer {
     fn delay(&self, _: u32, _: Option<&T::Event>) -> u32 {
         unreachable!("a Rust machine has no external delays")
     }
-    fn computed(&self, _: u32, _: &ComputedParams<'_, T>) -> Rc<dyn std::any::Any> {
+    fn computed(&self, _: u32) -> Evaluation {
         unreachable!("a Rust machine has no external computed values")
     }
     fn pick(&self, _: u32, _: Option<&T::Event>) -> Option<usize> {
