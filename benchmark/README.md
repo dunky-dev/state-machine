@@ -97,11 +97,11 @@ XState's coarse `actor.subscribe`.
 
 | Change 1 of N | Dunky (ops/sec) | XState (ops/sec) |   Zag |
 | ------------- | --------------: | ---------------: | ----: |
-| 100           |         653.3 K |          451.0 K | n/a ᵃ |
-| 1000          |          56.5 K |           49.3 K | n/a ᵃ |
-| 5000          |      **14.7 K** |            1.4 K | n/a ᵃ |
+| 100           |         663.3 K |          455.2 K | n/a ᵃ |
+| 1000          |          58.4 K |           50.0 K | n/a ᵃ |
+| 5000          |      **21.2 K** |            1.4 K | n/a ᵃ |
 
-→ Roughly par at small N, but Dunky **~11× faster at 5000 observers** — XState's
+→ Roughly par at small N, but Dunky **~15× faster at 5000 observers** — XState's
 coarse subscribe degrades much faster as the observer set grows.
 
 **B. Fine-grain — change an UNOBSERVED field.** Change a field nobody selects. The
@@ -111,8 +111,8 @@ model gets for free and a coarse bus has to work to ignore.
 
 | Irrelevant write, N cells | Dunky (ops/sec) | XState (ops/sec) |   Zag |
 | ------------------------- | --------------: | ---------------: | ----: |
-| 1000                      |       **5.1 M** |            1.0 M | n/a ᵃ |
-| 5000                      |       **4.7 M** |          919.2 K | n/a ᵃ |
+| 1000                      |       **4.9 M** |            1.0 M | n/a ᵃ |
+| 5000                      |       **4.7 M** |          942.2 K | n/a ᵃ |
 
 → Dunky is **~5× faster** at shrugging off a write nobody is watching (1000
 cells); the value-deduping bus skips waking observers entirely.
@@ -122,7 +122,7 @@ selection scaling — the raw `send` price.
 
 | Single machine, one event |   ops/sec |
 | ------------------------- | --------: |
-| Dunky                     | **9.7 M** |
+| Dunky                     | **9.4 M** |
 | XState (raw)              |     1.6 M |
 | XState (diffed)           |     1.6 M |
 | Zag                       |     n/a ᵃ |
@@ -144,12 +144,12 @@ change (the O(members) path by design).
 
 | Members | Dunky combine (ops/sec) | Dunky sync (ops/sec) | XState | Zag   |
 | ------- | ----------------------: | -------------------: | ------ | ----- |
-| 2       |                   9.1 M |                9.2 M | n/a ᶠ  | n/a ᶠ |
-| 10      |                   7.9 M |                8.4 M | n/a ᶠ  | n/a ᶠ |
-| 50      |                   7.4 M |                7.7 M | n/a ᶠ  | n/a ᶠ |
+| 2       |                   8.9 M |                9.1 M | n/a ᶠ  | n/a ᶠ |
+| 10      |                   8.0 M |                8.6 M | n/a ᶠ  | n/a ᶠ |
+| 50      |                   7.3 M |                7.1 M | n/a ᶠ  | n/a ᶠ |
 
-→ Cross-region coordination stays in the **~7.4–9.2 M ops/sec** band even at 50
-synced members — the O(M) re-eval pass costs ~16–19% going from 2 to 50.
+→ Cross-region coordination stays in the **~7.1–9.1 M ops/sec** band even at 50
+synced members — the O(M) re-eval pass costs ~18–22% going from 2 to 50.
 
 > A third "chain" sub-test (a sync rule that `send()`s downstream every change) was
 > removed: under a tight loop it shows superlinear slowdown. That's a real
@@ -165,13 +165,13 @@ profile: XState has no first-class lazy/memoized `computed` (**n/a ᶠ**), and Z
 
 | Scenario                             | Dunky (ops/sec) | XState | Zag   |
 | ------------------------------------ | --------------: | ------ | ----- |
-| Cached read (no change)              |      **56.3 M** | n/a ᶠ  | n/a ᵃ |
-| Fine-grain (change unread, re-read)  |           5.7 M | n/a ᶠ  | n/a ᵃ |
-| Recompute (change read field)        |           3.4 M | n/a ᶠ  | n/a ᵃ |
-| 4-deep chain (change root, read tip) |         982.4 K | n/a ᶠ  | n/a ᵃ |
+| Cached read (no change)              |      **57.8 M** | n/a ᶠ  | n/a ᵃ |
+| Fine-grain (change unread, re-read)  |           8.3 M | n/a ᶠ  | n/a ᵃ |
+| Recompute (change read field)        |           4.5 M | n/a ᶠ  | n/a ᵃ |
+| 4-deep chain (change root, read tip) |           2.3 M | n/a ᶠ  | n/a ᵃ |
 
-→ A cached read is **~56.3 M/sec** (near-free memo hit), and changing a field the
-computed _doesn't_ read stays a memo hit at ~5.7 M/sec — read-key tracking means
+→ A cached read is **~57.8 M/sec** (near-free memo hit), and changing a field the
+computed _doesn't_ read stays a memo hit at ~8.3 M/sec — read-key tracking means
 you only pay the recompute when an input you actually read changes.
 
 ## 4. Engine hot paths (`tests/engine.ts`)
@@ -183,18 +183,18 @@ Zag's `send` is async (**n/a ᵃ**).
 
 | Scenario                               | Dunky (ops/sec) | XState | Zag   |
 | -------------------------------------- | --------------: | ------ | ----- |
-| Guard fallthrough — 2 candidates       |           4.4 M | n/a ᶠ  | n/a ᵃ |
+| Guard fallthrough — 2 candidates       |           4.5 M | n/a ᶠ  | n/a ᵃ |
 | Guard fallthrough — 8 candidates       |           4.3 M | n/a ᶠ  | n/a ᵃ |
-| Guard fallthrough — 32 candidates      |           3.9 M | n/a ᶠ  | n/a ᵃ |
-| State churn — exit+entry every event   |           7.5 M | n/a ᶠ  | n/a ᵃ |
-| Effect churn — boot+cleanup each trans |           6.7 M | n/a ᶠ  | n/a ᵃ |
-| Sub churn — stable set                 |          10.0 M | n/a ᶠ  | n/a ᵃ |
-| Sub churn — churning set (rebuild)     |           7.1 M | n/a ᶠ  | n/a ᵃ |
+| Guard fallthrough — 32 candidates      |           4.0 M | n/a ᶠ  | n/a ᵃ |
+| State churn — exit+entry every event   |           8.0 M | n/a ᶠ  | n/a ᵃ |
+| Effect churn — boot+cleanup each trans |           7.1 M | n/a ᶠ  | n/a ᵃ |
+| Sub churn — stable set                 |           9.8 M | n/a ᶠ  | n/a ᵃ |
+| Sub churn — churning set (rebuild)     |           7.2 M | n/a ᶠ  | n/a ᵃ |
 
-→ Even the heavy paths hold **~3.9–10.0 M ops/sec**: a 32-candidate guard walk
+→ Even the heavy paths hold **~4.0–9.8 M ops/sec**: a 32-candidate guard walk
 (evaluated in one call from the engine into JS), full state transitions with
 entry/exit actions, and effect boot/cleanup every transition all stay within
-~2.5× of a bare `send`.
+~2.3× of a bare `send`.
 
 ## 5. Construction cost (`tests/construct.ts`)
 
@@ -204,11 +204,11 @@ warmed first.
 
 | Build + start | Dunky (µs/machine) | XState |  Zag |
 | ------------- | -----------------: | -----: | ---: |
-| 10 000        |               1.38 |   1.18 | 5.23 |
+| 10 000        |               1.35 |   1.33 | 5.52 |
 
 → Construction is the one axis where Dunky **doesn't** win — XState spins up
-~1.2× faster. Dunky's bet is flat memory + hot-path throughput, not spin-up;
-it's still ~3.8× faster than Zag's per-field reactive cells.
+as fast or slightly faster (~1.0×). Dunky's bet is flat memory + hot-path throughput, not spin-up;
+it's still ~4.1× faster than Zag's per-field reactive cells.
 
 ## 6. Memory per machine (`tests/memory.ts`)
 
@@ -220,12 +220,12 @@ the footprint a churny app actually pays).
 
 | Context  | Dunky (KB/machine) | XState |     Zag |
 | -------- | -----------------: | -----: | ------: |
-| 2-field  |               3.56 |   3.61 |    8.92 |
-| 64-field |               4.08 |   4.10 | **134** |
+| 2-field  |               3.47 |   3.61 |    8.92 |
+| 64-field |               3.99 |   4.10 | **134** |
 
 → Going 2 → 64 fields costs Dunky only **~0.5 KB/machine** — memory grows with
 the data you store, not with a per-field cell. **Zag is the contrast**: one reactive
-cell per field balloons the 64-field context to ~134 KB/machine — **~33× more** than
+cell per field balloons the 64-field context to ~134 KB/machine — **~34× more** than
 Dunky.
 
 **Idle vs written.** Dunky owns its context copy from construction and mutates
@@ -234,8 +234,8 @@ while a lazy-copy scheme steps up once writes start:
 
 | 64-field, 5000 machines | Dunky | XState | Zag |
 | ----------------------- | ----: | -----: | --: |
-| Idle (never written)    |  4.06 |   3.55 | 130 |
-| Written (1 event each)  |  4.08 |   4.10 | 134 |
+| Idle (never written)    |  3.97 |   3.55 | 130 |
+| Written (1 event each)  |  3.99 |   4.10 | 134 |
 
 → Dunky idle ≈ written; XState's first `assign` allocates a per-actor context,
 so its written row grows.
@@ -253,15 +253,15 @@ List of 1000 rows:
 
 | Strategy             | Rows woken / move | Mount (ms) | Re-render wall (ms) |
 | -------------------- | ----------------: | ---------: | ------------------: |
-| Dunky/instance       |             **2** |        3.9 |             **2.5** |
-| Dunky/selector       |                 2 |        4.8 |                 3.8 |
-| xstate/selector      |                 2 |        3.8 |                 4.5 |
-| zag/instance         |                 2 |        4.2 |               n/a ᵃ |
-| naive (anti-pattern) |           **980** |        4.8 |                36.5 |
+| Dunky/instance       |             **2** |        3.6 |             **2.4** |
+| Dunky/selector       |                 2 |        5.0 |                 3.8 |
+| xstate/selector      |                 2 |        3.6 |                 4.5 |
+| zag/instance         |                 2 |        4.1 |               n/a ᵃ |
+| naive (anti-pattern) |           **980** |        5.0 |                35.3 |
 
 → Every properly-set-up engine wakes only the **2** rows that changed (vs. the
 naive whole-snapshot subscription, which re-renders all **980** — a ~490× gap and
-~15× the wall time). Among the surgical strategies Dunky re-renders **~1.8×
+~15× the wall time). Among the surgical strategies Dunky re-renders **~1.9×
 faster than XState**.
 
 Zag mounts and wakes the same **2** rows, but its re-render wall is **n/a ᵃ** — the
@@ -278,26 +278,26 @@ wasm handle with no facade: the floor. A call into wasm costs the same as a JS c
 
 | Scenario                                  | TS machine (ops/sec) | Rust machine | Rust, raw |
 | ----------------------------------------- | -------------------: | -----------: | --------: |
-| One event, observed field                 |           **10.5 M** |        6.4 M |    13.1 M |
-| One event, unobserved field               |           **10.2 M** |        6.2 M |    13.0 M |
-| State churn — exit+entry every event      |            **9.7 M** |        6.2 M |     8.9 M |
-| Guard fallthrough — 8 candidates          |            **8.3 M** |        7.9 M |         — |
-| Palette — type + read, 11 commands        |          **778.3 K** |      427.0 K |         — |
-| Palette — type + read, 1,000 commands     |           **13.1 K** |        8.2 K |         — |
-| Palette — type + read, 10,000 commands    |            **1.3 K** |          817 |         — |
-| Construct + start one machine (µs / mach) |             **4.86** |         4.93 |      2.08 |
+| One event, observed field                 |            **9.8 M** |        6.6 M |    13.4 M |
+| One event, unobserved field               |            **9.9 M** |        6.3 M |    13.3 M |
+| State churn — exit+entry every event      |            **9.5 M** |        6.4 M |     9.1 M |
+| Guard fallthrough — 8 candidates          |            **8.2 M** |        8.0 M |         — |
+| Palette — type + read, 11 commands        |          **830.2 K** |      429.2 K |         — |
+| Palette — type + read, 1,000 commands     |           **13.3 K** |        8.4 K |         — |
+| Palette — type + read, 10,000 commands    |            **1.3 K** |          836 |         — |
+| Construct + start one machine (µs / mach) |             **4.56** |         5.37 |      2.05 |
 
-→ In JavaScript, a machine written in TS handles **~1.1–1.6× the events** of its Rust
+→ In JavaScript, a machine written in TS handles **~1.0–1.6× the events** of its Rust
 twin. Its context already lives in JS, while a Rust machine pushes each change back
 across the boundary: a notify, then a read per changed field to refresh the JS
 context mirror. The raw handle (no subscribers, no mirror) shows the engine itself:
 ~13 M events/sec.
 
-→ Heavy derived data favors TS too: the palette filters **~1.6–1.8× faster** as a TS
+→ Heavy derived data favors TS too: the palette filters **~1.6–1.9× faster** as a TS
 machine, because its filter runs as JIT-compiled JS and its results are already JS
 values, while the Rust machine serializes its results on each change. Crossing as
 indices mapped back onto your own objects (the rows above) beats crossing whole
-objects by ~22% (6.7 K at 1,000 commands).
+objects by ~22% (6.9 K at 1,000 commands).
 
 → Rust machines are for reuse: the same machine runs in a Rust program and over JSI,
 where there is no JS mirror to keep. In React ([section 7](#7-react-rendering-testsrendering))

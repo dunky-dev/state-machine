@@ -41,9 +41,9 @@ engine is built for it:
 
 | At scale (thousands of machines) |     Dunky | XState |     Zag |
 | -------------------------------- | --------: | -----: | ------: |
-| Event throughput (ops/s)         | **9.7 M** |  1.6 M |   n/a ᵃ |
-| Memory / machine, 2-field (KB)   |   **3.6** |    3.6 |     8.9 |
-| Memory / machine, 64-field (KB)  |   **4.1** |    4.1 | **134** |
+| Event throughput (ops/s)         | **9.4 M** |  1.6 M |   n/a ᵃ |
+| Memory / machine, 2-field (KB)   |   **3.5** |    3.6 |     8.9 |
+| Memory / machine, 64-field (KB)  |   **4.0** |    4.1 | **134** |
 
 → **~6× XState's throughput**, on par with XState for memory but at least **2× lighter than Zag** — and the gap widens as context grows, because memory stays ~flat in field count (no per-field cell). ᵃ Zag uses async ops, so a synchronous ops/s loop can't time it. Full methodology + per-scenario tables in the
 **[benchmark README](./benchmark/README.md)**.
