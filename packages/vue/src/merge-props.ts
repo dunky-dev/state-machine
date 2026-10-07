@@ -8,16 +8,18 @@ type AnyHandler = (...args: unknown[]) => unknown
 type ClassValue = false | null | undefined | string | Record<string, unknown> | ClassValue[]
 
 /** `class` and `style` may come back as `[consumer, library]` — typed as Vue takes them. */
-type MergedProps<Props> = Omit<Props, 'class' | 'style'> & {
-  class?: ClassValue
-  style?: StyleValue
-} & AnyProps
+type MergedProps<Props> = {
+  // Remapped rather than Omit<>: Omit erases the named members of a type with an index signature.
+  [K in keyof Props as K extends 'class' | 'style' ? never : K]: Props[K]
+} & { class?: ClassValue; style?: StyleValue } & AnyProps
 
 // Vue's rule for a listener prop; the shared merge's rule agrees on every key Vue listens to.
 const isListener = (key: string): boolean => /^on[^a-z]/.test(key)
 
-// Vue's option modifiers in a listener name (`onClickCapture`, `onClickOnce`).
-const OPTION_MODIFIERS = /(?:Once|Passive|Capture)+$/
+// The option modifiers a consumer listener can still veto with: a capture listener runs before
+// the library's bubbling one, and a `.once` bound from the first render is registered before
+// it. A passive listener can't preventDefault, and a `.once` added later registers after.
+const OPTION_MODIFIERS = /(?:Once|Capture)+$/
 
 // The shared veto on the library side alone: it runs unless the event was prevented.
 const vetoable = (handler: AnyHandler): AnyHandler => composeHandlers(() => {}, handler)
@@ -53,9 +55,10 @@ export function mergeProps<Props extends object = AnyProps>(
       if (typeof libHandler === 'function' && isListener(key)) {
         merged[key] = [...value, vetoable(libHandler as AnyHandler)]
       }
-    } else if (OPTION_MODIFIERS.test(key)) {
-      // A separate listener that runs first — in the capture phase, or registered first — so
-      // the library's plain listener can honor its veto; composing would move one's phase.
+    }
+    if (OPTION_MODIFIERS.test(key)) {
+      // A separate listener (or array) that runs first, so the library's plain listener can
+      // honor its veto; composing the two would move one of them to the other's phase.
       const plain = key.replace(OPTION_MODIFIERS, '')
       const libHandler = library[plain]
       if (typeof libHandler === 'function' && own[plain] === undefined && isListener(plain)) {

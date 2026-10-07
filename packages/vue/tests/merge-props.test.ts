@@ -64,6 +64,19 @@ describe('vue mergeProps — handlers', () => {
     expect(library).not.toHaveBeenCalled()
   })
 
+  it('vetoes the library handler for an array of modifier listeners', async () => {
+    const library = vi.fn()
+    // `@click.capture` plus a v-bind'ed onClickCapture: Vue's mergeProps hands over an array.
+    const merged = mergeProps(
+      { onClickCapture: [(e: Event) => e.preventDefault(), () => {}] },
+      { onClick: library },
+    )
+    const button = renderElement('button', merged)
+    await new Promise(resolve => setTimeout(resolve, 2)) // past Vue's same-millisecond guard
+    button.dispatchEvent(new Event('click', { cancelable: true }))
+    expect(library).not.toHaveBeenCalled()
+  })
+
   it('vetoes the library handler for a consumer listening with an option modifier', async () => {
     const library = vi.fn()
     const merged = mergeProps(
@@ -123,6 +136,11 @@ describe('vue mergeProps — typing', () => {
   it("hands Vue's own attribute types back cast-free", () => {
     const consumer: HTMLAttributes = { class: 'a', onClick: () => {} }
     expectTypeOf(mergeProps(consumer, { class: 'b' })).toExtend<HTMLAttributes>()
+  })
+
+  it('keeps the named members of a consumer type that also has an index signature', () => {
+    const consumer: { id: string; [key: string]: unknown } = { id: 'x' }
+    expectTypeOf(mergeProps(consumer, {}).id).toEqualTypeOf<string>()
   })
 
   it('types class and style as the arrays they may become, not as the consumer declared them', () => {
