@@ -10,6 +10,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { act as write, createStore } from '@dunky.dev/state-machine'
 import type { ComponentEffect } from '@dunky.dev/svelte-state-machine'
 import { makeBox } from './fixtures/box.svelte'
+import SliceParent from './fixtures/slice-parent.svelte'
 import UseMachine from './fixtures/use-machine.svelte'
 import {
   connectToggle,
@@ -223,6 +224,59 @@ describe('useMachine — notifications from inside an effect', () => {
     flushSync()
     expect(inEffect).toHaveBeenCalledOnce()
     expect(view.api.open).toBe(true)
+  })
+})
+
+// A send settles before anything learns it happened: reads inside it see the
+// last settled api, and whatever they computed is refreshed once it ends.
+describe('useMachine — reads during a send', () => {
+  it('refreshes a slice re-read mid-send once the send settles', () => {
+    let view: ToggleView | undefined
+    const { getByTestId } = render(SliceParent, { expose: (v: ToggleView) => (view = v) })
+    view!.machine.send({ type: 'toggle' }) // the leaf's notification re-reads the slice
+    flushSync()
+    expect(getByTestId('parent').textContent).toBe('true')
+    expect(getByTestId('leaf').textContent).toBe('open:1')
+  })
+
+  it('shows a send the snapshot the previous send in the same tick settled to', () => {
+    const seen: { open: boolean; count: number }[] = []
+    const { view } = mount({
+      onOpenChange: () => seen.push({ open: view.api.open, count: view.api.count }),
+    })
+    view.machine.send({ type: 'toggle' }) // → open, count 1
+    view.machine.send({ type: 'toggle' }) // → closed, read while in flight
+    expect(seen).toEqual([
+      { open: false, count: 0 },
+      { open: true, count: 1 },
+    ])
+  })
+
+  it('lets the api catch up after a send that throws', () => {
+    const createConfig = (() => ({
+      initial: 'closed',
+      context: { count: 0 },
+      states: {
+        closed: {
+          on: {
+            toggle: {
+              target: 'open',
+              actions: [
+                write(($: { context: { count: number } }) => ({ count: $.context.count + 1 })),
+                () => {
+                  throw new Error('boom')
+                },
+              ],
+            },
+          },
+        },
+        open: {},
+      },
+    })) as unknown as typeof createToggleConfig
+    const { view, getByTestId } = mount({ createConfig })
+    expect(() => view.machine.send({ type: 'toggle' })).toThrow('boom')
+    flushSync()
+    expect(getByTestId('toggle').textContent).toBe('- closed 1') // the count it did write
   })
 })
 

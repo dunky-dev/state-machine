@@ -71,34 +71,50 @@ export function useMachine<
     },
   )
 
-  // Sends run untracked too (guards, actions, the consumer's own listeners),
-  // and count as in flight: a read of `api` from inside one runs after
-  // setState but before entry actions, so it gets the last settled snapshot
-  // instead of running connect() on a half-applied transition. Wrapped before
-  // the connector captures `service.send`.
+  // A read of `api` from inside a send (a reaction callback, a selector) runs
+  // after setState but before the entry actions, so it gets the last settled
+  // snapshot instead of connect() over a half-applied transition; and the
+  // version bump waits for the outermost send to end, so whatever was re-read
+  // mid-send is invalidated afterwards. Sends also run untracked (guards,
+  // actions, the consumer's own listeners). Not covered: transitions that don't
+  // start at this send — an `after` timer, an action's own async send, a
+  // watcher fed by a core effect's setContext — or a send issued inside one;
+  // that needs a "settled" hook in core. Wrapped before the connector captures
+  // `service.send`.
   let sending = 0
+  let changed = false // notified since `settled` was taken
+  let deferred = false // notified during the send in flight
+  let notified = 0
+  let version = $state(0)
   const send = service.send
   service.send = event => {
-    sending++
+    // Two sends in one tick: reads in the second see what the first settled to.
+    if (sending++ === 0 && changed) {
+      changed = false
+      settled = untrack(() => connection.snapshot)
+    }
     try {
       untrack(() => send(event))
     } finally {
-      sending--
+      // Untracked like the listener's own bump, which runs inside the send.
+      if (--sending === 0 && deferred) {
+        deferred = false
+        untrack(() => (version = ++notified))
+      }
     }
   }
   const connection = connector(service, untrackedConnect, initialProps)
   let settled = untrack(() => connection.snapshot)
 
-  // The listener only bumps a version (write-only: it must read nothing in the
-  // sender's scope); `api` reads the connector's lazy snapshot, so connect()
-  // runs once a send settles, at most once per change, and only if read.
-  let notified = 0
-  let version = $state(0)
-
   // Created before the template: it listens before a child's mount effect can
-  // send, and its teardown stops the machine before children tear down.
+  // send, and its teardown stops the machine before children tear down. The
+  // listener only writes: it must read nothing in the notifier's scope.
   $effect.pre(() => {
-    const unsubscribe = connection.subscribe(() => (version = ++notified))
+    const unsubscribe = connection.subscribe(() => {
+      changed = true
+      if (sending) deferred = true
+      else version = ++notified
+    })
     return () => {
       service.stop()
       unsubscribe()
@@ -130,6 +146,7 @@ export function useMachine<
     get api() {
       void version // re-read on every connector notify
       if (sending) return settled
+      changed = false
       return (settled = untrack(() => connection.snapshot))
     },
     machine: service,
