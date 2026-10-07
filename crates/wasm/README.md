@@ -19,14 +19,19 @@ dunky_wasm::export_machine! {
             .map(|c| CONFIG.with(|config| Machine::with_context(config, palette::context(c))))
     }
     computed { palette::RESULTS => Vec<Command>, palette::ACTIVE_ID => Option<String> }
+    // Optional: served too, but left out of the machine's TS types.
+    internal { palette::RESULT_INDICES => Vec<u32> }
 }
 ```
 
-Build it, then wrap it:
+Build it, add its TS types, then wrap it:
 
 ```bash
 cargo build --target wasm32-unknown-unknown --release
 wasm-bindgen --target web --weak-refs --reference-types --out-dir pkg target/wasm32-unknown-unknown/release/my_machines.wasm
+# Natively, PaletteMachine::typescript(&config) returns the class's TS types, generated
+# from the Rust types: print them from a small binary or example, onto the .d.ts.
+cargo run --example typescript >> pkg/my_machines.d.ts
 ```
 
 ```ts
@@ -34,8 +39,12 @@ import { fromWasm } from '@dunky.dev/state-machine'
 import init, { PaletteMachine } from './pkg/my_machines.js'
 
 await init()
+// Machine<'closed' | 'open', { commands: ...; query: string; ... }, ...>: from Rust.
 const palette = fromWasm(new PaletteMachine(commands))
 ```
+
+The data types the machine shows JS derive `TsType` (`#[derive(TsType)]`), next to
+their serde derives.
 
 The crate using the macro also depends on `wasm-bindgen` (the version this crate pins),
 and its event type derives `#[event(deserialize)]`. The `runtime` feature is the engine

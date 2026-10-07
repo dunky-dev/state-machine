@@ -4,10 +4,10 @@
 //! wraparound, clamp) lives in context + computed, driven by logical events. A renderer
 //! never computes an index: it sends `move` / `query.set` and reads `results` / `activeId`.
 
-use dunky_core::{ComputedKey, Config, Context, Event, State, Types};
+use dunky_core::{ComputedKey, Config, Context, Event, State, TsType, Types};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(TsType, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Command {
     pub id: String,
     pub label: String,
@@ -18,7 +18,7 @@ pub struct Command {
 }
 
 /// Stamped on every execute; the nonce makes each execution a distinct value.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(TsType, Clone, Debug, PartialEq, Serialize)]
 pub struct Executed {
     pub id: String,
     pub nonce: u32,
@@ -30,7 +30,7 @@ pub enum PaletteState {
     Open,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[derive(TsType, Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum MoveTo {
     Up,

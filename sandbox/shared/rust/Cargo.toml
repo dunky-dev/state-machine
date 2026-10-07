@@ -22,3 +22,7 @@ wasm-bindgen = { workspace = true, optional = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }
+
+[[example]]
+name = "typescript"
+required-features = ["wasm"]

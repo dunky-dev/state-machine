@@ -12,6 +12,10 @@
 //! `fire(id)`), and a status code back from every call (see [`bridge`]).
 //!
 //! The crate using the macro must also depend on `wasm-bindgen`.
+//!
+//! A class also knows its TS types (`typescript`, natively): they come from the machine's
+//! Rust types (`TsType`), and `pnpm build:wasm` adds them to the module's `.d.ts`, where
+//! `fromWasm` reads them.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -34,7 +38,49 @@ pub use bridge::{Bridge, ENGINE_FAILED, FAILED, HostObject, OK};
 
 #[doc(hidden)]
 pub mod __private {
-    pub use dunky_core::ComputedKey;
+    pub use dunky_core::{ComputedKey, Config, TsType};
+
+    use dunky_core::__private::{ts_key, ts_object};
+    use dunky_core::{Context, Types};
+
+    /// The declaration that gives exported class `class` its machine's types: a
+    /// `__types` member, only in the types, that `fromWasm` reads. `computed` holds the
+    /// computed values of the types by id, with their TS types.
+    pub fn class_types<T: Types>(
+        class: &str,
+        config: &Config<T>,
+        computed: &[(usize, String)],
+    ) -> String
+    where
+        T::State: TsType,
+        T::Event: TsType,
+        T::Context: TsType,
+    {
+        let names: Vec<&str> = config.computed_names().collect();
+        let computed: Vec<String> = computed
+            .iter()
+            .map(|(id, ts)| format!("{}: {ts}", ts_key(names[*id])))
+            .collect();
+        // The facade builds the context from the fields: none gives an empty object.
+        let empty = || String::from("Record<string, never>");
+        let context = if <T::Context as Context>::FIELDS.is_empty() {
+            empty()
+        } else {
+            <T::Context as TsType>::ts()
+        };
+        let computed = if computed.is_empty() {
+            empty()
+        } else {
+            ts_object(&computed)
+        };
+        format!(
+            "\nexport interface {class} {{\n  /** Generated from the Rust machine's types; `fromWasm` reads them. */\n  readonly __types?: {{\n    state: {};\n    context: {};\n    event: {};\n    computed: {};\n  }};\n}}\n",
+            <T::State as TsType>::ts(),
+            context,
+            <T::Event as TsType>::ts(),
+            computed,
+        )
+    }
 }
 
 /// What an [`export_machine!`] constructor body may evaluate to: a machine, or a
@@ -284,8 +330,13 @@ where
 ///         dunky_wasm::from_js(commands).map(|c| Machine::new(&palette::config(c)))
 ///     }
 ///     computed { palette::RESULTS => Vec<Command>, palette::ACTIVE_ID => Option<String> }
+///     // Optional: served too, but left out of the machine's TS types.
+///     internal { palette::RESULT_INDICES => Vec<u32> }
 /// }
 /// ```
+///
+/// Natively, the class also has `typescript(&config)`: its TS types, from the machine's
+/// Rust types, for `pnpm build:wasm` to add to the module's `.d.ts`.
 #[macro_export]
 macro_rules! export_machine {
     (
@@ -293,6 +344,7 @@ macro_rules! export_machine {
         $vis:vis struct $name:ident($types:ty);
         new($($arg:ident : $argty:ty),* $(,)?) $make:block
         computed { $($key:expr => $cty:ty),* $(,)? }
+        $(internal { $($ikey:expr => $ity:ty),* $(,)? })?
     ) => {
         $(#[$meta])*
         #[::wasm_bindgen::prelude::wasm_bindgen]
@@ -348,10 +400,31 @@ macro_rules! export_machine {
                         return self.inner.computed(key);
                     }
                 )*
+                $($(
+                    let key: $crate::__private::ComputedKey<$ity> = $ikey;
+                    if id as usize == key.id() {
+                        return self.inner.computed(key);
+                    }
+                )*)?
                 ::wasm_bindgen::JsValue::UNDEFINED
             }
             pub fn meta(&self) -> ::wasm_bindgen::JsValue {
                 self.inner.meta()
+            }
+        }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        impl $name {
+            /// This class's TS types, from the machine's Rust types.
+            pub fn typescript(config: &$crate::__private::Config<$types>) -> ::std::string::String {
+                $crate::__private::class_types::<$types>(
+                    ::core::stringify!($name),
+                    config,
+                    &[$({
+                        let key: $crate::__private::ComputedKey<$cty> = $key;
+                        (key.id(), <$cty as $crate::__private::TsType>::ts())
+                    }),*],
+                )
             }
         }
     };

@@ -133,7 +133,8 @@ machines; the conversion helpers between JS values and Rust values.
 ## The export macro — Rust machines
 
 - The macro takes the class name, the machine type, a constructor body, and the derived
-  values the class serves, each with its key and its type. A constructor body that
+  values the class serves, each with its key and its type; an optional `internal` block
+  lists derived values it serves but leaves out of its types. A constructor body that
   returns an error throws it from the JS constructor; bad arguments read as
   `[machine] bad argument: ...`.
 - The class implements the protocol: attach to a host (once), dispatch by kind, start,
@@ -146,6 +147,11 @@ machines; the conversion helpers between JS values and Rust values.
 - An event kind without data is built from the number alone; any other kind is read from
   the JS event's fields. The event type opts in to that with `#[event(deserialize)]`.
 - The crate using the macro depends on `wasm-bindgen` at the version this crate pins.
+- **Types.** Natively, the class reports its TS types (`typescript(&config)`), generated
+  from the machine's Rust types: the states, the context, the events, and the derived
+  values outside `internal`. The build appends them to the module's `.d.ts` as a
+  `__types` member of the class, which exists only in the types; `fromWasm` infers the
+  machine's types from it. A Rust type change changes the TS types on the next build.
 
 ## Edge cases that carry design meaning
 

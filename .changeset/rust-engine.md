@@ -21,8 +21,13 @@ import { fromWasm } from '@dunky.dev/state-machine'
 import init, { PaletteMachine } from './pkg/machines.js' // your wasm-bindgen output
 
 await init()
-const palette = fromWasm<PaletteState, PaletteContext, PaletteEvent>(new PaletteMachine(commands))
+// Its types come from the Rust types: no generics to write, nothing to keep in sync.
+const palette = fromWasm(new PaletteMachine(commands))
 ```
+
+A Rust machine's TypeScript types are generated from its Rust types (the derives
+plus `#[derive(TsType)]` on your data types): `PaletteMachine::typescript(&config)`
+returns them for the wasm-bindgen `.d.ts`, and `fromWasm` infers them from the class.
 
 The `computed` option of `fromWasm` maps a raw value once per change — for
 example, indices that crossed the boundary back onto your own objects.

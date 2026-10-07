@@ -59,6 +59,9 @@ dunky_wasm::export_machine! {
     computed {
         palette::RESULTS => Vec<palette::Command>,
         palette::ACTIVE_ID => Option<String>,
+    }
+    // Only the JS side's `results` mapping reads it: not part of the machine's types.
+    internal {
         palette::RESULT_INDICES => Vec<u32>,
     }
 }
@@ -98,4 +101,19 @@ dunky_wasm::export_machine! {
         HIGHLIGHT.with(|c| Machine::with_context(c, highlight::HighlightCtx { on }))
     }
     computed {}
+}
+
+/// The classes' TS types (`examples/typescript.rs`, run by `pnpm build:wasm`). The guards
+/// config only sizes its candidate list, so any `k` gives the same types.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn typescript() -> String {
+    [
+        PALETTE.with(PaletteMachine::typescript),
+        CELL.with(CellMachine::typescript),
+        PINGPONG.with(PingPongMachine::typescript),
+        GuardsMachine::typescript(&guards::config(1)),
+        LIST.with(ListMachine::typescript),
+        HIGHLIGHT.with(HighlightMachine::typescript),
+    ]
+    .concat()
 }

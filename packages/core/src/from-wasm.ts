@@ -10,6 +10,22 @@ export interface WasmMachine extends Engine {
   meta: () => WasmMachineMeta
 }
 
+/**
+ * A Rust machine's types. `pnpm build:wasm` generates them from the machine's Rust types
+ * onto its exported class, as a `__types` member that exists only in the types.
+ */
+export interface MachineTypes {
+  state: string
+  context: object
+  event: { type: string }
+  computed: object
+}
+
+/** The types generated onto an exported class; loose ones when it has none. */
+export type TypesOf<Handle> = Handle extends { readonly __types?: infer Types extends MachineTypes }
+  ? Types
+  : MachineTypes
+
 /** The names a Rust machine type reports, in its numbering. */
 export interface WasmMachineMeta {
   states: string[]
@@ -129,8 +145,19 @@ class RustMachine<
 /**
  * Wrap a Rust machine (an instance of a class exported with
  * `dunky_wasm::export_machine!`) in the `Machine` interface, so the connector and
- * every target consume it like a TS-authored one.
+ * every target consume it like a TS-authored one. Its types are the class's, generated
+ * from the machine's Rust types.
  */
+export function fromWasm<Handle extends WasmMachine>(
+  handle: Handle,
+  options?: FromWasmOptions<TypesOf<Handle>['computed']>,
+): Machine<
+  TypesOf<Handle>['state'],
+  TypesOf<Handle>['context'],
+  TypesOf<Handle>['event'],
+  TypesOf<Handle>['computed']
+>
+/** For a class built without generated types: name them. */
 export function fromWasm<
   State extends string,
   Context extends object,
@@ -138,9 +165,13 @@ export function fromWasm<
   Computed = Record<string, never>,
 >(
   handle: WasmMachine,
-  options: FromWasmOptions<Computed> = {},
-): Machine<State, Context, Event, Computed> {
-  return new RustMachine<State, Context, Event, Computed>(
+  options?: FromWasmOptions<Computed>,
+): Machine<State, Context, Event, Computed>
+export function fromWasm(
+  handle: WasmMachine,
+  options: FromWasmOptions<Record<string, unknown>> = {},
+): Machine<string, object, { type: string }, Record<string, unknown>> {
+  return new RustMachine<string, object, { type: string }, Record<string, unknown>>(
     shapeOf(handle),
     handle,
     (options.computed ?? {}) as Record<string, ComputedMapping<unknown> | undefined>,

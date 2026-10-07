@@ -45,12 +45,7 @@ type Palette = Machine<
 
 /** The command palette; `results` crosses as indices, mapped onto the caller's objects. */
 export function createPalette(commands: Command[]): Palette {
-  return fromWasm<
-    CommandPaletteState,
-    CommandPaletteContext,
-    CommandPaletteEvent,
-    CommandPaletteComputed
-  >(new PaletteMachine(commands), {
+  return fromWasm(new PaletteMachine(commands), {
     computed: {
       results: {
         from: 'resultIndices',
@@ -65,32 +60,26 @@ export function createPaletteObjects(commands: Command[]): Palette {
   return fromWasm(new PaletteMachine(commands))
 }
 
-export type CellContext = { value: number; other: number }
-export function createCell(): Machine<'idle', CellContext, { type: 'hit' | 'miss' }> {
+// Each machine's types come from its Rust types (generated onto the class by the build).
+export function createCell() {
   return fromWasm(new CellMachine())
 }
 
-export function createPingPong(): Machine<'ping' | 'pong', object, { type: 'go' }> {
+export function createPingPong() {
   return fromWasm(new PingPongMachine())
 }
 
-export function createGuards(k: number): Machine<'idle', { pick: number }, { type: 'go' }> {
+export function createGuards(k: number) {
   return fromWasm(new GuardsMachine(k))
 }
 
 /** The rendering bench's shared list: one highlighted index. */
-export function createList(): Machine<
-  'idle',
-  { highlighted: number },
-  { type: 'move'; to: number }
-> {
+export function createList() {
   return fromWasm(new ListMachine())
 }
 
 /** The rendering bench's per-row machine: one boolean. */
-export function createHighlight(
-  on: boolean,
-): Machine<'idle', { on: boolean }, { type: 'set'; on: boolean }> {
+export function createHighlight(on: boolean) {
   return fromWasm(new HighlightMachine(on))
 }
 

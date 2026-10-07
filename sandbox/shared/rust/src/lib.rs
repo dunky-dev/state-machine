@@ -10,6 +10,9 @@
 pub mod dialog;
 pub mod palette;
 
+#[cfg(all(feature = "wasm", not(target_arch = "wasm32")))]
+pub use exports::typescript;
+
 #[cfg(feature = "wasm")]
 mod exports {
     use dunky_core::{Config, Machine};
@@ -34,6 +37,9 @@ mod exports {
         computed {
             palette::RESULTS => Vec<palette::Command>,
             palette::ACTIVE_ID => Option<String>,
+        }
+        // Only the JS side's `results` mapping reads it: not part of the machine's types.
+        internal {
             palette::RESULT_INDICES => Vec<u32>,
         }
     }
@@ -45,5 +51,11 @@ mod exports {
             DIALOG.with(|c| Machine::with_context(c, dialog::DialogCtx { exit_ms, open_count: 0 }))
         }
         computed {}
+    }
+
+    /// The classes' TS types (`examples/typescript.rs`, run by `pnpm build:wasm`).
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn typescript() -> String {
+        PALETTE.with(PaletteMachine::typescript) + &DIALOG.with(DialogMachine::typescript)
     }
 }

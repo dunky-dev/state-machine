@@ -64,6 +64,12 @@ reporting; and the binding API (cargo feature `host`).
   equality (`PartialEq` by default).
 - With the `serde` feature, a context field serializes by index and an event rebuilds
   from its kind and its payload: what a binding needs to cross into another runtime.
+- **TS types.** A machine type knows its TypeScript types (`TsType`), so a binding can
+  generate them instead of anyone writing them twice. The derives write them for the
+  states, for the events (with `#[event(deserialize)]`) and for the context (with
+  `#[context(serialize)]`); the data types they hold derive `TsType`. Names and shapes
+  follow the serde attributes the values cross with: `None` is `null`, a field serde
+  skips when it is `None` is optional, every number is a `number`.
 
 ## The behavior contract
 

@@ -929,23 +929,31 @@ dunky_wasm::export_machine! {
         dunky_wasm::from_js(commands).map(|c| Machine::with_context(&CONFIG.with(Clone::clone), palette::context(c)))
     }
     computed { palette::RESULTS => Vec<Command>, palette::ACTIVE_ID => Option<String> }
+    // Served too, but left out of the machine's TS types.
+    internal { palette::RESULT_INDICES => Vec<u32> }
 }
 ```
 
-Build it with `wasm-bindgen`, then wrap an instance with `fromWasm`. The result is a
-`Machine` like any other: the connector, `useMachine` and every target consume it
-unchanged, with the same notifications as a TS machine.
+Build it with `wasm-bindgen`, add its TS types (natively, `PaletteMachine::typescript`
+generates them from the Rust types, for the `.d.ts`), then wrap an instance with
+`fromWasm`. The result is a `Machine` like any other: the connector, `useMachine` and
+every target consume it unchanged, with the same notifications as a TS machine.
 
 ```ts
 import { fromWasm } from '@dunky.dev/state-machine'
 import init, { PaletteMachine } from './pkg/machines.js' // your wasm-bindgen output
 
 await init()
-const palette = fromWasm<PaletteState, PaletteContext, PaletteEvent, PaletteComputed>(
+// The types come from the class: generated from the Rust types, nothing to write.
+const palette = fromWasm(
   new PaletteMachine(commands),
   // Optional: rebuild a computed value from another one, e.g. indices that crossed
   // the boundary back onto your own objects. Runs only when the value changed.
-  { computed: { results: { from: 'resultIndices', map: i => i.map(n => commands[n]) } } },
+  {
+    computed: {
+      results: { from: 'resultIndices', map: raw => Array.from(raw as number[], i => commands[i]) },
+    },
+  },
 )
 ```
 

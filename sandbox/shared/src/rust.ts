@@ -2,9 +2,10 @@
  * The sandbox machines written in Rust (sandbox/shared/rust), wrapped with `fromWasm`.
  * Build the wasm first: `pnpm build:wasm`. Load it once — `await loadRust()` in a
  * browser, `loadRustSync(bytes)` (or `./rust-node`) in Node and Bun — then build
- * machines with the factories below.
+ * machines with the factories below. Their types come from the Rust types: the build
+ * generates them onto each class, and `fromWasm` reads them.
  */
-import { fromWasm, type Machine } from '@dunky.dev/state-machine'
+import { fromWasm, type TypesOf } from '@dunky.dev/state-machine'
 import init, { DialogMachine, initSync, PaletteMachine } from '../rust/pkg/dunky_sandbox.js'
 import type { CommandPaletteMachine } from './machine'
 import type {
@@ -28,12 +29,7 @@ export function loadRustSync(bytes: BufferSource): void {
 /** The command palette. `results` crosses the boundary as indices and maps back onto
  * the caller's own command objects: Rust owns the ids, rich values stay in JS. */
 export function createRustPalette(commands: Command[]): CommandPaletteMachine {
-  return fromWasm<
-    CommandPaletteState,
-    CommandPaletteContext,
-    CommandPaletteEvent,
-    CommandPaletteComputed
-  >(new PaletteMachine(commands), {
+  return fromWasm(new PaletteMachine(commands), {
     computed: {
       results: {
         from: 'resultIndices',
@@ -43,11 +39,23 @@ export function createRustPalette(commands: Command[]): CommandPaletteMachine {
   })
 }
 
-export type DialogState = 'closed' | 'open' | 'closing'
-export type DialogContext = { exitMs: number; openCount: number }
-export type DialogEvent = { type: 'open' | 'close' | 'toggle' }
-
 /** A dialog whose `closing` phase lasts `exitMs` (an `after` timer on the host clock). */
-export function createRustDialog(exitMs: number): Machine<DialogState, DialogContext, DialogEvent> {
+export function createRustDialog(exitMs: number) {
   return fromWasm(new DialogMachine(exitMs))
 }
+
+export type DialogState = TypesOf<DialogMachine>['state']
+export type DialogContext = TypesOf<DialogMachine>['context']
+export type DialogEvent = TypesOf<DialogMachine>['event']
+
+// The Rust palette's generated types must be the TS palette's, exactly: `pnpm typecheck`
+// fails here as soon as one side changes without the other.
+type Same<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
+type Expect<T extends true> = T
+type RustPalette = TypesOf<PaletteMachine>
+export type RustPaletteMatchesTs = [
+  Expect<Same<RustPalette['state'], CommandPaletteState>>,
+  Expect<Same<RustPalette['context'], CommandPaletteContext>>,
+  Expect<Same<RustPalette['event'], CommandPaletteEvent>>,
+  Expect<Same<RustPalette['computed'], CommandPaletteComputed>>,
+]

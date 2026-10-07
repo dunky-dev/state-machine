@@ -1,5 +1,7 @@
 //! Derive macros for `dunky-core`. Use them through the re-exports in `dunky_core`.
 
+mod ts;
+
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote};
@@ -37,6 +39,18 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
 pub fn derive_context(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     expand_context(input)
+        .unwrap_or_else(|e| e.to_compile_error())
+        .into()
+}
+
+/// `#[derive(TsType)]` on a data type a machine shows JS (a context field, an event
+/// payload, a computed value): its TypeScript type, from the serde attributes it crosses
+/// with. Supports structs with named fields, newtypes, unit enums (string unions), and
+/// internally tagged enums (`#[serde(tag = "...")]`).
+#[proc_macro_derive(TsType)]
+pub fn derive_ts(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    ts::expand(input)
         .unwrap_or_else(|e| e.to_compile_error())
         .into()
 }
@@ -99,7 +113,7 @@ fn name_attr(attrs: &[Attribute], attr: &str, serde_too: bool) -> syn::Result<Op
 }
 
 /// serde's `rename_all` rules, applied to a (PascalCase) variant name exactly like serde does.
-fn serde_case(variant: &str, rule: &str) -> Option<String> {
+pub(crate) fn serde_case(variant: &str, rule: &str) -> Option<String> {
     let snake = || {
         let mut out = String::new();
         for (i, ch) in variant.char_indices() {
@@ -191,8 +205,15 @@ fn expand_state(input: DeriveInput) -> syn::Result<TokenStream2> {
         variants.push(&v.ident);
     }
     let indices: Vec<usize> = (0..variants.len()).collect();
+    let literals: Vec<TokenStream2> = names
+        .iter()
+        .map(|n| quote!(::dunky_core::__private::ts_literal(#n)))
+        .collect();
+    let ts_impl = ts::impl_ts(&input, ts::union(&literals));
     let (impl_g, ty_g, where_g) = input.generics.split_for_impl();
     Ok(quote! {
+        #ts_impl
+
         impl #impl_g ::dunky_core::StateEnum for #name #ty_g #where_g {
             const NAMES: &'static [&'static str] = &[#(#names),*];
             fn index(self) -> usize {
@@ -285,6 +306,28 @@ fn expand_event(input: DeriveInput) -> syn::Result<TokenStream2> {
         });
     }
     let indices: Vec<usize> = (0..variants.len()).collect();
+    let ts_impl = if deserialize {
+        let mut types = Vec::new();
+        for (v, kind_name) in data.variants.iter().zip(&names) {
+            let fields_rule =
+                serde_str(&v.attrs, "rename_all")?.or_else(|| rename_all_fields.clone());
+            let mut members = vec![ts::tag_member("type", kind_name)];
+            match &v.fields {
+                Fields::Unit => {}
+                Fields::Named(fields) => members.extend(ts::members(
+                    &fields.named,
+                    fields_rule.as_deref(),
+                    ts::Direction::FromJs,
+                )?),
+                // JS cannot send it: no field names to read.
+                Fields::Unnamed(_) => continue,
+            }
+            types.push(ts::object(&members));
+        }
+        ts::impl_ts(&input, ts::union(&types))
+    } else {
+        quote! {}
+    };
     let deserialize_impl = if deserialize {
         quote! {
             impl ::dunky_core::DeserializeEvent for #name {
@@ -334,6 +377,8 @@ fn expand_event(input: DeriveInput) -> syn::Result<TokenStream2> {
         }
 
         #deserialize_impl
+
+        #ts_impl
     })
 }
 
@@ -389,6 +434,24 @@ fn expand_context(input: DeriveInput) -> syn::Result<TokenStream2> {
     let indices: Vec<usize> = (0..idents.len()).collect();
     let bits: Vec<u64> = indices.iter().map(|i| 1u64 << i).collect();
 
+    let ts_impl = if serialize {
+        let members: Vec<TokenStream2> = js_names
+            .iter()
+            .zip(&tys)
+            .map(|(js, ty)| {
+                quote! {
+                    ::std::format!(
+                        "{}: {}",
+                        ::dunky_core::__private::ts_key(#js),
+                        <#ty as ::dunky_core::TsType>::ts(),
+                    )
+                }
+            })
+            .collect();
+        ts::impl_ts(&input, ts::object(&members))
+    } else {
+        quote! {}
+    };
     let serialize_impl = if serialize {
         quote! {
             impl ::dunky_core::SerializeFields for #name {
@@ -479,5 +542,7 @@ fn expand_context(input: DeriveInput) -> syn::Result<TokenStream2> {
         }
 
         #serialize_impl
+
+        #ts_impl
     })
 }

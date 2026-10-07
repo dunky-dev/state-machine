@@ -223,6 +223,8 @@ crates/core-wasm (inlined in the package)  your wasm module
 
 - Typed Rust (`#[derive(State, Event, Context)]`, a `Config` built once), exported to JS
   with `dunky_wasm::export_machine!` in your own wasm module, and wrapped with `fromWasm`.
+- Its **TS types** come from its Rust types: the build generates them onto the exported
+  class, and `fromWasm` infers them, so nobody writes them twice.
 - The engine runs everything, user code included, inside wasm. The facade keeps a JS
   **mirror** of the context and re-reads only the fields each notify names; a computed
   value crosses only when it changed.
@@ -287,6 +289,7 @@ JSI (in progress); until it lands, the package does not run on React Native.
 | **whole transition** | A leaving transition the host runs in one call: effect cleanups, exit actions, actions, the switch and its notification, entry actions, effects. Only where JS cannot see the switch. |
 | **command**          | What a timer is to the engine: start or cancel, with an id. The host runs it on its clock and reports a due timer.                                                                    |
 | **change mask**      | A bit per context field (64 at most), plus the state: what a write or a step changed.                                                                                                 |
+| **TS types**         | A Rust machine's TypeScript types, generated from its Rust types (`TsType`) onto its exported class; `fromWasm` infers them.                                                          |
 
 ## Versioning
 

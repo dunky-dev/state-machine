@@ -15,3 +15,6 @@ dunky-wasm = { workspace = true }
 dunky-sandbox = { workspace = true }
 serde = { workspace = true }
 wasm-bindgen = { workspace = true }
+
+[[example]]
+name = "typescript"

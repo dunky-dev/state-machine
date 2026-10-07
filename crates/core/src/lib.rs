@@ -28,6 +28,7 @@ mod selection;
 mod store;
 mod timers;
 mod traits;
+mod ts;
 
 pub mod testing;
 
@@ -51,9 +52,10 @@ pub use timers::{Command, TimerId};
 pub use traits::{Context, EventEnum, Field, StateEnum, Types};
 #[cfg(feature = "serde")]
 pub use traits::{DeserializeEvent, SerializeFields};
+pub use ts::TsType;
 
 #[cfg(feature = "derive")]
-pub use dunky_macros::{Context, Event, State};
+pub use dunky_macros::{Context, Event, State, TsType};
 
 /// The `machine.init` marker name: what a boot effect or a data-reaction sees as its
 /// event type (`ActionParams::event()` returns `None` for it).
@@ -63,4 +65,6 @@ pub const MACHINE_INIT: &str = "machine.init";
 pub mod __private {
     #[cfg(feature = "serde")]
     pub use serde;
+
+    pub use crate::ts::{key as ts_key, literal as ts_literal, object as ts_object};
 }

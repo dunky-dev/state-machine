@@ -42,5 +42,16 @@ build dunky-core-wasm dunky_core_wasm packages/core/wasm
 } > packages/core/wasm/bytes.js
 printf 'export declare const WASM: string\n' > packages/core/wasm/bytes.d.ts
 
+# types <crate> <.d.ts> [cargo args...] — a Rust machine's TS types come from its Rust
+# types: the crate's `typescript` example prints them for each exported class, and they
+# join the class wasm-bindgen declared, where fromWasm reads them.
+types() {
+  local crate=$1 dts=$2
+  shift 2
+  cargo run -q -p "$crate" --example typescript "$@" >> "$dts"
+}
+
 build dunky-sandbox dunky_sandbox sandbox/shared/rust/pkg --features wasm
+types dunky-sandbox sandbox/shared/rust/pkg/dunky_sandbox.d.ts --features wasm
 build dunky-benchmark dunky_benchmark benchmark/rust/pkg
+types dunky-benchmark benchmark/rust/pkg/dunky_benchmark.d.ts
