@@ -139,7 +139,7 @@ const { api } = useMachine(createDialogConfig, connectDialog, dialogEffects, pro
 </template>
 ```
 
-- **Event handlers are chained, consumer-first.** If the consumer calls `e.preventDefault()`, the component's handler is skipped — a clean veto. An array of consumer handlers stays an array with the component's handler appended, and a listener with an option modifier (`onClickCapture`) vetoes the plain `onClick` too.
+- **Event handlers are chained, consumer-first.** If the consumer calls `e.preventDefault()`, the component's handler is skipped — a clean veto. An array of consumer handlers stays an array with the component's handler appended, and a capture listener (`onClickCapture`) vetoes the plain `onClick` too — a passive one can't, since the browser ignores its `preventDefault`.
 - **`class` and `style` are merged** into a `[consumer, library]` array, whatever shape each side uses; Vue normalizes it, and the library's style wins a conflicting key.
 - **Everything else: component wins** (`id`, `role`, `aria-*`).
 

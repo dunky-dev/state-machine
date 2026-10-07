@@ -23,7 +23,7 @@ the shared DOM translation from `@dunky.dev/state-machine-dom` with Vue's
 listener names (`onPointerenter`, `onKeydown` — Vue derives the DOM event by
 hyphenating a listener's camel tail). `mergeProps` chains handlers with the
 `defaultPrevented` veto, which Vue's own `mergeProps` doesn't — a consumer's
-handler array included, and a modifier listener like `onClickCapture` too — and
+handler array included, and a capture listener like `onClickCapture` too — and
 merges `class`/`style` of any shape as `[consumer, library]`.
 
 ```vue

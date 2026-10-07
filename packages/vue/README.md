@@ -411,9 +411,11 @@ const { api } = useMachine(tooltipConfig, connectTooltip, tooltipEffects, props)
   skipped (a clean veto). Every Vue listener key qualifies (`onClick`,
   `onPointerenter`, `onUpdate:open`). An **array** of consumer handlers — what
   Vue puts in `attrs` when a listener is bound twice — stays an array, so Vue's
-  invoker semantics hold, with the library handler appended last; and a
-  consumer listening with an option modifier (`onClickCapture`, `onClickOnce`)
-  still vetoes the library's plain `onClick`.
+  invoker semantics hold, with the library handler appended last. A consumer's
+  capture listener (`onClickCapture`), or a `.once` one bound from the first
+  render, still vetoes the library's plain `onClick` — it runs first. A passive
+  listener can't (the browser ignores its `preventDefault`), and neither can a
+  `.once` added after mount, which registers after the library's.
 - **`class` and `style` merge as `[consumer, library]`** when both sides set
   them, in any shape Vue accepts (string, array, object); Vue normalizes the
   array, and the library entry, last, wins a conflicting style key.
@@ -447,7 +449,9 @@ reactivity, which skips its readers when a re-evaluation returns the same value
 — on 3.3 every machine change would re-render every reader. The suite runs on
 Vue 3.5 and is verified on 3.4.0 and the 3.6 release candidate, where the
 composables also work inside Vapor components: they use only the reactivity and
-lifecycle APIs both renderers share.
+lifecycle APIs both renderers share. One exception: a Vapor component has no
+`getCurrentInstance()`, so one mounted into an already-deactivated
+`<KeepAlive>` view starts right away instead of holding still.
 
 TypeScript 7 no longer ships the compiler's JS API, which the Vue toolchain
 still needs: `@vue/compiler-sfc` uses it to resolve an imported type in
