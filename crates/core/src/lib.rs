@@ -1,9 +1,10 @@
-//! `dunky-core` — the Rust port of `@dunky.dev/state-machine`.
+//! `dunky-core` — the engine of `@dunky.dev/state-machine`, and the crate to write
+//! machines in Rust.
 //!
-//! The behavior contract is `packages/core/SPEC.md`; this crate implements the same
-//! engine (flat states, run-to-completion, guards, actions, effects, `after` timers,
-//! computed data, watchers, selections, connector, composition, store) for Rust hosts and
-//! for the wasm / native bindings.
+//! The behavior contract is `packages/core/SPEC.md`; what is specific to this crate is
+//! `crates/core/SPEC.md`. The engine (flat states, run-to-completion, guards, actions,
+//! effects, `after` timers, computed data, watchers, selections, connector, composition,
+//! store) serves Rust programs, and machines written in TypeScript through `dunky-wasm`.
 //!
 //! Rust-specific shape:
 //! - **Typed**: states, events and context are Rust types (`#[derive(State, Event, Context)]`).
@@ -38,6 +39,8 @@ pub use config::{
     TransitionBuilder,
 };
 pub use connector::{ConnectSnapshot, Connector, Reaction};
+#[cfg(feature = "host")]
+pub use machine::Host;
 pub use machine::{Changes, Machine, Sender};
 pub use params::{ActionParams, GuardParams, View};
 pub use selection::Selection;

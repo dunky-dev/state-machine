@@ -63,7 +63,7 @@ impl<T: Types, V: 'static> Selection<T, V> {
         let prev: RefCell<Option<Rc<V>>> = RefCell::new(seed.map(Rc::new));
         let selector = self.selector.clone();
         let weak = Rc::downgrade(inner);
-        inner.bus.add(Rc::new(move || {
+        inner.bus().add(Rc::new(move || {
             let Some(inner) = weak.upgrade() else { return };
             let next = {
                 let core = inner.core.borrow();

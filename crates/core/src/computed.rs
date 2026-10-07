@@ -16,9 +16,16 @@ use crate::traits::{Context, Types};
 
 pub(crate) type ComputedEval<T> = Rc<dyn for<'a> Fn(&ComputedParams<'a, T>) -> Rc<dyn Any>>;
 
+pub(crate) enum ComputedSource<T: Types> {
+    Fn(ComputedEval<T>),
+    /// Evaluated by the machine's host, by the binding's own id.
+    #[cfg(feature = "host")]
+    External(u32),
+}
+
 pub(crate) struct ComputedDef<T: Types> {
     pub(crate) name: &'static str,
-    pub(crate) eval: ComputedEval<T>,
+    pub(crate) eval: ComputedSource<T>,
     pub(crate) eq: fn(&dyn Any, &dyn Any) -> bool,
 }
 
@@ -69,13 +76,19 @@ impl<T: Types> ComputedParams<'_, T> {
         self.core.state
     }
     pub fn computed<V: 'static>(&self, key: ComputedKey<V>) -> Rc<V> {
-        {
-            let mut deps = self.computed_deps.borrow_mut();
-            if !deps.contains(&key.id) {
-                deps.push(key.id);
-            }
-        }
+        self.record_dep(key.id);
         downcast(get(self.core, self.inner, key.id), self.inner, key.id)
+    }
+    /// Record that this value read computed `id` (for a host that evaluated it itself).
+    #[cfg(feature = "host")]
+    pub fn track_computed(&self, id: usize) {
+        self.record_dep(id);
+    }
+    fn record_dep(&self, id: usize) {
+        let mut deps = self.computed_deps.borrow_mut();
+        if !deps.contains(&id) {
+            deps.push(id);
+        }
     }
 }
 
@@ -145,7 +158,11 @@ fn fresh<T: Types>(core: &Core<T>, inner: &Inner<T>, id: usize) -> Option<Rc<dyn
         let mut bits = slot.ctx_deps;
         while bits != 0 {
             let i = bits.trailing_zeros() as usize;
-            if core.field_changed_at[i] > at {
+            if core
+                .field_changed_at
+                .get(i)
+                .is_some_and(|&changed| changed > at)
+            {
                 return None;
             }
             bits &= bits - 1;
@@ -205,7 +222,23 @@ fn recompute<T: Types>(core: &Core<T>, inner: &Inner<T>, id: usize) -> Rc<dyn An
         computed_deps: &computed_deps,
         reads_state: &reads_state,
     };
-    let next = (def.eval)(&params);
+    let next = match &def.eval {
+        ComputedSource::Fn(f) => f(&params),
+        #[cfg(feature = "host")]
+        ComputedSource::External(ext) => match inner.host() {
+            Some(host) => host.computed(*ext, &params),
+            None => panic!("[machine] computed \"{}\" needs a host", def.name),
+        },
+    };
+    if inner.aborted() {
+        // The host failed mid-evaluation: do not cache what it returned.
+        let mut slot = slot_cell.borrow_mut();
+        slot.evaluating = false;
+        slot.value = None;
+        slot.computed_deps = computed_deps.into_inner();
+        std::mem::forget(reset);
+        return next;
+    }
 
     let mut slot = slot_cell.borrow_mut();
     slot.evaluating = false;
