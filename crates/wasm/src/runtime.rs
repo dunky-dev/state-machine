@@ -296,40 +296,39 @@ fn build(spec: &Spec) -> Config<Js> {
 extern "C" {
     /// 0 false, 1 true, 2 failed.
     #[wasm_bindgen(method)]
-    fn guard(this: &HostObject, facade: &JsValue, f: u32, event: &JsValue) -> u32;
+    fn guard(this: &HostObject, f: u32, event: &JsValue) -> u32;
     /// 0, or 1 when it failed. `pre` is what to deliver first (see `Pre`), or 0.
     #[wasm_bindgen(method)]
-    fn action(this: &HostObject, facade: &JsValue, f: u32, event: &JsValue, pre: u32) -> u32;
+    fn action(this: &HostObject, f: u32, event: &JsValue, pre: u32) -> u32;
     /// Start an effect; the host keeps its cleanup. 0, or 1 when it failed. `pre` as for
     /// `action`.
     #[wasm_bindgen(method)]
-    fn effect(this: &HostObject, facade: &JsValue, f: u32, event: &JsValue, pre: u32) -> u32;
+    fn effect(this: &HostObject, f: u32, event: &JsValue, pre: u32) -> u32;
     /// Deliver `pre` on its own. 0, or 1 when it failed.
     #[wasm_bindgen(method)]
-    fn pre(this: &HostObject, facade: &JsValue, pre: u32) -> u32;
+    fn pre(this: &HostObject, pre: u32) -> u32;
     /// The delay in ms, or -1 when it failed.
     #[wasm_bindgen(method)]
-    fn delay(this: &HostObject, facade: &JsValue, f: u32, event: &JsValue) -> f64;
+    fn delay(this: &HostObject, f: u32, event: &JsValue) -> f64;
     /// 0, `CHANGED` when the value changed (it stays in JS), or 1 when it failed. What
     /// the evaluation read arrives first (`JsMachine::report`) when it differs from the
     /// previous evaluation.
     #[wasm_bindgen(method)]
-    fn computed(this: &HostObject, facade: &JsValue, id: u32) -> u32;
+    fn computed(this: &HostObject, id: u32) -> u32;
     /// The index of the first candidate of guard list `list` that passes, -1 for none,
     /// -2 when a guard failed.
     #[wasm_bindgen(method)]
-    fn pick(this: &HostObject, facade: &JsValue, list: u32, event: &JsValue) -> i32;
+    fn pick(this: &HostObject, list: u32, event: &JsValue) -> i32;
     /// Run action list `list` in order. 0, or 1 when an action failed. `pre` as for
     /// `action`.
     #[wasm_bindgen(method)]
-    fn actions(this: &HostObject, facade: &JsValue, list: u32, event: &JsValue, pre: u32) -> u32;
+    fn actions(this: &HostObject, list: u32, event: &JsValue, pre: u32) -> u32;
     /// Run transition `id` whole, from `from` to `to` (`flags`: 1 stops the effects, 2
     /// starts the target's). 0 done, 1 failed before the switch, 2 failed after it, 3
     /// failed while starting the effects. `pre` as for `action`.
     #[wasm_bindgen(method)]
     fn transition(
         this: &HostObject,
-        facade: &JsValue,
         id: u32,
         from: u32,
         to: u32,
@@ -363,7 +362,7 @@ impl JsHost {
     /// Deliver what is held back, now.
     fn deliver(&self) {
         let pre = self.take_pre();
-        if pre != 0 && self.link.host.pre(&self.link.facade(), pre) != OK {
+        if pre != 0 && self.link.host.pre(pre) != OK {
             self.link.fail();
         }
     }
@@ -380,7 +379,7 @@ fn with_event<R>(event: Option<&JsEvent>, f: impl FnOnce(&JsValue) -> R) -> R {
 impl Host<Js> for JsHost {
     fn guard(&self, id: u32, event: Option<&JsEvent>) -> bool {
         self.deliver();
-        match with_event(event, |e| self.link.host.guard(&self.link.facade(), id, e)) {
+        match with_event(event, |e| self.link.host.guard(id, e)) {
             0 => false,
             1 => true,
             _ => {
@@ -392,20 +391,14 @@ impl Host<Js> for JsHost {
 
     fn action(&self, id: u32, event: Option<&JsEvent>) {
         let pre = self.take_pre();
-        if with_event(event, |e| {
-            self.link.host.action(&self.link.facade(), id, e, pre)
-        }) != OK
-        {
+        if with_event(event, |e| self.link.host.action(id, e, pre)) != OK {
             self.link.fail();
         }
     }
 
     fn effect(&self, id: u32, event: Option<&JsEvent>) {
         let pre = self.take_pre();
-        if with_event(event, |e| {
-            self.link.host.effect(&self.link.facade(), id, e, pre)
-        }) != OK
-        {
+        if with_event(event, |e| self.link.host.effect(id, e, pre)) != OK {
             self.link.fail();
         }
     }
@@ -420,7 +413,7 @@ impl Host<Js> for JsHost {
 
     fn delay(&self, id: u32, event: Option<&JsEvent>) -> u32 {
         self.deliver();
-        let ms = with_event(event, |e| self.link.host.delay(&self.link.facade(), id, e));
+        let ms = with_event(event, |e| self.link.host.delay(id, e));
         if ms.is_nan() || ms < 0.0 {
             self.link.fail();
             return 0;
@@ -430,7 +423,7 @@ impl Host<Js> for JsHost {
 
     fn computed(&self, id: u32) -> Evaluation {
         self.deliver();
-        let status = self.link.host.computed(&self.link.facade(), id);
+        let status = self.link.host.computed(id);
         if status & FAILED != 0 {
             self.link.fail();
         }
@@ -442,7 +435,7 @@ impl Host<Js> for JsHost {
 
     fn pick(&self, list: u32, event: Option<&JsEvent>) -> Option<usize> {
         self.deliver();
-        match with_event(event, |e| self.link.host.pick(&self.link.facade(), list, e)) {
+        match with_event(event, |e| self.link.host.pick(list, e)) {
             -2 => {
                 self.link.fail();
                 None
@@ -453,10 +446,7 @@ impl Host<Js> for JsHost {
 
     fn actions(&self, list: u32, event: Option<&JsEvent>) {
         let pre = self.take_pre();
-        if with_event(event, |e| {
-            self.link.host.actions(&self.link.facade(), list, e, pre)
-        }) != OK
-        {
+        if with_event(event, |e| self.link.host.actions(list, e, pre)) != OK {
             self.link.fail();
         }
     }
@@ -490,10 +480,7 @@ impl Host<Js> for JsHost {
         let pre = self.take_pre();
         let flags = u32::from(stop) | (u32::from(start) << 1);
         let outcome = with_event(event, |e| {
-            let facade = self.link.facade();
-            self.link
-                .host
-                .transition(&facade, id, from.0, to.0, e, flags, pre)
+            self.link.host.transition(id, from.0, to.0, e, flags, pre)
         });
         if outcome != OK {
             self.link.fail();
@@ -539,8 +526,8 @@ pub struct JsMachine {
 
 #[wasm_bindgen]
 impl JsMachine {
-    /// `host` is the JS host object. Each call takes the facade calling (`facade`), which
-    /// the host functions of that call receive.
+    /// `host` is the JS host object; its functions run for the machine whose call is in
+    /// progress.
     #[wasm_bindgen(constructor)]
     pub fn new(config: &JsConfig, host: HostObject) -> JsMachine {
         let machine = Machine::new(&config.config);
@@ -556,17 +543,16 @@ impl JsMachine {
         JsMachine { bridge, host }
     }
 
-    pub fn send(&self, kind: u32, event: JsValue, facade: JsValue) -> u32 {
-        self.bridge
-            .call(facade, |m| m.send(JsEvent { kind, value: event }))
+    pub fn send(&self, kind: u32, event: JsValue) -> u32 {
+        self.bridge.call(|m| m.send(JsEvent { kind, value: event }))
     }
 
-    pub fn start(&self, facade: JsValue) -> u32 {
-        self.bridge.start(facade)
+    pub fn start(&self) -> u32 {
+        self.bridge.start()
     }
 
-    pub fn stop(&self, facade: JsValue) -> u32 {
-        self.bridge.stop(facade)
+    pub fn stop(&self) -> u32 {
+        self.bridge.stop()
     }
 
     pub fn running(&self) -> bool {
@@ -580,14 +566,14 @@ impl JsMachine {
     /// JS changed context fields (`lo`/`hi`: the low and high 32 bits of the mask), and
     /// the machine has watchers: they may run.
     #[wasm_bindgen(js_name = markChanged)]
-    pub fn mark_changed(&self, lo: u32, hi: u32, facade: JsValue) -> u32 {
-        self.bridge.call(facade, |m| {
+    pub fn mark_changed(&self, lo: u32, hi: u32) -> u32 {
+        self.bridge.call(|m| {
             m.mark_changed((u64::from(hi) << 32) | u64::from(lo));
         })
     }
 
     /// JS changed context fields, and the machine has computed values but no watchers:
-    /// only stamp them. No code runs, so there is no facade and no status.
+    /// only stamp them. No code runs, so there is no status.
     pub fn stamp(&self, lo: u32, hi: u32) {
         self.bridge
             .machine()
@@ -595,8 +581,8 @@ impl JsMachine {
     }
 
     /// Bring computed `id` up to date, evaluating what changed. JS holds the values.
-    pub fn computed(&self, id: u32, facade: JsValue) -> u32 {
-        self.bridge.call(facade, |m| {
+    pub fn computed(&self, id: u32) -> u32 {
+        self.bridge.call(|m| {
             m.computed_version(id as usize);
         })
     }
@@ -616,8 +602,8 @@ impl JsMachine {
     }
 
     /// The host clock: timer `id` (from `startTimer`) came due.
-    pub fn fire(&self, id: u32, facade: JsValue) -> u32 {
-        self.bridge.fire(id, facade)
+    pub fn fire(&self, id: u32) -> u32 {
+        self.bridge.fire(id)
     }
 
     /// The engine's failure behind status 3.

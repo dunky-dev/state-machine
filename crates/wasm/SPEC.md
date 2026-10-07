@@ -48,12 +48,13 @@ machines; the conversion helpers between JS values and Rust values.
 
 ## The protocol
 
-### The facade travels with each call
+### The facade stays in JS
 
-- JS passes the machine's **facade** with each call into Rust. Rust hands it to every
-  host function of that call, then lets it go when the outermost call returns. Rust
-  holds no JS object between calls, so no reference cycle through wasm keeps a machine
-  alive: only JS references do.
+- Rust calls the host only during a call into the machine, so JS keeps the **facade**
+  whose call is in progress itself (saved and restored around each call, as calls
+  nest), and every host function runs for it. No reference to the facade crosses: a
+  call carries only numbers (and the JS event). Rust holds no JS object of a machine, so
+  no reference cycle through wasm keeps it alive: only JS references do.
 
 ### The host
 
@@ -63,10 +64,10 @@ machines; the conversion helpers between JS values and Rust values.
 - The host functions never throw. Each catches what user code throws, keeps the first
   error on the facade, and returns a failure status; Rust raises the machine's halt flag
   and stops the step.
-- `notify(facade, state, changedLo, changedHi)`: once per effective change, in order,
+- `notify(state, changedLo, changedHi)`: once per effective change, in order,
   synchronously, with the current state and the context fields changed since the
   previous notify (the low and high 32 bits of the mask).
-- `startTimer(facade, id, ms)` returns the host's timeout; `cancelTimer(timeout)` cancels
+- `startTimer(id, ms)` returns the host's timeout; `cancelTimer(timeout)` cancels
   it. A due timer calls back into the machine with its id.
 - For TS machines only, by index in the JS tables, with the event that caused the call
   (none for a boot or a data-reaction):
@@ -120,7 +121,7 @@ machines; the conversion helpers between JS values and Rust values.
 - The context lives in JS, and JS announces its own writes to the subscribers. It
   reports a write's change mask to Rust only when the machine has watchers or derived
   values: one bit per field, 64 bits, and every field past the 63rd shares the last bit.
-  Without watchers the report only stamps, so it is a plain call: no facade, no status.
+  Without watchers the report only stamps, so it is a plain call: no status.
 - JS keeps each derived value with what its last evaluation read: fields, the state,
   other derived values. A write clears the values that read a written field, a state
   change clears the values that read the state, and a cleared value clears the values
@@ -141,9 +142,9 @@ machines; the conversion helpers between JS values and Rust values.
   stop, report whether it runs, report the state, read a context field, read a derived
   value, take a due timer, and report the names (states, event types, fields, derived
   values, tags per state) the facade maps the numbers onto.
-- The facade argument is optional, so the class works on its own: `start()`,
-  `send(kind, event)`. Once attached, a call without its facade is an engine failure,
-  since the host needs the facade for every callback.
+- The class works on its own too: `start()`, `send(kind, event)`. Once attached, call it
+  through its `fromWasm` facade only: the host functions run for the facade whose call
+  is in progress.
 - An event kind without data is built from the number alone; any other kind is read from
   the JS event's fields. The event type opts in to that with `#[event(deserialize)]`.
 - The crate using the macro depends on `wasm-bindgen` at the version this crate pins.

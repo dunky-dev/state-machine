@@ -236,9 +236,9 @@ crates/core-wasm (inlined in the package)  your wasm module
 - Both kinds share the **facade** (`MachineClass` in `packages/core`): it maps names to
   numbers, holds the context (or its mirror), and fans each change out to the
   subscribers. Targets, the connector and `compose` see only the `Machine` interface.
-- The **protocol** ([`crates/wasm/SPEC.md`](crates/wasm/SPEC.md)): JS passes the facade
-  with each call into the engine; the engine hands it to every host function of that
-  call and lets it go afterwards. Rust holds no JS object between calls, so only JS
+- The **protocol** ([`crates/wasm/SPEC.md`](crates/wasm/SPEC.md)): a call carries only
+  numbers (and the JS event). JS keeps the facade whose call is in progress, and the
+  host functions run for it. Rust holds no JS object of a machine, so only JS
   references keep a machine alive — a pending timer holds its machine, like a JS timer
   holds `this`.
 - **Errors** stay in JS: a host function catches what user code throws, keeps it on the

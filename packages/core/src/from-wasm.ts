@@ -1,12 +1,12 @@
-import { HOST, MachineClass, type Engine, type Shape } from './machine'
+import { callFor, HOST, MachineClass, type Engine, type Shape } from './machine'
 import type { Machine } from './types'
 
 /** An instance of a class exported with `dunky_wasm::export_machine!`. */
 export interface WasmMachine extends Engine {
-  /** Connect to the host; `facade` is the facade calling. Returns a status. */
-  attach: (host: object, facade: object) => number
+  /** Connect to the host. Returns a status. */
+  attach: (host: object) => number
   field: (index: number) => unknown
-  computed: (id: number, facade: object) => unknown
+  computed: (id: number) => unknown
   meta: () => WasmMachineMeta
 }
 
@@ -115,17 +115,17 @@ class RustMachine<
         enumerable: true,
         get: map
           ? () => {
-              const next = handle.computed(source, this)
+              const next = handle.computed(source)
               if (next !== raw) {
                 raw = next
                 value = map(next)
               }
               return value
             }
-          : () => handle.computed(source, this),
+          : () => handle.computed(source),
       })
     }
-    const status = handle.attach(HOST, this)
+    const status = callFor(this, () => handle.attach(HOST))
     if (status !== 0) this.raise(status)
   }
 

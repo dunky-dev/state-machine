@@ -12,7 +12,8 @@ const FIELDS = Array.from({ length: 40 }, (_, i) => `f${i}`)
 
 function fake() {
   let host: typeof HOST
-  let me: object
+  // Rust calls the host only during a call into it: a change waits for the next event.
+  let pending: (() => void) | null = null
   const rust = {
     state: 0,
     values: FIELDS.map(() => 0),
@@ -20,12 +21,15 @@ function fake() {
   }
   const reads = { field: 0 }
   const handle = {
-    attach: (h: object, ref: object) => {
+    attach: (h: object) => {
       host = h as typeof HOST
-      me = ref
       return 0
     },
-    send: vi.fn((_kind: number, _event: unknown, _facade: object) => 0),
+    send: vi.fn((_kind: number, _event: unknown) => {
+      pending?.()
+      pending = null
+      return 0
+    }),
     start: () => 0,
     stop: () => 0,
     running: () => false,
@@ -45,17 +49,19 @@ function fake() {
       tags: [[], ['working']],
     }),
   } satisfies WasmMachine
-  /** Rust changed: the state, and the fields at `changed`. */
+  /** On the next event, Rust changes the state and the fields at `changed`. */
   const change = (state: number, changed: Record<number, number>) => {
-    rust.state = state
-    let lo = 0
-    let hi = 0
-    for (const [i, value] of Object.entries(changed)) {
-      rust.values[Number(i)] = value
-      if (Number(i) < 32) lo |= 1 << Number(i)
-      else hi |= 1 << (Number(i) - 32)
+    pending = () => {
+      rust.state = state
+      let lo = 0
+      let hi = 0
+      for (const [i, value] of Object.entries(changed)) {
+        rust.values[Number(i)] = value
+        if (Number(i) < 32) lo |= 1 << Number(i)
+        else hi |= 1 << (Number(i) - 32)
+      }
+      host.notify(state, lo >>> 0, hi >>> 0)
     }
-    host.notify(me as never, state, lo >>> 0, hi >>> 0)
   }
   return { handle, rust, reads, change }
 }
@@ -83,6 +89,7 @@ describe('fromWasm', () => {
     m.subscribe(listener)
     reads.field = 0
     change(1, { 1: 7, 35: 9 })
+    m.send({ type: 'go' })
     expect(listener).toHaveReturnedWith(['busy', 7, 9])
     expect(m.hasTag('working')).toBe(true)
     expect(reads.field).toBe(2)

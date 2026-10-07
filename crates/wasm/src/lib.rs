@@ -7,7 +7,7 @@
 //!   ships it (`crates/core-wasm`).
 //!
 //! Both speak one protocol with the core package's JS host: events in by kind number,
-//! a `notify(handle, state, changedLo, changedHi)` per effective change (synchronously,
+//! a `notify(state, changedLo, changedHi)` per effective change (synchronously,
 //! like the TS subscribers), timers on the host clock (`startTimer` / `cancelTimer`, then
 //! `fire(id)`), and a status code back from every call (see [`bridge`]).
 //!
@@ -191,36 +191,21 @@ where
         self.bridge.machine()
     }
 
-    /// Connect to the JS host; `facade` is the JS facade calling. Returns a status; a
-    /// second attach is an engine failure.
-    pub fn attach(&self, host: HostObject, facade: JsValue) -> u32 {
+    /// Connect to the JS host. Returns a status; a second attach is an engine failure.
+    /// From then on, call the machine through its `fromWasm` facade: the host functions
+    /// run for the facade whose call is in progress.
+    pub fn attach(&self, host: HostObject) -> u32 {
         let link = Rc::new(Link::new(host, self.machine().halt_flag()));
         if !self.bridge.connect(link.clone()) {
             return self.bridge.fail("[machine] already attached".into());
         }
         self.machine().set_host(Rc::new(Observer { link }));
         // Run what the machine did before it had a host (e.g. timers of a start in Rust).
-        self.bridge.call(facade, |_| {})
-    }
-
-    /// The facade a call runs for. `fromWasm` passes it; a bare call has none, which is
-    /// fine until a host is attached: then the host needs it for every callback.
-    fn facade(&self, facade: Option<JsValue>) -> Result<JsValue, u32> {
-        match facade {
-            Some(facade) => Ok(facade),
-            None if self.bridge.attached() => Err(self.bridge.fail(
-                "[machine] this machine is attached: call it through its fromWasm machine".into(),
-            )),
-            None => Ok(JsValue::UNDEFINED),
-        }
+        self.bridge.call(|_| {})
     }
 
     /// Send event `kind`; `event` (the JS event object) supplies the payload, if any.
-    pub fn send(&self, kind: u32, event: JsValue, facade: Option<JsValue>) -> u32 {
-        let facade = match self.facade(facade) {
-            Ok(facade) => facade,
-            Err(status) => return status,
-        };
+    pub fn send(&self, kind: u32, event: JsValue) -> u32 {
         let names = <T::Event as EventEnum>::KIND_NAMES;
         let Some(name) = names.get(kind as usize) else {
             return self.bridge.fail(format!("[machine] no event type #{kind}"));
@@ -243,22 +228,19 @@ where
                 }
             }
         };
-        self.bridge.call(facade, |m| m.send(event))
+        self.bridge.call(|m| m.send(event))
     }
 
-    pub fn start(&self, facade: Option<JsValue>) -> u32 {
-        self.facade(facade)
-            .map_or_else(|status| status, |facade| self.bridge.start(facade))
+    pub fn start(&self) -> u32 {
+        self.bridge.start()
     }
 
-    pub fn stop(&self, facade: Option<JsValue>) -> u32 {
-        self.facade(facade)
-            .map_or_else(|status| status, |facade| self.bridge.stop(facade))
+    pub fn stop(&self) -> u32 {
+        self.bridge.stop()
     }
 
-    pub fn fire(&self, id: u32, facade: Option<JsValue>) -> u32 {
-        self.facade(facade)
-            .map_or_else(|status| status, |facade| self.bridge.fire(id, facade))
+    pub fn fire(&self, id: u32) -> u32 {
+        self.bridge.fire(id)
     }
 
     /// The engine's failure behind status 3.
@@ -363,21 +345,20 @@ macro_rules! export_machine {
             }
             /// Connect to the JS host (`fromWasm` does). Calls return a status: 0, 1 when
             /// JS code failed (the host holds the error), 3 when the engine failed.
-            pub fn attach(&self, host: $crate::HostObject, facade: ::wasm_bindgen::JsValue) -> u32 {
-                self.inner.attach(host, facade)
+            pub fn attach(&self, host: $crate::HostObject) -> u32 {
+                self.inner.attach(host)
             }
-            /// `facade` is passed by `fromWasm`; leave it out when calling directly.
-            pub fn send(&self, kind: u32, event: ::wasm_bindgen::JsValue, facade: ::core::option::Option<::wasm_bindgen::JsValue>) -> u32 {
-                self.inner.send(kind, event, facade)
+            pub fn send(&self, kind: u32, event: ::wasm_bindgen::JsValue) -> u32 {
+                self.inner.send(kind, event)
             }
-            pub fn start(&self, facade: ::core::option::Option<::wasm_bindgen::JsValue>) -> u32 {
-                self.inner.start(facade)
+            pub fn start(&self) -> u32 {
+                self.inner.start()
             }
-            pub fn stop(&self, facade: ::core::option::Option<::wasm_bindgen::JsValue>) -> u32 {
-                self.inner.stop(facade)
+            pub fn stop(&self) -> u32 {
+                self.inner.stop()
             }
-            pub fn fire(&self, id: u32, facade: ::core::option::Option<::wasm_bindgen::JsValue>) -> u32 {
-                self.inner.fire(id, facade)
+            pub fn fire(&self, id: u32) -> u32 {
+                self.inner.fire(id)
             }
             #[wasm_bindgen(js_name = takeFailure)]
             pub fn take_failure(&self) -> ::core::option::Option<::std::string::String> {

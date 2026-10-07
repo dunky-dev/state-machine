@@ -16,17 +16,17 @@ import type {
 /**
  * What the facade drives: a machine on the Rust engine. `JsMachine` (a TS-authored
  * machine) and every class exported with `dunky_wasm::export_machine!` (a Rust machine)
- * implement it. Calls that run machine code return a status (see `OK`).
+ * implement it. Calls that run machine code return a status (see `OK`); the host
+ * functions run for the facade whose call is in progress (`calling`).
  */
 export interface Engine {
-  // `facade` is the facade calling: the host functions of that call receive it.
-  send: (kind: number, event: unknown, facade: object) => number
-  start: (facade: object) => number
-  stop: (facade: object) => number
+  send: (kind: number, event: unknown) => number
+  start: () => number
+  stop: () => number
   running: () => boolean
   state: () => number
   /** The host clock: timer `id` came due. */
-  fire: (id: number, facade: object) => number
+  fire: (id: number) => number
   /** The engine's failure behind `ENGINE_FAILED`. */
   takeFailure: () => string | undefined
 }
@@ -39,6 +39,13 @@ const ENGINE_FAILED = 3
 /** The host's `computed` status bit: the value changed. */
 const CHANGED = 2
 const NONE = Symbol('none')
+
+// The facade whose engine call is in progress: every host function runs for it. Calls
+// nest (user code calls another machine), so each call saves and restores it. Keeping it
+// here means no reference to the facade crosses into wasm.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyFacade = MachineClass<any, any, any, any>
+let calling: AnyFacade = null!
 
 /** The names the facade maps the engine's numbers onto. */
 export interface Shape {
@@ -111,15 +118,21 @@ export class MachineClass<
   send = (event: Event): void => {
     const kind = this.shape.kinds.get(event.type)
     if (kind === undefined) return // handled nowhere: a no-op
+    const outer = calling
+    calling = this
     this.depth++
-    const status = this.handle.send(kind, event, this)
+    const status = this.handle.send(kind, event)
     this.depth--
+    calling = outer
     if (status !== OK) this.raise(status)
   }
   fire(id: number): void {
+    const outer = calling
+    calling = this
     this.depth++
-    const status = this.handle.fire(id, this)
+    const status = this.handle.fire(id)
     this.depth--
+    calling = outer
     if (status !== OK) this.raise(status)
   }
 
@@ -139,18 +152,24 @@ export class MachineClass<
   start = (): void => {
     if (this.isRunning) return
     this.isRunning = true
+    const outer = calling
+    calling = this
     this.depth++
-    const status = this.handle.start(this)
+    const status = this.handle.start()
     this.depth--
+    calling = outer
     if (status !== OK) this.raise(status)
     if (this.startListeners) for (const fn of this.startListeners) fn()
   }
   stop = (): void => {
     if (!this.isRunning) return
     this.isRunning = false
+    const outer = calling
+    calling = this
     this.depth++
-    const status = this.handle.stop(this)
+    const status = this.handle.stop()
     this.depth--
+    calling = outer
     if (status !== OK) this.raise(status)
     if (this.stopListeners) for (const fn of this.stopListeners) fn()
   }
@@ -325,9 +344,12 @@ class TsMachine<
     if ((lo | hi) === 0) return
     const read = this.cache !== null && this.clear(lo, hi, false)
     if (this.c.watches) {
+      const outer = calling
+      calling = this
       this.depth++
-      const status = this.handle.markChanged(lo >>> 0, hi >>> 0, this)
+      const status = this.handle.markChanged(lo >>> 0, hi >>> 0)
       this.depth--
+      calling = outer
       if (status !== OK) this.raise(status)
     } else if (read) {
       // The engine's stamps only matter for fields a computed value read.
@@ -362,9 +384,12 @@ class TsMachine<
     // Every input of a TS machine changes through JS, so a valid entry is the value.
     const entry = this.cache![id]!
     if (entry.valid) return entry.value
+    const outer = calling
+    calling = this
     this.depth++
-    const status = this.handle.computed(id, this)
+    const status = this.handle.computed(id)
     this.depth--
+    calling = outer
     if (status !== OK) this.raise(status)
     entry.valid = true
     return entry.value
@@ -536,34 +561,31 @@ class TsMachine<
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Facade = MachineClass<string, object, { type: string }, any>
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type TsFacade = TsMachine<string, object, { type: string }, any>
 type Timeout = ReturnType<typeof setTimeout>
 
-/** The JS functions the engine calls back into (see crates/wasm/src/bridge.rs). They
- * never throw: each catches what user code throws, keeps it on the machine, and returns
- * a failure status. */
+/** The JS functions the engine calls back into (see crates/wasm/src/bridge.rs), for the
+ * facade whose call is in progress (`calling`). They never throw: each catches what user
+ * code throws, keeps it on the machine, and returns a failure status. */
 interface Host {
   /** 0 false, 1 true, 2 failed. */
-  guard: (m: TsFacade, fn: number, event: unknown) => number
+  guard: (fn: number, event: unknown) => number
   /** `pre`: what rides on this call, delivered first (see `prelude`), or 0. */
-  action: (m: TsFacade, fn: number, event: unknown, pre: number) => number
+  action: (fn: number, event: unknown, pre: number) => number
   /** Start an effect; its cleanup waits in `effectCleanups`. */
-  effect: (m: TsFacade, fn: number, event: unknown, pre: number) => number
+  effect: (fn: number, event: unknown, pre: number) => number
   /** Deliver `pre` on its own. */
-  pre: (m: TsFacade, pre: number) => number
+  pre: (pre: number) => number
   /** The delay in ms, -1 failed. */
-  delay: (m: TsFacade, fn: number, event: unknown) => number
+  delay: (fn: number, event: unknown) => number
   /** 0, `CHANGED` when the value changed (it stays in JS), 1 failed. */
-  computed: (m: TsFacade, id: number) => number
+  computed: (id: number) => number
   /** The first candidate of guard list `list` that passes, -1 for none, -2 failed. */
-  pick: (m: TsFacade, list: number, event: unknown) => number
-  actions: (m: TsFacade, list: number, event: unknown, pre: number) => number
+  pick: (list: number, event: unknown) => number
+  actions: (list: number, event: unknown, pre: number) => number
   /** Run transition `id` whole (`flags`: 1 stops the effects, 2 starts the target's).
    * 0 done, 1 failed before the switch, 2 after it, 3 while starting the effects. */
   transition: (
-    m: TsFacade,
     id: number,
     from: number,
     to: number,
@@ -571,17 +593,26 @@ interface Host {
     flags: number,
     pre: number,
   ) => number
-  notify: (m: Facade, state: number, lo: number, hi: number) => number
-  startTimer: (m: Facade, id: number, ms: number) => Timeout
+  notify: (state: number, lo: number, hi: number) => number
+  startTimer: (id: number, ms: number) => Timeout
   cancelTimer: (timeout: Timeout) => void
 }
 
-/**
- * The host functions Rust calls, with the facade of the call in progress and, for user
- * code, the callback's index in the compiled tables.
- */
+/** Run `call` as an engine call of `facade`, so the host functions run for it. */
+export function callFor(facade: AnyFacade, call: () => number): number {
+  const outer = calling
+  calling = facade
+  facade.depth++
+  const status = call()
+  facade.depth--
+  calling = outer
+  return status
+}
+
+/** The host functions Rust calls; user code by its index in the compiled tables. */
 export const HOST: Host = {
-  guard: (m, fn, event) => {
+  guard: (fn, event) => {
+    const m = calling as TsFacade
     try {
       return m.c.guards[fn]!(m.guardParams(event)) ? 1 : 0
     } catch (error) {
@@ -589,7 +620,8 @@ export const HOST: Host = {
       return 2
     }
   },
-  action: (m, fn, event, pre) => {
+  action: (fn, event, pre) => {
+    const m = calling as TsFacade
     try {
       if (pre) m.prelude(pre)
       m.c.actions[fn]!(m.actionParams(event))
@@ -598,7 +630,8 @@ export const HOST: Host = {
       return m.fail(error)
     }
   },
-  effect: (m, fn, event, pre) => {
+  effect: (fn, event, pre) => {
+    const m = calling as TsFacade
     try {
       if (pre) m.prelude(pre)
       const cleanup = m.c.effects[fn]!(m.actionParams(event))
@@ -608,7 +641,8 @@ export const HOST: Host = {
       return m.fail(error)
     }
   },
-  pre: (m, pre) => {
+  pre: pre => {
+    const m = calling as TsFacade
     try {
       m.prelude(pre)
       return OK
@@ -616,7 +650,8 @@ export const HOST: Host = {
       return m.fail(error)
     }
   },
-  delay: (m, fn, event) => {
+  delay: (fn, event) => {
+    const m = calling as TsFacade
     try {
       const ms = m.c.delays[fn]!(m.guardParams(event))
       return ms > 0 ? ms : 0 // like setTimeout: negative or NaN means now
@@ -625,14 +660,16 @@ export const HOST: Host = {
       return -1
     }
   },
-  computed: (m, id) => {
+  computed: id => {
+    const m = calling as TsFacade
     try {
       return m.evaluate(id)
     } catch (error) {
       return m.fail(error)
     }
   },
-  pick: (m, list, event) => {
+  pick: (list, event) => {
+    const m = calling as TsFacade
     try {
       const candidates = m.c.guardLists[list]!
       const params = m.guardParams(event)
@@ -646,7 +683,8 @@ export const HOST: Host = {
       return -2
     }
   },
-  actions: (m, list, event, pre) => {
+  actions: (list, event, pre) => {
+    const m = calling as TsFacade
     try {
       if (pre) m.prelude(pre)
       const actions = m.c.actionLists[list]!
@@ -657,7 +695,8 @@ export const HOST: Host = {
       return m.fail(error)
     }
   },
-  transition: (m, id, from, to, event, flags, pre) => {
+  transition: (id, from, to, event, flags, pre) => {
+    const m = calling as TsFacade
     let phase = 1
     try {
       if (pre) m.prelude(pre)
@@ -683,7 +722,8 @@ export const HOST: Host = {
       return phase
     }
   },
-  notify: (m, state, lo, hi) => {
+  notify: (state, lo, hi) => {
+    const m = calling
     try {
       if (lo | hi) {
         m.current = state
@@ -696,7 +736,10 @@ export const HOST: Host = {
     }
   },
   // The pending timer holds the machine, like a JS timer holds `this`.
-  startTimer: (m, id, ms) => setTimeout(() => m.fire(id), ms),
+  startTimer: (id, ms) => {
+    const m = calling
+    return setTimeout(() => m.fire(id), ms)
+  },
   cancelTimer: timeout => clearTimeout(timeout),
 }
 
