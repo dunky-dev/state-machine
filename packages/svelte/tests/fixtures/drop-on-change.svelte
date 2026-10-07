@@ -7,7 +7,14 @@
   let {
     machine,
     pick,
-  }: { machine: CountersMachine; pick: (machine: CountersMachine) => unknown } = $props()
+    isEqual,
+    onteardown,
+  }: {
+    machine: CountersMachine
+    pick: (machine: CountersMachine) => unknown
+    isEqual?: (a: unknown, b: unknown) => boolean
+    onteardown?: (value: unknown) => void
+  } = $props()
 
   const a = useSelector(
     () => machine,
@@ -16,5 +23,5 @@
 </script>
 
 {#if a.current === 0}
-  <UseSelector {machine} {pick} />
+  <UseSelector {machine} {pick} {isEqual} {onteardown} />
 {/if}

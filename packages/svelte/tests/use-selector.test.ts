@@ -118,16 +118,43 @@ describe('useSelector', () => {
   })
 
   // The dropped reader still hears this change's notification, before its
-  // parent's re-render removes it; its stale selector must not throw out of send().
-  it('keeps a reader its parent drops on this change from throwing out of send()', () => {
+  // parent's re-render removes it: neither its stale selector nor its
+  // isEqual may throw out of send().
+  it.each([
+    {
+      throwing: 'selector',
+      pick: (m: CountersMachine) => {
+        if (m.context.a > 0) throw new Error('stale index')
+        return m.context.a
+      },
+      isEqual: undefined,
+    },
+    {
+      throwing: 'isEqual',
+      pick: (m: CountersMachine) => (m.context.a === 0 ? { id: 'row-0' } : undefined),
+      isEqual: (x: unknown, y: unknown) => (x as { id: string }).id === (y as { id: string }).id,
+    },
+  ])(
+    'keeps a reader its parent drops on this change out of send() (throwing $throwing)',
+    ({ pick, isEqual }) => {
+      const m = makeCounters()
+      render(DropOnChange, { machine: m, pick, isEqual })
+      expect(() => m.send({ type: 'incA' })).not.toThrow()
+      expect(() => flushSync()).not.toThrow()
+    },
+  )
+
+  it('gives a dropped reader its last value at teardown, never a stale re-selection', () => {
     const m = makeCounters()
     const pick = (m: CountersMachine) => {
       if (m.context.a > 0) throw new Error('stale index')
       return m.context.a
     }
-    render(DropOnChange, { machine: m, pick })
-    expect(() => m.send({ type: 'incA' })).not.toThrow()
+    const onteardown = vi.fn()
+    render(DropOnChange, { machine: m, pick, onteardown })
+    m.send({ type: 'incA' })
     expect(() => flushSync()).not.toThrow()
+    expect(onteardown).toHaveBeenCalledWith(0)
   })
 
   it("surfaces a mounted reader's selector error in the next flush, not in send()", () => {

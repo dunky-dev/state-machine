@@ -51,6 +51,7 @@ export function useSelector<
       let next: T
       try {
         next = untrack(selector)
+        if (isEqual(prev, next)) return
       } catch {
         // A reader its parent drops on this very change can't select from the
         // new state. Retry in the next flush, which skips a destroyed reader,
@@ -58,15 +59,11 @@ export function useSelector<
         retry = ++retries
         return
       }
-      if (isEqual(prev, next)) return
       prev = next
       current = next
     })
     live = true
-    return () => {
-      live = false
-      unsubscribe()
-    }
+    return unsubscribe
   })
 
   return {

@@ -10,6 +10,7 @@
     wanted = 0,
     isEqual,
     onread,
+    onteardown,
     sendAtInit,
     sendOnMount,
   }: {
@@ -20,6 +21,9 @@
     isEqual?: (a: unknown, b: unknown) => boolean
     // Called with every value the reader observes, once per wake.
     onread?: (value: unknown) => void
+    // Called with `current` as each wake's effect tears down, the way a row
+    // unregistering itself reads its selection.
+    onteardown?: (value: unknown) => void
     sendAtInit?: { type: 'incA' }
     sendOnMount?: { type: 'incA' }
   } = $props()
@@ -36,6 +40,7 @@
   $effect(() => {
     const value = selection.current
     untrack(() => onread?.(value))
+    return () => onteardown?.(selection.current)
   })
 </script>
 
