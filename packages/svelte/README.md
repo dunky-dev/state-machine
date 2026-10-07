@@ -152,9 +152,18 @@ connect, props)`, seeded with a **plain copy** of the props, never the live
   callbacks always run untracked, however the machine changed (a send, a
   context change, a timer), and so does everything a send runs.
 - **serves a consistent `api` mid-send** — a read of `view.api` from inside a
-  send (a reaction's callback, a selector) gets the last settled snapshot, not
-  `connect()` over a transition that set its state but hasn't run its entry
-  actions yet. A selector over `view.api` catches up once the send is done.
+  send (a reaction's callback, a selector) gets the last settled snapshot — what
+  the previous send left — not `connect()` over a transition that set its state
+  but hasn't run its entry actions yet. Svelte learns of the change only when
+  the outermost send ends, so anything that read the api mid-send (a `$derived`
+  slice, a selector) refreshes then. One consequence: `flushSync()` inside a
+  callback still renders the pre-send UI — to focus newly opened content,
+  `await tick()` instead. Not covered: transitions that don't start at
+  `view.machine.send` — an `after` timer, an action's own async send, a watcher
+  fed by a core effect's `setContext` — and sends issued inside one; a read of
+  `view.api` there can still see a half-applied transition (a core "settled"
+  hook would close this). Selectors and callbacks that read the machine instead
+  are safe on every path.
 - **runs the lifecycle** — `service.start()` after mount; `service.stop()` when
   the component is destroyed, **before** its child components tear down (React's
   order), so a child's cleanup send fires no reactions. The connector wired its

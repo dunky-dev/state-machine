@@ -12,10 +12,13 @@ destroy before child components tear down (React's order), and runs each
 `ComponentEffect` as its own `$effect`, re-run only when the value of one of its
 named prop deps changes (compared with `Object.is`, like React's dep array).
 Reactions and their callbacks never become dependencies of the `$effect` that
-changed the machine, and a read of `view.api` from inside a send gets the last
-settled snapshot rather than a half-applied transition. `useSelector` returns
-`{ current }`, takes the machine as a value or a getter, renders live on the
-server, and keeps a selector that throws mid-send out of the sender's `send()`. `normalize` maps the agnostic bindings to the props a Svelte
+changed the machine, and a read of `view.api` from inside a `view.machine.send`
+gets the snapshot the previous send settled to rather than a half-applied
+transition; transitions that start elsewhere (`after` timers, an action's own
+async send) aren't guarded, so selectors and callbacks should read the machine.
+`useSelector` returns `{ current }`, takes the machine as a value or a getter,
+renders live on the server, and keeps a selector that throws mid-send out of the
+sender's `send()`. `normalize` maps the agnostic bindings to the props a Svelte
 element spread expects — the DOM's lowercase event attributes (`onclick`,
 `oninput`, `ondblclick`), `tabindex`, `aria-*` — and `mergeProps` chains
 handlers consumer-first with the `defaultPrevented` veto, joins `class` and
