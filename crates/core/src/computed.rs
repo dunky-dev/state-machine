@@ -202,6 +202,8 @@ fn fresh<T: Types>(core: &Core<T>, inner: &Inner<T>, id: usize) -> Option<Rc<dyn
 
 fn recompute<T: Types>(core: &Core<T>, inner: &Inner<T>, id: usize) -> Rc<dyn Any> {
     let def = &inner.config.0.computed[id];
+    // One arm without the `host` feature.
+    #[allow(clippy::infallible_destructuring_match)]
     let eval = match &def.eval {
         ComputedSource::Fn(f) => f,
         #[cfg(feature = "host")]
