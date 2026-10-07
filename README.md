@@ -41,7 +41,7 @@ engine is built for it:
 
 | At scale (thousands of machines) |     Dunky | XState |     Zag |
 | -------------------------------- | --------: | -----: | ------: |
-| Event throughput (ops/s)         | **9.4 M** |  1.6 M |   n/a ᵃ |
+| Event throughput (ops/s)         | **9.9 M** |  1.6 M |   n/a ᵃ |
 | Memory / machine, 2-field (KB)   |   **3.5** |    3.6 |     8.9 |
 | Memory / machine, 64-field (KB)  |   **4.0** |    4.1 | **134** |
 
