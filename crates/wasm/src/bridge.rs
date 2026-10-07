@@ -142,13 +142,13 @@ impl<T: Types> Bridge<T> {
             self.run_timers(link);
             *link.facade.borrow_mut() = JsValue::UNDEFINED;
             // The flag is the machine's: the engine raises it for its own failure too.
-            let halted = link.failed.replace(false);
-            if let Some(message) = self.machine.take_failure() {
-                return self.fail(message);
+            if link.failed.replace(false) {
+                return match self.machine.take_failure() {
+                    Some(message) => self.fail(message),
+                    None => FAILED,
+                };
             }
-            if halted {
-                return FAILED;
-            }
+            return OK;
         }
         match self.machine.take_failure() {
             Some(message) => self.fail(message),

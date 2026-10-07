@@ -40,8 +40,13 @@ const MAX_FLUSH: u32 = 10_000;
 pub trait Host<T: Types> {
     fn guard(&self, id: u32, event: Option<&T::Event>) -> bool;
     fn action(&self, id: u32, event: Option<&T::Event>);
-    /// Start an effect; return its cleanup, if any.
-    fn effect(&self, id: u32, event: Option<&T::Event>) -> Option<Cleanup>;
+    /// Start effect `id`. The host keeps its cleanup, if any, for [`Host::stop_effects`].
+    fn effect(&self, id: u32, event: Option<&T::Event>);
+    /// The effects the host started stop: run their cleanups, in start order, all of them
+    /// even if one fails. A host may hold this back to deliver it with its next callback,
+    /// first, and no later than [`Host::settle`] — which the engine calls before it
+    /// switches state.
+    fn stop_effects(&self);
     fn delay(&self, id: u32, event: Option<&T::Event>) -> u32;
     /// Evaluate computed value `id`, reporting what it read through `params`.
     fn computed(&self, id: u32, params: &ComputedParams<'_, T>) -> Rc<dyn Any>;
@@ -57,6 +62,33 @@ pub trait Host<T: Types> {
     fn notify(&self, state: T::State, changes: Changes);
     /// A transition finished: deliver any notification held back.
     fn settle(&self);
+    /// Run transition `id` whole (a transition built with a host id that leaves its
+    /// state): if `stop`, stop the effects; run `from`'s exit actions and the
+    /// transition's actions; announce the switch to `to`; run `to`'s entry actions; and if
+    /// `start`, start `to`'s effects (keeping their cleanups).
+    fn transition(
+        &self,
+        id: u32,
+        from: T::State,
+        to: T::State,
+        event: Option<&T::Event>,
+        stop: bool,
+        start: bool,
+    ) -> HostTransition;
+}
+
+/// How a transition the host ran whole ended ([`Host::transition`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(feature = "host"), allow(dead_code))]
+pub enum HostTransition {
+    /// Every step ran.
+    Done,
+    /// Failed before the switch: the machine stays where it was.
+    FailedBefore,
+    /// Failed in the switch's notification or an entry action: no effect started.
+    FailedAfter,
+    /// Failed while starting the effects: some may have started.
+    FailedInEffects,
 }
 
 pub(crate) enum Item<T: Types> {
@@ -87,6 +119,8 @@ pub(crate) struct Core<T: Types> {
     /// Bumped on every state entry; a timer scheduled under another generation is stale.
     entry_counter: u64,
     state_cleanups: Vec<Cleanup>,
+    /// The host started effects in the current state (it keeps their cleanups).
+    host_effects: bool,
     timers: Vec<TimerRecord<T>>,
     next_timer_id: u32,
     commands: Vec<Command>,
@@ -141,12 +175,17 @@ impl<T: Types> Core<T> {
     }
 
     fn set_state(&mut self, next: T::State) {
+        self.switch_state(next);
+        self.notify_changes.state = true;
+        self.pending_notifies += 1;
+    }
+
+    /// Switch to `next` without owing a notification (the host announced it).
+    fn switch_state(&mut self, next: T::State) {
         self.state = next;
         self.tick += 1;
         self.state_changed_at = self.tick;
         self.changed_state = true;
-        self.notify_changes.state = true;
-        self.pending_notifies += 1;
     }
 }
 
@@ -232,6 +271,7 @@ impl<T: Types> Machine<T> {
             running: false,
             entry_counter: 0,
             state_cleanups: Vec::new(),
+            host_effects: false,
             timers: Vec::new(),
             next_timer_id: 1,
             commands: Vec::new(),
@@ -445,6 +485,9 @@ impl<T: Types> Machine<T> {
             // Watchers need no teardown: they detect only while running, and a run
             // still queued is dropped when it comes up.
             inner.stop_effects();
+            if let Some(host) = inner.host() {
+                host.settle();
+            }
             true
         });
         if stopped && !inner.aborted() {
@@ -632,6 +675,12 @@ impl<T: Types> Inner<T> {
         entry: &'c Entry<T>,
         event: Option<&T::Event>,
     ) -> Option<&'c Transition<T>> {
+        // An unguarded first candidate always wins: no guard to set up.
+        if let Some(first) = entry.first()
+            && first.guard.is_none()
+        {
+            return Some(first);
+        }
         // The host evaluates the whole list in one call, with no borrow held.
         #[cfg(feature = "host")]
         if let Some(list) = entry.pick
@@ -665,10 +714,18 @@ impl<T: Types> Inner<T> {
     fn apply(&self, t: &Transition<T>, event: Option<&T::Event>) {
         let cur = self.core.borrow().state;
         let next = t.target.unwrap_or(cur);
-        self.apply_steps(t, event, cur, next);
-        if next != cur
+        let leaving = next != cur;
+        // A leaving transition with a host id runs whole on the host, in one call.
+        #[cfg(feature = "host")]
+        if leaving
+            && let Some(id) = t.host_id
             && let Some(host) = self.host()
         {
+            self.host_transition(host, id, cur, next, event);
+            return;
+        }
+        self.apply_steps(t, event, cur, next);
+        if leaving && let Some(host) = self.host() {
             host.settle();
         }
     }
@@ -680,8 +737,8 @@ impl<T: Types> Inner<T> {
         cur: T::State,
         next: T::State,
     ) {
-        let running = self.core.borrow().running;
         let leaving = next != cur;
+        let running = self.core.borrow().running;
         let states = &self.config.0.states;
         if leaving {
             if running {
@@ -700,6 +757,13 @@ impl<T: Types> Inner<T> {
             return;
         }
         if leaving {
+            // What the host holds back (an effects stop) lands before the switch.
+            if let Some(host) = self.host() {
+                host.settle();
+                if self.aborted() {
+                    return;
+                }
+            }
             self.core.borrow_mut().set_state(next);
             self.detect_watched(&self.core.borrow(), 0);
             self.drain_notifies();
@@ -710,6 +774,55 @@ impl<T: Types> Inner<T> {
             if self.core.borrow().running {
                 self.start_effects(next, event);
             }
+        }
+    }
+
+    /// A leaving transition the host runs whole, in one call.
+    #[cfg(feature = "host")]
+    fn host_transition(
+        &self,
+        host: &Rc<dyn Host<T>>,
+        id: u32,
+        cur: T::State,
+        next: T::State,
+        event: Option<&T::Event>,
+    ) {
+        let running = self.core.borrow().running;
+        let stop = running && self.stop_own_effects();
+        if self.aborted() {
+            return;
+        }
+        let outcome = host.transition(id, cur, next, event, stop, running);
+        self.absorb_external();
+        if outcome == HostTransition::FailedBefore {
+            return;
+        }
+        let node = &self.config.0.states[next.index()];
+        let started = matches!(
+            outcome,
+            HostTransition::Done | HostTransition::FailedInEffects
+        );
+        let schedule = {
+            let mut core = self.core.borrow_mut();
+            core.switch_state(next);
+            let schedule = started && core.running;
+            if schedule {
+                core.host_effects = !node.effects.is_empty();
+                if node.after.is_empty() {
+                    core.entry_counter += 1; // a new entry, with no timer to stamp
+                }
+            }
+            schedule
+        };
+        if !self.config.0.watch.is_empty() {
+            self.detect_watched(&self.core.borrow(), 0);
+        }
+        // The host announced the switch; the engine's own subscribers still hear it.
+        if let Some(bus) = self.bus.get() {
+            bus.notify();
+        }
+        if schedule && !node.after.is_empty() {
+            self.schedule_after(next, event);
         }
     }
 
@@ -822,6 +935,47 @@ impl<T: Types> Inner<T> {
     }
 
     fn start_effects(&self, state: T::State, event: Option<&T::Event>) {
+        if !self.schedule_after(state, event) {
+            return;
+        }
+        let node = &self.config.0.states[state.index()];
+        for effect in &node.effects {
+            let cleanup = match effect {
+                Effect::Fn(f) => self.call_effect(f, event),
+                Effect::Named(n) => match &n.imp {
+                    Some(f) => self.call_effect(f, event),
+                    None => {
+                        missing("effect", n.name);
+                        continue;
+                    }
+                },
+                // No borrow held: the host may read computed values, mark changes, send.
+                #[cfg(feature = "host")]
+                Effect::External(id) => {
+                    match self.host() {
+                        Some(host) => {
+                            self.core.borrow_mut().host_effects = true;
+                            host.effect(*id, event);
+                        }
+                        None => missing("effect host for", &id.to_string()),
+                    }
+                    None
+                }
+            };
+            if let Some(cleanup) = cleanup {
+                self.core.borrow_mut().state_cleanups.push(cleanup);
+            }
+            self.absorb_external();
+            self.drain_notifies();
+            if self.aborted() {
+                return;
+            }
+        }
+    }
+
+    /// Enter `state`'s timed transitions: a new entry generation, one timer per `after`.
+    /// Returns false when a host delay failed.
+    fn schedule_after(&self, state: T::State, event: Option<&T::Event>) -> bool {
         let node = &self.config.0.states[state.index()];
         let generation = {
             let mut core = self.core.borrow_mut();
@@ -852,7 +1006,7 @@ impl<T: Types> Inner<T> {
                 },
             };
             if self.aborted() {
-                return;
+                return false;
             }
             let mut core = self.core.borrow_mut();
             let id = core.next_timer_id;
@@ -866,35 +1020,7 @@ impl<T: Types> Inner<T> {
             });
             core.commands.push(Command::StartTimer { id, ms });
         }
-        for effect in &node.effects {
-            let cleanup = match effect {
-                Effect::Fn(f) => self.call_effect(f, event),
-                Effect::Named(n) => match &n.imp {
-                    Some(f) => self.call_effect(f, event),
-                    None => {
-                        missing("effect", n.name);
-                        continue;
-                    }
-                },
-                // No borrow held: the host may read computed values, mark changes, send.
-                #[cfg(feature = "host")]
-                Effect::External(id) => match self.host() {
-                    Some(host) => host.effect(*id, event),
-                    None => {
-                        missing("effect host for", &id.to_string());
-                        None
-                    }
-                },
-            };
-            if let Some(cleanup) = cleanup {
-                self.core.borrow_mut().state_cleanups.push(cleanup);
-            }
-            self.absorb_external();
-            self.drain_notifies();
-            if self.aborted() {
-                return;
-            }
-        }
+        true
     }
 
     fn call_effect(
@@ -915,27 +1041,47 @@ impl<T: Types> Inner<T> {
     /// leak the others: finish the pass, then report the first failure (a Rust panic is
     /// resumed; a host failure is left for the binding to rethrow).
     fn stop_effects(&self) {
-        let cleanups = {
+        if self.stop_own_effects()
+            && let Some(host) = self.host()
+        {
+            host.stop_effects();
+        }
+    }
+
+    /// Cancel the state's timers and run the engine's own cleanups. Returns whether the
+    /// host has effects to stop too.
+    fn stop_own_effects(&self) -> bool {
+        let (mut cleanups, host_effects) = {
             let mut core = self.core.borrow_mut();
             let core = &mut *core;
-            if core.timers.is_empty() && core.state_cleanups.is_empty() {
-                return;
+            if core.timers.is_empty() && core.state_cleanups.is_empty() && !core.host_effects {
+                return false;
             }
             for t in core.timers.drain(..) {
                 core.commands.push(Command::CancelTimer { id: t.id });
             }
-            std::mem::take(&mut core.state_cleanups)
+            (
+                std::mem::take(&mut core.state_cleanups),
+                std::mem::replace(&mut core.host_effects, false),
+            )
         };
         let mut first_panic = None;
-        for cleanup in cleanups {
+        for cleanup in cleanups.drain(..) {
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(cleanup));
             if let Err(payload) = result {
                 first_panic.get_or_insert(payload);
             }
         }
+        // Give the emptied list back, so the next state reuses its buffer.
+        if let Ok(mut core) = self.core.try_borrow_mut()
+            && core.state_cleanups.is_empty()
+        {
+            core.state_cleanups = cleanups;
+        }
         if let Some(payload) = first_panic {
             std::panic::resume_unwind(payload);
         }
+        host_effects
     }
 
     /// Seed each computed watch with its value's change stamp. A field watch needs no

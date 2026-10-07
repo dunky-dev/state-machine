@@ -17,8 +17,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use dunky_core::{
-    Changes, Cleanup, ComputedKey, ComputedParams, Context, DeserializeEvent, EventEnum, Host,
-    Machine, SerializeFields, StateEnum, Types,
+    Changes, ComputedKey, ComputedParams, Context, DeserializeEvent, EventEnum, Host, Machine,
+    SerializeFields, StateEnum, Types,
 };
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -88,9 +88,10 @@ impl<T: Types> Host<T> for Observer {
     fn action(&self, _: u32, _: Option<&T::Event>) {
         unreachable!("a Rust machine has no external actions")
     }
-    fn effect(&self, _: u32, _: Option<&T::Event>) -> Option<Cleanup> {
+    fn effect(&self, _: u32, _: Option<&T::Event>) {
         unreachable!("a Rust machine has no external effects")
     }
+    fn stop_effects(&self) {}
     fn delay(&self, _: u32, _: Option<&T::Event>) -> u32 {
         unreachable!("a Rust machine has no external delays")
     }
@@ -107,6 +108,17 @@ impl<T: Types> Host<T> for Observer {
         self.link.notify(state.index() as u32, changes);
     }
     fn settle(&self) {}
+    fn transition(
+        &self,
+        _: u32,
+        _: T::State,
+        _: T::State,
+        _: Option<&T::Event>,
+        _: bool,
+        _: bool,
+    ) -> dunky_core::HostTransition {
+        unreachable!("a Rust machine has no host transitions")
+    }
 }
 
 /// The implementation behind every class [`export_machine!`] generates.

@@ -1,5 +1,5 @@
 import { makeBroadcast, type Broadcast } from './broadcast'
-import { compile, fieldBit, type Compiled } from './compile'
+import { compile, fieldBit, type ActionSpec, type Compiled } from './compile'
 import { MACHINE_INIT } from './constants'
 import { makeGuardParams } from './guards'
 import { makeSelection } from './selection'
@@ -79,6 +79,8 @@ export class MachineClass<
   epoch = 0
   /** Nesting of engine calls: JS code calls back in from inside one. */
   depth = 0
+  /** Started and not stopped (mirrors the engine, so JS needs no call to ask). */
+  isRunning = false
 
   constructor(shape: Shape, context: Context, current: number) {
     this.shape = shape
@@ -138,7 +140,8 @@ export class MachineClass<
   }
 
   start = (): void => {
-    if (this.handle.running()) return
+    if (this.isRunning) return
+    this.isRunning = true
     this.depth++
     const status = this.handle.start(this)
     this.depth--
@@ -146,7 +149,8 @@ export class MachineClass<
     if (this.startListeners) for (const fn of this.startListeners) fn()
   }
   stop = (): void => {
-    if (!this.handle.running()) return
+    if (!this.isRunning) return
+    this.isRunning = false
     this.depth++
     const status = this.handle.stop(this)
     this.depth--
@@ -155,7 +159,7 @@ export class MachineClass<
   }
   onStart = (fn: () => void): (() => void) => {
     ;(this.startListeners ??= new Set()).add(fn)
-    if (this.handle.running()) fn() // already running — fire immediately so late registrants don't miss it
+    if (this.isRunning) fn() // already running — fire immediately so late registrants don't miss it
     return () => this.startListeners?.delete(fn)
   }
   onStop = (fn: () => void): (() => void) => {
@@ -225,8 +229,8 @@ class TsMachine<
 > extends MachineClass<State, Context, Event, Computed> {
   c: Compiled
   declare handle: JsMachine
-  cleanups: Map<number, () => void> | null = null
-  nextCleanup = 1
+  /** The cleanups of the effects started in the current state, in start order. */
+  effectCleanups: Array<() => void> = []
   /** Per computed value: the epoch it was last read at, and the value. */
   readAt: number[]
   readValue: unknown[]
@@ -296,6 +300,58 @@ class TsMachine<
     this.readAt[id] = this.epoch
     this.readValue[id] = value
     return value
+  }
+
+  /** Run compiled action specs in order: callbacks, runs of callbacks, `oneOf`s. */
+  runSpecs(
+    specs: ActionSpec[],
+    params: ActionParams<Context, Event, Computed>,
+    event: unknown,
+  ): void {
+    const { actions } = this.c
+    for (let i = 0; i < specs.length; i++) {
+      const spec = specs[i]!
+      if (spec.id !== undefined) actions[spec.id]!(params)
+      else if (spec.list !== undefined) {
+        const list = this.c.actionLists[spec.list]!
+        for (let j = 0; j < list.length; j++) actions[list[j]!]!(params)
+      } else if (spec.oneOf) {
+        const guards = this.guardParams(event)
+        for (const branch of spec.oneOf) {
+          if (branch.guard === undefined || this.c.guards[branch.guard]!(guards)) {
+            this.runSpecs(branch.actions, params, event)
+            break
+          }
+        }
+      }
+    }
+  }
+
+  /** What the engine held back to ride on this call: bit 0 stops the effects, the bits
+   * above hold a state change (the state + 1). */
+  prelude(pre: number): void {
+    if (pre & 1) this.stopEffects()
+    const state = (pre >>> 1) - 1
+    if (state >= 0) this.enter(state)
+  }
+  /** Run every cleanup, in start order, even past one that throws; then throw the first. */
+  stopEffects(): void {
+    const cleanups = this.effectCleanups
+    if (cleanups.length === 0) return
+    this.effectCleanups = []
+    let failed = false
+    let first: unknown
+    for (let i = 0; i < cleanups.length; i++) {
+      try {
+        cleanups[i]!()
+      } catch (error) {
+        if (!failed) {
+          failed = true
+          first = error
+        }
+      }
+    }
+    if (failed) throw first
   }
 
   actionParams(event: unknown): ActionParams<Context, Event, Computed> {
@@ -391,17 +447,29 @@ type Timeout = ReturnType<typeof setTimeout>
 interface Host {
   /** 0 false, 1 true, 2 failed. */
   guard: (m: TsFacade, fn: number, event: unknown) => number
-  /** `notify`: a state change to announce first (it rides on this call), or -1. */
-  action: (m: TsFacade, fn: number, event: unknown, notify: number) => number
-  /** The cleanup's id, 0 for no cleanup, -1 failed. */
-  effect: (m: TsFacade, fn: number, event: unknown, notify: number) => number
-  cleanup: (m: TsFacade, id: number) => number
+  /** `pre`: what rides on this call, delivered first (see `prelude`), or 0. */
+  action: (m: TsFacade, fn: number, event: unknown, pre: number) => number
+  /** Start an effect; its cleanup waits in `effectCleanups`. */
+  effect: (m: TsFacade, fn: number, event: unknown, pre: number) => number
+  /** Deliver `pre` on its own. */
+  pre: (m: TsFacade, pre: number) => number
   /** The delay in ms, -1 failed. */
   delay: (m: TsFacade, fn: number, event: unknown) => number
   computed: (m: TsFacade, id: number) => number
   /** The first candidate of guard list `list` that passes, -1 for none, -2 failed. */
   pick: (m: TsFacade, list: number, event: unknown) => number
-  actions: (m: TsFacade, list: number, event: unknown, notify: number) => number
+  actions: (m: TsFacade, list: number, event: unknown, pre: number) => number
+  /** Run transition `id` whole (`flags`: 1 stops the effects, 2 starts the target's).
+   * 0 done, 1 failed before the switch, 2 after it, 3 while starting the effects. */
+  transition: (
+    m: TsFacade,
+    id: number,
+    from: number,
+    to: number,
+    event: unknown,
+    flags: number,
+    pre: number,
+  ) => number
   notify: (m: Facade, state: number, lo: number, hi: number) => number
   startTimer: (m: Facade, id: number, ms: number) => Timeout
   cancelTimer: (timeout: Timeout) => void
@@ -420,32 +488,28 @@ export const HOST: Host = {
       return 2
     }
   },
-  action: (m, fn, event, notify) => {
+  action: (m, fn, event, pre) => {
     try {
-      if (notify >= 0) m.enter(notify)
+      if (pre) m.prelude(pre)
       m.c.actions[fn]!(m.actionParams(event))
       return OK
     } catch (error) {
       return m.fail(error)
     }
   },
-  effect: (m, fn, event, notify) => {
+  effect: (m, fn, event, pre) => {
     try {
-      if (notify >= 0) m.enter(notify)
+      if (pre) m.prelude(pre)
       const cleanup = m.c.effects[fn]!(m.actionParams(event))
-      if (typeof cleanup !== 'function') return 0
-      ;(m.cleanups ??= new Map()).set(m.nextCleanup, cleanup)
-      return m.nextCleanup++
+      if (typeof cleanup === 'function') m.effectCleanups.push(cleanup)
+      return OK
     } catch (error) {
-      m.fail(error)
-      return -1
+      return m.fail(error)
     }
   },
-  cleanup: (m, id) => {
-    const cleanup = m.cleanups!.get(id)!
-    m.cleanups!.delete(id)
+  pre: (m, pre) => {
     try {
-      cleanup()
+      m.prelude(pre)
       return OK
     } catch (error) {
       return m.fail(error)
@@ -481,15 +545,41 @@ export const HOST: Host = {
       return -2
     }
   },
-  actions: (m, list, event, notify) => {
+  actions: (m, list, event, pre) => {
     try {
-      if (notify >= 0) m.enter(notify)
+      if (pre) m.prelude(pre)
       const actions = m.c.actionLists[list]!
       const params = m.actionParams(event)
       for (let i = 0; i < actions.length; i++) m.c.actions[actions[i]!]!(params)
       return OK
     } catch (error) {
       return m.fail(error)
+    }
+  },
+  transition: (m, id, from, to, event, flags, pre) => {
+    let phase = 1
+    try {
+      if (pre) m.prelude(pre)
+      if (flags & 1) m.stopEffects()
+      const params = m.actionParams(event)
+      m.runSpecs(m.c.exitActions[from]!, params, event)
+      m.runSpecs(m.c.transitionActions[id]!, params, event)
+      phase = 2
+      m.enter(to)
+      m.runSpecs(m.c.entryActions[to]!, params, event)
+      // An action may have stopped the machine mid-transition.
+      if (flags & 2 && m.isRunning) {
+        phase = 3
+        const effects = m.c.stateEffects[to]!
+        for (let i = 0; i < effects.length; i++) {
+          const cleanup = m.c.effects[effects[i]!]!(params)
+          if (typeof cleanup === 'function') m.effectCleanups.push(cleanup)
+        }
+      }
+      return OK
+    } catch (error) {
+      m.fail(error)
+      return phase
     }
   },
   notify: (m, state, lo, hi) => {

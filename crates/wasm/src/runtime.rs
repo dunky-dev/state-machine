@@ -14,8 +14,8 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use dunky_core::{
-    Action, Branch, Changes, Cleanup, ComputedParams, Config, Context, Delay, Effect, EventEnum,
-    Field, Guard, Host, Machine, StateEnum, TransitionBuilder, Types,
+    Action, Branch, Changes, ComputedParams, Config, Context, Delay, Effect, EventEnum, Field,
+    Guard, Host, HostTransition, Machine, StateEnum, TransitionBuilder, Types,
 };
 use serde::Deserialize;
 use wasm_bindgen::prelude::*;
@@ -148,6 +148,9 @@ struct AfterSpec {
 
 #[derive(Deserialize)]
 struct CandidateSpec {
+    /// When set, the host runs the transition whole when it leaves the state.
+    #[serde(default)]
+    id: Option<u32>,
     #[serde(default)]
     target: Option<u32>,
     #[serde(default)]
@@ -212,6 +215,9 @@ fn action(spec: &ActionSpec) -> Action<Js> {
 }
 
 fn candidate(mut t: TransitionBuilder<Js>, spec: &CandidateSpec) -> TransitionBuilder<Js> {
+    if let Some(id) = spec.id {
+        t = t.host_id(id);
+    }
     if let Some(target) = spec.target {
         t = t.target(DynState(target));
     }
@@ -312,15 +318,16 @@ extern "C" {
     /// 0 false, 1 true, 2 failed.
     #[wasm_bindgen(method)]
     fn guard(this: &HostObject, facade: &JsValue, f: u32, event: &JsValue) -> u32;
-    /// 0, or 1 when it failed. `notify` is a state change to deliver first, or -1.
+    /// 0, or 1 when it failed. `pre` is what to deliver first (see `Pre`), or 0.
     #[wasm_bindgen(method)]
-    fn action(this: &HostObject, facade: &JsValue, f: u32, event: &JsValue, notify: i32) -> u32;
-    /// The cleanup's id, 0 for no cleanup, or -1 when it failed. `notify` as for `action`.
+    fn action(this: &HostObject, facade: &JsValue, f: u32, event: &JsValue, pre: u32) -> u32;
+    /// Start an effect; the host keeps its cleanup. 0, or 1 when it failed. `pre` as for
+    /// `action`.
     #[wasm_bindgen(method)]
-    fn effect(this: &HostObject, facade: &JsValue, f: u32, event: &JsValue, notify: i32) -> i32;
-    /// 0, or 1 when it failed.
+    fn effect(this: &HostObject, facade: &JsValue, f: u32, event: &JsValue, pre: u32) -> u32;
+    /// Deliver `pre` on its own. 0, or 1 when it failed.
     #[wasm_bindgen(method)]
-    fn cleanup(this: &HostObject, facade: &JsValue, id: u32) -> u32;
+    fn pre(this: &HostObject, facade: &JsValue, pre: u32) -> u32;
     /// The delay in ms, or -1 when it failed.
     #[wasm_bindgen(method)]
     fn delay(this: &HostObject, facade: &JsValue, f: u32, event: &JsValue) -> f64;
@@ -331,11 +338,24 @@ extern "C" {
     /// -2 when a guard failed.
     #[wasm_bindgen(method)]
     fn pick(this: &HostObject, facade: &JsValue, list: u32, event: &JsValue) -> i32;
-    /// Run action list `list` in order. 0, or 1 when an action failed. `notify` as for
+    /// Run action list `list` in order. 0, or 1 when an action failed. `pre` as for
     /// `action`.
     #[wasm_bindgen(method)]
-    fn actions(this: &HostObject, facade: &JsValue, list: u32, event: &JsValue, notify: i32)
-    -> u32;
+    fn actions(this: &HostObject, facade: &JsValue, list: u32, event: &JsValue, pre: u32) -> u32;
+    /// Run transition `id` whole, from `from` to `to` (`flags`: 1 stops the effects, 2
+    /// starts the target's). 0 done, 1 failed before the switch, 2 failed after it, 3
+    /// failed while starting the effects. `pre` as for `action`.
+    #[wasm_bindgen(method)]
+    fn transition(
+        this: &HostObject,
+        facade: &JsValue,
+        id: u32,
+        from: u32,
+        to: u32,
+        event: &JsValue,
+        flags: u32,
+        pre: u32,
+    ) -> u32;
 }
 
 /// What one computed evaluation returned and read, reported by JS before it returns.
@@ -349,22 +369,25 @@ struct Report {
 struct JsHost {
     link: Rc<Link>,
     report: RefCell<Option<Report>>,
-    /// A state change held back to ride on the next action or effect call (one crossing
-    /// instead of two); -1 for none. Delivered first, or at `settle`.
-    pending: Cell<i32>,
+    /// What rides on the next action or effect call, delivered first (one crossing
+    /// instead of two), or at `settle`: bit 0 stops the effects, the bits above hold a
+    /// state change (the state + 1; 0 for none).
+    pre: Cell<u32>,
 }
 
+const STOP_EFFECTS: u32 = 1;
+
 impl JsHost {
-    /// The held-back state change, for a call that delivers it first.
-    fn take_pending(&self) -> i32 {
-        self.pending.replace(-1)
+    /// What is held back, for a call that delivers it first.
+    fn take_pre(&self) -> u32 {
+        self.pre.replace(0)
     }
 
-    /// Deliver the held-back state change now.
+    /// Deliver what is held back, now.
     fn deliver(&self) {
-        let state = self.take_pending();
-        if state >= 0 {
-            self.link.notify(state as u32, Changes::default());
+        let pre = self.take_pre();
+        if pre != 0 && self.link.host.pre(&self.link.facade(), pre) != OK {
+            self.link.fail();
         }
     }
 }
@@ -391,32 +414,31 @@ impl Host<Js> for JsHost {
     }
 
     fn action(&self, id: u32, event: Option<&JsEvent>) {
-        let notify = self.take_pending();
+        let pre = self.take_pre();
         if with_event(event, |e| {
-            self.link.host.action(&self.link.facade(), id, e, notify)
+            self.link.host.action(&self.link.facade(), id, e, pre)
         }) != OK
         {
             self.link.fail();
         }
     }
 
-    fn effect(&self, id: u32, event: Option<&JsEvent>) -> Option<Cleanup> {
-        let notify = self.take_pending();
-        let cleanup = with_event(event, |e| {
-            self.link.host.effect(&self.link.facade(), id, e, notify)
-        });
-        if cleanup < 0 {
+    fn effect(&self, id: u32, event: Option<&JsEvent>) {
+        let pre = self.take_pre();
+        if with_event(event, |e| {
+            self.link.host.effect(&self.link.facade(), id, e, pre)
+        }) != OK
+        {
             self.link.fail();
         }
-        if cleanup <= 0 {
-            return None;
+    }
+
+    fn stop_effects(&self) {
+        // A state change held back belongs before this stop.
+        if self.pre.get() > STOP_EFFECTS {
+            self.deliver();
         }
-        let link = self.link.clone();
-        Some(Box::new(move || {
-            if link.host.cleanup(&link.facade(), cleanup as u32) != OK {
-                link.fail();
-            }
-        }))
+        self.pre.set(self.pre.get() | STOP_EFFECTS);
     }
 
     fn delay(&self, id: u32, event: Option<&JsEvent>) -> u32 {
@@ -459,9 +481,9 @@ impl Host<Js> for JsHost {
     }
 
     fn actions(&self, list: u32, event: Option<&JsEvent>) {
-        let notify = self.take_pending();
+        let pre = self.take_pre();
         if with_event(event, |e| {
-            self.link.host.actions(&self.link.facade(), list, e, notify)
+            self.link.host.actions(&self.link.facade(), list, e, pre)
         }) != OK
         {
             self.link.fail();
@@ -470,16 +492,47 @@ impl Host<Js> for JsHost {
 
     fn notify(&self, state: DynState, changes: Changes) {
         // Context writes are JS's to announce; a state change waits for the next call.
-        self.deliver();
-        if changes.fields == 0 {
-            self.pending.set(state.0 as i32);
-        } else {
+        if changes.fields != 0 {
+            self.deliver();
             self.link.notify(state.0, changes);
+            return;
         }
+        if self.pre.get() > STOP_EFFECTS {
+            self.deliver();
+        }
+        self.pre.set(self.pre.get() | ((state.0 + 1) << 1));
     }
 
     fn settle(&self) {
         self.deliver();
+    }
+
+    fn transition(
+        &self,
+        id: u32,
+        from: DynState,
+        to: DynState,
+        event: Option<&JsEvent>,
+        stop: bool,
+        start: bool,
+    ) -> HostTransition {
+        let pre = self.take_pre();
+        let flags = u32::from(stop) | (u32::from(start) << 1);
+        let outcome = with_event(event, |e| {
+            let facade = self.link.facade();
+            self.link
+                .host
+                .transition(&facade, id, from.0, to.0, e, flags, pre)
+        });
+        if outcome != OK {
+            self.link.fail();
+        }
+        match outcome {
+            0 => HostTransition::Done,
+            1 => HostTransition::FailedBefore,
+            2 => HostTransition::FailedAfter,
+            _ => HostTransition::FailedInEffects,
+        }
     }
 }
 
@@ -526,7 +579,7 @@ impl JsMachine {
         let host = Rc::new(JsHost {
             link,
             report: RefCell::new(None),
-            pending: Cell::new(-1),
+            pre: Cell::new(0),
         });
         bridge.machine().set_host(host.clone());
         JsMachine { bridge, host }

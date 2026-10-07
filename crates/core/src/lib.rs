@@ -39,9 +39,9 @@ pub use config::{
     TransitionBuilder,
 };
 pub use connector::{ConnectSnapshot, Connector, Reaction};
-#[cfg(feature = "host")]
-pub use machine::Host;
 pub use machine::{Changes, Machine, Sender};
+#[cfg(feature = "host")]
+pub use machine::{Host, HostTransition};
 pub use params::{ActionParams, GuardParams, View};
 pub use selection::Selection;
 pub use store::Store;

@@ -25,13 +25,16 @@ type AnyActions = Actions<any, any, any>
 type AnyEntry = TransitionEntry<string, any, any, any>
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
-interface ActionSpec {
+export interface ActionSpec {
   id?: number
   /** A run of actions the host runs in one call: an index into `actionLists`. */
   list?: number
   oneOf?: Array<{ guard?: number; actions: ActionSpec[] }>
 }
 interface CandidateSpec {
+  /** The host runs the transition whole when it leaves the state: an index into
+   * `transitionActions`. */
+  id?: number
   target?: number
   guard?: number
   actions: ActionSpec[]
@@ -61,6 +64,12 @@ export interface Compiled {
   guardLists: number[][]
   /** Per action list: the actions, in order. */
   actionLists: number[][]
+  /** What a transition run whole needs: per transition id, its actions; per state, its
+   * exit and entry actions and its effects. */
+  transitionActions: ActionSpec[][]
+  exitActions: ActionSpec[][]
+  entryActions: ActionSpec[][]
+  stateEffects: number[][]
   actions: Fn[]
   effects: Fn[]
   delays: Fn[]
@@ -169,16 +178,26 @@ export function compile(config: AnyConfig): Compiled {
     return specs
   }
   // One host call per guard walk, when two or more candidates have a guard.
+  // A leaving transition runs whole in one host call when nothing JS runs can read the
+  // engine's state mid-transition (no computed values) and the target has no named delay.
+  const runsWhole = Object.keys(config.computed ?? {}).length === 0
+  const namedDelay = stateNames.map(name =>
+    Object.keys(config.states[name]!.after ?? {}).some(key => Number.isNaN(Number(key))),
+  )
+  const transitionActions: ActionSpec[][] = []
   const entrySpec = (entry: AnyEntry): { candidates: CandidateSpec[]; pick?: number } => {
-    const candidates: CandidateSpec[] = (Array.isArray(entry) ? entry : [entry]).map(el =>
-      typeof el === 'function'
-        ? { actions: actionList(el) }
-        : {
-            target: el.target === undefined ? undefined : indexOf(el.target),
-            guard: el.guard === undefined ? undefined : guardRef(el.guard),
-            actions: actionList(el.actions),
-          },
-    )
+    const candidates: CandidateSpec[] = (Array.isArray(entry) ? entry : [entry]).map(el => {
+      if (typeof el === 'function') return { actions: actionList(el) }
+      const target = el.target === undefined ? undefined : indexOf(el.target)
+      const actions = actionList(el.actions)
+      const whole = runsWhole && target !== undefined && !namedDelay[target]
+      return {
+        id: whole ? transitionActions.push(actions) - 1 : undefined,
+        target,
+        guard: el.guard === undefined ? undefined : guardRef(el.guard),
+        actions,
+      }
+    })
     const guarded = candidates.filter(c => c.guard !== undefined).length
     if (guarded < 2) return { candidates }
     return { candidates, pick: guardLists.push(candidates.map(c => c.guard ?? -1)) - 1 }
@@ -247,6 +266,10 @@ export function compile(config: AnyConfig): Compiled {
     guards,
     guardLists,
     actionLists,
+    transitionActions,
+    exitActions: states.map(state => state.exit),
+    entryActions: states.map(state => state.entry),
+    stateEffects: states.map(state => state.effects),
     actions,
     effects,
     delays,

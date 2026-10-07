@@ -83,6 +83,7 @@ class RustMachine<
     super(shape, ctx as Context, handle.state())
     this.fields = shape.fields
     this.handle = handle
+    this.isRunning = handle.running()
     for (const [name, own] of shape.computedIndex) {
       const mapping = mappings[name]
       const map = typeof mapping === 'function' ? mapping : mapping?.map

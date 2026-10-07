@@ -181,6 +181,10 @@ pub struct Transition<T: Types> {
     pub(crate) target: Option<T::State>,
     pub(crate) guard: Option<Guard<T>>,
     pub(crate) actions: Vec<Action<T>>,
+    /// The binding's id for this transition: when it leaves the state, the host runs it
+    /// whole (`Host::transition`).
+    #[cfg(feature = "host")]
+    pub(crate) host_id: Option<u32>,
 }
 
 /// Builds one transition candidate inside `StateBuilder::on` / `after`.
@@ -227,6 +231,16 @@ impl<T: Types> TransitionBuilder<T> {
     /// Any action value, e.g. `Action::one_of([...])`.
     pub fn push(mut self, action: Action<T>) -> Self {
         self.0.actions.push(action);
+        self
+    }
+    /// The binding's id for this transition. When it leaves the state, the host runs it
+    /// whole, in one call: effect cleanups, exit actions, the transition's actions, the
+    /// switch and its notification, entry actions and effects. Only for a host whose code
+    /// cannot read the engine's state mid-transition (e.g. a machine without derived
+    /// values), and a target without host delays: the engine switches after the call.
+    #[cfg(feature = "host")]
+    pub fn host_id(mut self, id: u32) -> Self {
+        self.0.host_id = Some(id);
         self
     }
 }
@@ -382,6 +396,8 @@ fn empty_transition<T: Types>() -> Transition<T> {
         target: None,
         guard: None,
         actions: Vec::new(),
+        #[cfg(feature = "host")]
+        host_id: None,
     }
 }
 
