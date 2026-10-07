@@ -113,14 +113,15 @@ export function useMachine<
           previous?.()
         }
         // Each run gets its own snapshot of the props, so its cleanup undoes exactly what it
-        // set up, as with React's render props; a cleanup that throws can't block the setup.
-        const run = () => {
-          try {
-            teardown()
-          } finally {
-            cleanup = fn(service, read()) || undefined
-          }
-        }
+        // set up, as with React's render props; a cleanup that throws can't block the setup,
+        // and if both throw, both are reported.
+        const run = () =>
+          settle([
+            teardown,
+            () => {
+              cleanup = fn(service, read()) || undefined
+            },
+          ])
         // One getter per dep, compared by value: no other prop re-runs the effect. `post`
         // lets a re-run see the DOM already patched with the props that caused it.
         const stop = watch(
@@ -146,10 +147,16 @@ export function useMachine<
   // cached view is hidden — hold still: Vue fires onMounted there, then onActivated when the
   // view comes back.
   const instance = getCurrentInstance()
+  let mounted = false
   onMounted(() => {
+    mounted = true
     if (!inDeactivatedView(instance)) resume()
   })
-  onActivated(resume)
+  // A view's activation can reach a descendant that hasn't mounted yet — an async one under
+  // <Suspense> — and onMounted starts that one.
+  onActivated(() => {
+    if (mounted) resume()
+  })
   onDeactivated(() => settle([service.stop, ...takeDisposers()]))
   // Unmounting stops the machine before the component's children unmount, so a part's own
   // teardown send fires no reactions; the effect cleanups follow in onUnmounted, after the DOM

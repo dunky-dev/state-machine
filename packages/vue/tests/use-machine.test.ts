@@ -226,6 +226,19 @@ describe('useMachine — sends from tracked code', () => {
     expect(sink.api!.open).toBe(true)
     scope.stop()
   })
+
+  it('leaves nothing behind in the effect scope a send runs inside', () => {
+    const { sink, Comp } = harness()
+    mount(Comp, { props: { onOpenChange: () => {} } })
+    // Vue 3.4/3.5 keep a scope's effects in an array; 3.6 links them, and has no such field.
+    const scope = effectScope()
+    const held = () => (scope as unknown as { effects?: unknown[] }).effects?.length ?? 0
+    scope.run(() => {
+      for (let i = 0; i < 10; i++) sink.machine!.send({ type: 'toggle' }) // ten reactions
+    })
+    expect(held()).toBe(0)
+    scope.stop()
+  })
 })
 
 describe('useMachine — reactions follow the machine lifecycle', () => {
@@ -340,6 +353,28 @@ describe('useMachine — component effects', () => {
     await wrapper.setProps({ label: 'b' })
     expect(errorHandler).toHaveBeenCalledOnce()
     expect(log).toEqual(['start', 'effect', 'effect'])
+  })
+
+  it('reports both a throwing cleanup and the setup that then throws', async () => {
+    const effects: Effect[] = [
+      [
+        (_machine, props) => {
+          if (props.label === 'b') throw new Error('setup failed')
+          return () => {
+            throw new Error('cleanup failed')
+          }
+        },
+        ['label'],
+      ],
+    ]
+    const { Comp } = harness(effects)
+    const errorHandler = vi.fn()
+    const wrapper = mount(Comp, { props: { label: 'a' }, global: { config: { errorHandler } } })
+    await wrapper.setProps({ label: 'b' })
+    const reported = errorHandler.mock.calls.map(([error]) =>
+      error instanceof AggregateError ? error.errors.map(e => e.message) : [error.message],
+    )
+    expect(reported).toEqual([['cleanup failed', 'setup failed']])
   })
 
   it('re-runs after the DOM reflects the dep change', async () => {
@@ -487,6 +522,32 @@ describe('useMachine — mounting into a deactivated <KeepAlive> view', () => {
     shown.value = true
     await nextTick()
     expect(log).toEqual(['start', 'effect'])
+  })
+})
+
+describe('useMachine — an async component inside a <KeepAlive> view', () => {
+  it('starts an async component once it has mounted, not when it first activates', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => {}) // Vue's "experimental" notice
+    const log: string[] = []
+    const effects: Effect[] = [
+      [() => void log.push(`effect(mounted=${!!document.getElementById('async-root')})`), []],
+    ]
+    const Async = defineComponent({
+      async setup() {
+        const props: ToggleProps = {}
+        const { machine } = useMachine(createToggleConfig, connectToggle, effects, props)
+        machine.onStart(() => log.push('start'))
+        await Promise.resolve()
+        return () => h('div', { id: 'async-root' })
+      },
+    })
+    // The cached view's activation reaches its descendants before an async one has mounted.
+    const Page = defineComponent({ render: () => h(Suspense, null, () => h(Async)) })
+    mount(defineComponent({ render: () => h(KeepAlive, null, () => h(Page)) }), {
+      attachTo: document.body,
+    })
+    await flushPromises()
+    expect(log).toEqual(['start', 'effect(mounted=true)'])
   })
 })
 

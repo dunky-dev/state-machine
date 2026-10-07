@@ -1,4 +1,4 @@
-import { customRef, ReactiveEffect } from 'vue'
+import { customRef, effectScope, ReactiveEffect } from 'vue'
 
 // Vue 3.4's ReactiveEffect also takes a trigger, which it calls when the effect writes what it
 // read; 3.5+ takes the function alone and ignores the rest.
@@ -10,11 +10,16 @@ type EffectConstructor = new <T>(fn: () => T, trigger: () => void) => ReactiveEf
  * reads and is stopped at once.
  */
 export function untracked<T>(fn: () => T): T {
-  const effect = new (ReactiveEffect as unknown as EffectConstructor)(fn, () => {})
+  // Built in a detached scope of its own: before 3.6, Vue registers an effect with the active
+  // scope and keeps it there after stop(), so each send inside a scope would grow it by one.
+  const scope = effectScope(true)
+  const effect = scope.run(
+    () => new (ReactiveEffect as unknown as EffectConstructor)(fn, () => {}),
+  )!
   try {
     return effect.run()
   } finally {
-    effect.stop()
+    scope.stop()
   }
 }
 
