@@ -10,9 +10,10 @@
 **Define a behavior once. Render it anywhere.**
 
 A UI component is really two things tangled together: _behavior_ and _render_.
-Dunky splits them. You describe behavior as a plain TypeScript
-**state machine** that knows nothing about the environment and a thin per-substrate
-layer plugs it into a runtime.
+Dunky splits them. You describe behavior as a **state machine** — in TypeScript or
+in Rust — that knows nothing about the environment, and a thin per-substrate layer
+plugs it into a runtime. Both run on one engine, written in Rust and compiled to
+WebAssembly.
 
 The same machine drives any render in a JS runtime. Same states, same
 transitions, same accessibility intent. Only the render differs.
@@ -38,13 +39,13 @@ canvas board, a game HUD. There the cost of each transition and the memory per
 machine, multiplied by thousands, is what decides whether you hold the frame. The
 engine is built for it:
 
-| At scale (thousands of machines) |      Dunky | XState |     Zag |
-| -------------------------------- | ---------: | -----: | ------: |
-| Event throughput (ops/s)         | **11.6 M** |  1.6 M |   n/a ᵃ |
-| Memory / machine, 2-field (KB)   |    **3.9** |    3.6 |     8.9 |
-| Memory / machine, 64-field (KB)  |    **4.4** |    4.1 | **134** |
+| At scale (thousands of machines) |     Dunky | XState |     Zag |
+| -------------------------------- | --------: | -----: | ------: |
+| Event throughput (ops/s)         | **9.1 M** |  1.6 M |   n/a ᵃ |
+| Memory / machine, 2-field (KB)   |   **3.5** |    3.6 |     8.9 |
+| Memory / machine, 64-field (KB)  |   **4.1** |    4.1 | **134** |
 
-→ **~7× XState's throughput**, on par with XState for memory but at least **2× lighter than Zag** — and the gap widens as context grows, because memory stays ~flat in field count (no per-field cell). ᵃ Zag uses async ops, so a synchronous ops/s loop can't time it. Full methodology + per-scenario tables in the
+→ **~5.7× XState's throughput**, on par with XState for memory but at least **2× lighter than Zag** — and the gap widens as context grows, because memory stays ~flat in field count (no per-field cell). ᵃ Zag uses async ops, so a synchronous ops/s loop can't time it. Full methodology + per-scenario tables in the
 **[benchmark README](./benchmark/README.md)**.
 
 **▶ [Try the live benchmark demo](https://dunky.dev/state-machine/benchmark/demo)** — watch all three engines run in your browser.
