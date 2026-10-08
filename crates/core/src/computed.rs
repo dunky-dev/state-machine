@@ -14,16 +14,15 @@ use std::rc::Rc;
 use crate::machine::{Core, Inner};
 use crate::traits::{Context, Types};
 
-pub(crate) type ComputedEval<T> = Rc<dyn for<'a> Fn(&ComputedParams<'a, T>) -> Rc<dyn Any>>;
-
-pub(crate) enum ComputedSource<T: Types> {
-    Fn(ComputedEval<T>),
-}
+/// Evaluate a computed value into its slot, and say whether it changed (`PartialEq`).
+/// The slot's value is reused in place when nothing else holds it, so a recompute
+/// allocates nothing.
+pub(crate) type ComputedEval<T> =
+    Rc<dyn for<'a> Fn(&ComputedParams<'a, T>, &mut Option<Rc<dyn Any>>) -> bool>;
 
 pub(crate) struct ComputedDef<T: Types> {
     pub(crate) name: &'static str,
-    pub(crate) eval: ComputedSource<T>,
-    pub(crate) eq: fn(&dyn Any, &dyn Any) -> bool,
+    pub(crate) eval: ComputedEval<T>,
 }
 
 /// A typed handle to one computed value, returned by `ConfigBuilder::computed`.
@@ -178,9 +177,10 @@ fn fresh<T: Types>(core: &Core<T>, inner: &Inner<T>, id: usize) -> Option<Rc<dyn
 
 fn recompute<T: Types>(core: &Core<T>, inner: &Inner<T>, id: usize) -> Rc<dyn Any> {
     let def = &inner.config.0.computed[id];
-    let ComputedSource::Fn(eval) = &def.eval;
     let slot_cell = &core.computed.slots[id];
-    let buffer = {
+    // The value leaves the slot while it is evaluated: the definition writes the new one
+    // into it.
+    let (buffer, mut value) = {
         let mut slot = slot_cell.borrow_mut();
         if slot.evaluating {
             panic!("[machine] computed \"{}\" depends on itself", def.name);
@@ -188,7 +188,7 @@ fn recompute<T: Types>(core: &Core<T>, inner: &Inner<T>, id: usize) -> Rc<dyn An
         slot.evaluating = true;
         let mut buffer = std::mem::take(&mut slot.computed_deps);
         buffer.clear();
-        buffer
+        (buffer, slot.value.take())
     };
     // A panicking definition must not leave the slot flagged as evaluating.
     struct Reset<'s>(&'s RefCell<Slot>);
@@ -214,16 +214,12 @@ fn recompute<T: Types>(core: &Core<T>, inner: &Inner<T>, id: usize) -> Rc<dyn An
         computed_deps: &computed_deps,
         reads_state: &reads_state,
     };
-    let next = eval(&params);
+    let changed = (def.eval)(&params, &mut value);
     let mut slot = slot_cell.borrow_mut();
     slot.evaluating = false;
     std::mem::forget(reset);
-    let changed = match &slot.value {
-        Some(prev) => !(def.eq)(&**prev, &*next),
-        None => true,
-    };
+    slot.value = value;
     if changed {
-        slot.value = Some(next);
         slot.changed_at = core.tick;
     }
     slot.validated_at = core.tick;

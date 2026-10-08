@@ -2,7 +2,7 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::computed::{ComputedDef, ComputedKey, ComputedParams, ComputedSource};
+use crate::computed::{ComputedDef, ComputedKey, ComputedParams};
 use crate::params::{ActionParams, GuardParams};
 use crate::traits::{Context, EventEnum, Field, StateEnum, Types};
 
@@ -518,10 +518,25 @@ impl<T: Types> ConfigBuilder<T> {
         let id = self.inner.computed.len();
         self.inner.computed.push(ComputedDef {
             name,
-            eval: ComputedSource::Fn(Rc::new(move |p: &ComputedParams<'_, T>| {
-                Rc::new(f(p)) as Rc<dyn Any>
-            })),
-            eq: eq_any::<V>,
+            eval: Rc::new(
+                move |p: &ComputedParams<'_, T>, slot: &mut Option<Rc<dyn Any>>| {
+                    let next = f(p);
+                    if let Some(rc) = slot {
+                        if let Some(old) = Rc::get_mut(rc).and_then(|old| old.downcast_mut::<V>()) {
+                            if *old == next {
+                                return false;
+                            }
+                            *old = next;
+                            return true;
+                        }
+                        if rc.downcast_ref::<V>().is_some_and(|old| *old == next) {
+                            return false;
+                        }
+                    }
+                    *slot = Some(Rc::new(next));
+                    true
+                },
+            ),
         });
         ComputedKey::new(id)
     }
@@ -640,13 +655,6 @@ impl<T: Types> Registry<'_, T> {
                 }
             }
         }
-    }
-}
-
-fn eq_any<V: PartialEq + 'static>(a: &dyn Any, b: &dyn Any) -> bool {
-    match (a.downcast_ref::<V>(), b.downcast_ref::<V>()) {
-        (Some(a), Some(b)) => a == b,
-        _ => false,
     }
 }
 

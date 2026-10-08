@@ -364,3 +364,20 @@ fn a_context_write_does_not_recompute_a_state_only_computed() {
     assert_eq!(*m.computed(label), "state=busy");
     assert_eq!(runs.count(), 2);
 }
+
+// Rust-only: a recompute reuses the value's memory when nothing else holds it, so a
+// value a reader still holds must keep what it was.
+#[test]
+fn a_value_still_held_keeps_its_contents_after_a_recompute() {
+    let mut b = builder(Ctx::default());
+    let double = b.computed("double", |p| p.context.n() * 2);
+    let m = Machine::new(&b.build());
+    m.start();
+    let held = m.computed(double);
+    m.send(Ev::BumpN);
+    assert_eq!(*held, 0);
+    assert_eq!(*m.computed(double), 2);
+    drop(held);
+    m.send(Ev::BumpN);
+    assert_eq!(*m.computed(double), 4);
+}

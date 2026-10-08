@@ -13,14 +13,16 @@ use std::time::{Duration, Instant};
 use dunky_benchmark::*;
 use dunky_core::Machine;
 
-/// Counts live heap bytes, for the memory rows.
+/// Counts live heap bytes (the memory rows) and allocations (the frame rows).
 struct Counting;
 
 static LIVE: AtomicUsize = AtomicUsize::new(0);
+static ALLOCS: AtomicUsize = AtomicUsize::new(0);
 
 unsafe impl GlobalAlloc for Counting {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         LIVE.fetch_add(layout.size(), Ordering::Relaxed);
+        ALLOCS.fetch_add(1, Ordering::Relaxed);
         unsafe { System.alloc(layout) }
     }
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
@@ -83,8 +85,108 @@ fn row(name: &str, op: impl FnMut()) {
     println!("| {name:<46} | {:>10} | {:>8.1} |", human(ops), 1e9 / ops);
 }
 
+/// One frame at 60 fps.
+const FRAME_MS: f64 = 1000.0 / 60.0;
+/// Frames timed per workload (10 s of 60 fps), after a warmup of 60.
+const FRAMES: usize = 600;
+
+/// Time `work` (one frame's worth of machine work) frame by frame: the median, p99 and
+/// worst frame, as a share of the 16.67 ms budget, and the allocations per frame.
+fn frame(name: &str, mut work: impl FnMut()) {
+    for _ in 0..60 {
+        work();
+    }
+    let mut times = Vec::with_capacity(FRAMES);
+    let allocs_before = ALLOCS.load(Ordering::Relaxed);
+    for _ in 0..FRAMES {
+        let start = Instant::now();
+        work();
+        times.push(start.elapsed().as_secs_f64() * 1e3);
+    }
+    let allocs = (ALLOCS.load(Ordering::Relaxed) - allocs_before) as f64 / FRAMES as f64;
+    times.sort_by(f64::total_cmp);
+    let median = times[FRAMES / 2];
+    let p99 = times[FRAMES * 99 / 100];
+    let worst = times[FRAMES - 1];
+    let pct = |ms: f64| ms / FRAME_MS * 100.0;
+    println!(
+        "| {name:<40} | {median:>6.3} ms ({:>4.1}%) | {p99:>6.3} ms ({:>4.1}%) | {worst:>6.3} ms ({:>4.1}%) | {allocs:>6.1} |",
+        pct(median),
+        pct(p99),
+        pct(worst),
+    );
+}
+
+fn frame_budget() {
+    println!("\n### Frame budget at 60 fps (one frame = {FRAME_MS:.2} ms, {FRAMES} frames each)");
+    println!(
+        "| {:<40} | {:>17} | {:>17} | {:>17} | {:>6} |",
+        "workload per frame", "median", "p99", "worst", "allocs"
+    );
+    println!(
+        "| {:-<40} | {:->17} | {:->17} | {:->17} | {:->6} |",
+        "", "", "", "", ""
+    );
+
+    let cell = cell_config();
+    for n in [1_000, 10_000] {
+        let cells: Vec<_> = (0..n).map(|_| observed_cell(&cell)).collect();
+        let label = if n == 1_000 { "1,000" } else { "10,000" };
+        frame(&format!("{label} machines, 1 event each"), || {
+            for c in &cells {
+                c.send(CellEvent::Hit);
+            }
+        });
+    }
+    let one = observed_cell(&cell);
+    frame("1 machine, 10,000 events", || {
+        for _ in 0..10_000 {
+            one.send(CellEvent::Hit);
+        }
+    });
+    let churn = effect_churn_config();
+    let machines: Vec<_> = (0..1_000)
+        .map(|_| {
+            let m = Machine::new(&churn);
+            m.start();
+            m
+        })
+        .collect();
+    frame("1,000 transitions (exit, entry, effects)", || {
+        for m in &machines {
+            m.send(Go::Go);
+        }
+    });
+    let (config, keys) = computed_config();
+    let calc = Machine::new(&config);
+    calc.start();
+    frame("1,000 computed recomputes", || {
+        for _ in 0..1_000 {
+            calc.send(ComputedEvent::BumpA);
+            black_box(calc.computed(keys.sum));
+        }
+    });
+    let wide = Machine::new(&wide_config());
+    wide.start();
+    for k in 0..64 {
+        std::mem::forget(
+            wide.select(move |v| wide_field(v.context(), k))
+                .subscribe(|_| bump()),
+        );
+    }
+    let mut i = 0;
+    frame("64 observers, 1,000 field changes", || {
+        for _ in 0..1_000 {
+            wide.send(WideEvent::Set { key: i % 64 });
+            i += 1;
+        }
+    });
+}
+
 fn main() {
     println!("Rust engine benchmark (dunky-core, native, release build)");
+
+    frame_budget();
 
     section("Throughput and fan-out");
     let cell = cell_config();
@@ -93,7 +195,8 @@ fn main() {
     for n in [1_000, 5_000] {
         let cells: Vec<_> = (0..n).map(|_| observed_cell(&cell)).collect();
         let mut i = 0;
-        row(&format!("unobserved write, {n} cells"), || {
+        let label = if n == 1_000 { "1,000" } else { "5,000" };
+        row(&format!("unobserved write, {label} cells"), || {
             cells[i % n].send(CellEvent::Miss);
             i += 1;
         });

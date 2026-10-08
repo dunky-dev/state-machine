@@ -77,10 +77,18 @@ impl<T: Types, V: 'static> Selection<T, V> {
                 Some(_) => true,
                 None => false,
             };
-            let next = Rc::new(next);
-            *prev.borrow_mut() = Some(next.clone());
+            let current = {
+                let mut slot = prev.borrow_mut();
+                // Nobody else holds the last value (no listener of this wake still runs):
+                // overwrite it in place, so a steady stream of changes allocates nothing.
+                match slot.as_mut().and_then(Rc::get_mut) {
+                    Some(old) => *old = next,
+                    None => *slot = Some(Rc::new(next)),
+                }
+                slot.clone().expect("value just set")
+            };
             if seeded {
-                listener(&next);
+                listener(&current);
             }
         }))
     }

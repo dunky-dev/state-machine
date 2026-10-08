@@ -1,66 +1,89 @@
 # Rust benchmark suite
 
-The Rust engine (`dunky-core`) measured natively, on its own. Each row is the twin of a
-row in the TS suite ([`../ts`](../ts/README.md)): the same machine shape and the same
-work, so the two engines can be tuned against the same scenarios.
-
-Numbers below are the average of two runs (release build, Apple M5 Pro). Absolute
-figures vary by machine and thermal state — **run it yourself**.
-
-## Running
+The Rust engine (`dunky-core`), measured natively. Release build, Apple M5 Pro; medians are
+the average of two runs, and the frame table's p99 and worst columns take the **higher** of
+the two runs. Absolute figures vary by machine and thermal state — **run it yourself**.
 
 ```bash
 cargo bench -p dunky-benchmark
 ```
 
-A plain `cargo bench` target with no extra dependency: ops/sec is the median of 5
-samples of ~100 ms after a 100 ms warmup; memory counts live heap bytes with a counting
-allocator. The machines are in [`src/lib.rs`](./src/lib.rs), the runner in
-[`benches/engine.rs`](./benches/engine.rs).
+## It does not cost a frame
 
-## Results
+At 60 fps one frame is **16.67 ms**. Each workload below runs inside one frame, timed frame
+by frame over **600 frames** (10 seconds of 60 fps):
 
-The **TS engine** column is the same row in [`../ts`](../ts/README.md), for reference
-only: native Rust and JS on V8 are different runtimes, so this is not a contest.
+| Workload per frame                       | Median (of 16.67 ms) |      p99 |    Worst | Allocations |
+| ---------------------------------------- | -------------------: | -------: | -------: | ----------: |
+| 1,000 machines, 1 event each             |      0.013 ms (0.1%) | 0.041 ms | 0.064 ms |       **0** |
+| 10,000 machines, 1 event each            |      0.135 ms (0.8%) | 0.205 ms | 0.233 ms |       **0** |
+| 1 machine, 10,000 events                 |      0.103 ms (0.6%) | 0.123 ms | 0.129 ms |       **0** |
+| 1,000 transitions (exit, entry, effects) |      0.017 ms (0.1%) | 0.021 ms | 0.039 ms |       **0** |
+| 1,000 computed recomputes                |      0.014 ms (0.1%) | 0.017 ms | 0.025 ms |       **0** |
+| 64 observers, 1,000 field changes        |      0.251 ms (1.5%) | 0.313 ms | 0.331 ms |       **0** |
 
-### Throughput and fan-out
+→ **The heaviest workload uses 2% of a frame in its worst frame.** 10,000 machines
+reacting to an event every frame take under a quarter of a millisecond, leaving more than
+98% of the frame for rendering and the rest of the app.
 
-| Scenario                      | Rust (ops/sec) | TS engine |
-| ----------------------------- | -------------: | --------: |
-| One event (observed field)    |     **52.3 M** |    11.6 M |
-| Unobserved write, 1,000 cells |     **79.6 M** |     5.4 M |
-| Unobserved write, 5,000 cells |     **76.9 M** |     4.4 M |
-| 1 change, 64 observers        |      **4.0 M** |         — |
+→ **Zero allocations per frame.** The steady state allocates nothing — no events, no
+notifications, no recomputes — so the engine adds no allocator pauses and no jitter.
 
-A Rust context is a typed struct, with at most 64 fields, so the TS suite's 5,000-field
-fan-out has no Rust twin. Its Rust row uses the 64-field maximum: one value-deduped
-selection per field.
+→ **~1.5 million events fit in one frame** on a single machine (93 M events/sec ÷ 60).
 
-### Computed
+## Throughput
 
-| Scenario                             | Rust (ops/sec) | TS engine |
-| ------------------------------------ | -------------: | --------: |
-| Cached read (no change)              |    **355.7 M** |    44.0 M |
-| Fine-grain (change unread, re-read)  |    **107.5 M** |    10.7 M |
-| Recompute (change read field)        |     **42.0 M** |     4.9 M |
-| 4-deep chain (change root, read tip) |     **11.8 M** |     1.5 M |
+| Scenario                      |    ops/sec | ns/op |
+| ----------------------------- | ---------: | ----: |
+| One event (observed field)    | **93.4 M** |  10.7 |
+| Unobserved write, 1,000 cells |     80.5 M |  12.4 |
+| Unobserved write, 5,000 cells |     79.5 M |  12.6 |
+| 1 change, 64 observers        |      3.9 M | 260.0 |
 
-### Engine paths
+"Observed" means a value-deduped selection watches the field; an unobserved write wakes no
+one. A Rust context is a typed struct with at most 64 fields, so the widest fan-out is one
+selection on each of 64 fields: one change wakes and re-checks all 64.
 
-| Scenario                                      | Rust (ops/sec) | TS engine |
-| --------------------------------------------- | -------------: | --------: |
-| Guard fallthrough, 2 candidates               |    **157.6 M** |     5.2 M |
-| Guard fallthrough, 8 candidates               |     **62.4 M** |     4.5 M |
-| Guard fallthrough, 32 candidates              |     **16.7 M** |     3.2 M |
-| State churn (exit + entry every event)        |     **87.4 M** |     8.8 M |
-| Effect churn (boot + cleanup each transition) |     **60.3 M** |     8.2 M |
+## Computed values
 
-### Construction and memory
+| Scenario                             |     ops/sec | ns/op |
+| ------------------------------------ | ----------: | ----: |
+| Cached read (no change)              | **364.5 M** |   2.7 |
+| Fine-grain (change unread, re-read)  |     102.4 M |   9.8 |
+| Recompute (change read field)        |      68.4 M |  14.6 |
+| 4-deep chain (change root, read tip) |      18.7 M |  53.6 |
 
-| Scenario                                  |        Rust | TS engine |
-| ----------------------------------------- | ----------: | --------: |
-| Build + start, per machine (10,000)       |   **23 ns** |   1.58 µs |
-| Memory, 2-field context, written (5,000)  | **0.35 KB** |   3.85 KB |
-| Memory, 64-field context, written (5,000) | **0.59 KB** |   4.35 KB |
+A cached read is a stamp comparison. Changing a field the value does not read keeps it
+cached; a recompute reuses the value's memory in place when nothing else holds it.
 
-Rendering and composition are TS-only (React, `compose`), so they have no Rust rows.
+## Engine paths
+
+| Scenario                                      |     ops/sec | ns/op |
+| --------------------------------------------- | ----------: | ----: |
+| Guard fallthrough, 2 candidates               | **147.8 M** |   6.8 |
+| Guard fallthrough, 8 candidates               |      61.9 M |  16.2 |
+| Guard fallthrough, 32 candidates              |      15.7 M |  63.8 |
+| State churn (exit + entry every event)        |      92.4 M |  10.8 |
+| Effect churn (boot + cleanup each transition) |      61.9 M |  16.2 |
+
+## Construction and memory
+
+| Scenario                                  |       Value |
+| ----------------------------------------- | ----------: |
+| Build + start, per machine (10,000)       |   **23 ns** |
+| Memory, 2-field context, written (5,000)  | **0.35 KB** |
+| Memory, 64-field context, written (5,000) | **0.59 KB** |
+
+→ 10,000 machines cost about 3.5 MB with a 2-field context, and build in about 0.23 ms.
+
+## How it measures
+
+- **ops/sec**: the median of 5 samples of ~100 ms, after a 100 ms warmup.
+- **Frames**: each workload runs 60 warmup frames, then 600 timed frames, each timed on
+  its own; the table shows the median, the 99th percentile and the slowest frame.
+- **Memory and allocations**: a counting global allocator; memory is live heap bytes per
+  machine, allocations are counted across the 600 frames.
+- The machines are in [`src/lib.rs`](./src/lib.rs), the runner in
+  [`benches/engine.rs`](./benches/engine.rs). Each scenario is the twin of one in the TS
+  suite ([`../ts`](../ts/README.md)), so a change to one engine can be checked on the
+  same work.
