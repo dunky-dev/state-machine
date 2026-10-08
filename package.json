@@ -5,8 +5,8 @@
   "scripts": {
     "test": "vitest",
     "test:ci": "vitest run",
-    "benchmark": "pnpm -C benchmark benchmark",
-    "benchmark:demo": "pnpm -C benchmark/demo dev",
+    "benchmark": "pnpm -C benchmark/ts benchmark",
+    "benchmark:demo": "pnpm -C benchmark/ts/demo dev",
     "website:dev": "pnpm -C website dev",
     "website:prod": "pnpm -C website build",
     "build": "tsdown",

@@ -54,3 +54,11 @@ dunky-core = { git = "https://github.com/dunky-dev/state-machine" }
   side gets its twin on the other.
 - What only one engine has stays out of the shared spec: TS-only typing (`setup()`),
   and Rust-only authoring (derives, timers as commands).
+
+## Benchmarks
+
+Each engine has its own suite, on the same scenarios:
+[`benchmark/ts`](https://github.com/dunky-dev/state-machine/tree/main/benchmark/ts) (the
+TS engine against XState and Zag; see [Benchmark](/benchmark)) and
+[`benchmark/rust`](https://github.com/dunky-dev/state-machine/tree/main/benchmark/rust)
+(the Rust engine, natively: `cargo bench -p dunky-benchmark`).

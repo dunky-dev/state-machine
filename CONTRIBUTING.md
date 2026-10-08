@@ -31,11 +31,12 @@ Target one package or one file instead of the whole workspace:
 
 The Rust engine (`crates/`) is a plain Cargo workspace; run cargo at the repo root:
 
-| Command                 | What it does                                        |
-| ----------------------- | --------------------------------------------------- |
-| `cargo test`            | Every crate's tests                                 |
-| `cargo lint`            | `clippy`, warnings as errors (`.cargo/config.toml`) |
-| `cargo fmt` / `--check` | `rustfmt`                                           |
+| Command                          | What it does                                        |
+| -------------------------------- | --------------------------------------------------- |
+| `cargo test`                     | Every crate's tests                                 |
+| `cargo lint`                     | `clippy`, warnings as errors (`.cargo/config.toml`) |
+| `cargo fmt` / `--check`          | `rustfmt`                                           |
+| `cargo bench -p dunky-benchmark` | The Rust engine's benchmark (`benchmark/rust`)      |
 
 `pnpm build:wasm` builds the sandbox machines written in Rust to wasm (`crates/sandbox/pkg`),
 with their TS types: the sandbox's `?machine=rust` mode and its Rust tests need it. It

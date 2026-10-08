@@ -1,16 +1,16 @@
 {
   // Typecheck the benchmark suite + the live demo. They run via tsx/vite (which
   // don't typecheck), so this is the only thing that catches type errors here.
-  "extends": "../tsconfig.json",
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
     // the base sets no `jsx` (it's per-project); the benchmark is React-flavored
     "jsx": "react-jsx",
     // paths in `extends` resolve relative to THIS file, so redeclare them
     "paths": {
-      "@dunky.dev/state-machine": ["../packages/core/src"],
-      "@dunky.dev/react-state-machine": ["../packages/react/src"],
-      "@dunky.dev/native-state-machine": ["../packages/native/src"],
-      "@dunky.dev/state-machine-utils": ["../packages/shared/utils/src"]
+      "@dunky.dev/state-machine": ["../../packages/core/src"],
+      "@dunky.dev/react-state-machine": ["../../packages/react/src"],
+      "@dunky.dev/native-state-machine": ["../../packages/native/src"],
+      "@dunky.dev/state-machine-utils": ["../../packages/shared/utils/src"]
     },
     // the benchmark touches Node globals (process, global) + DOM (jsdom, react-dom)
     "types": ["@types/node", "@types/react", "@types/react-dom", "@types/jsdom"]

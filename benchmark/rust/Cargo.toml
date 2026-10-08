@@ -1,0 +1,14 @@
+[package]
+name = "dunky-benchmark"
+description = "The Rust engine's benchmark: the TS suite's engine scenarios, run natively on dunky-core."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+dunky-core = { workspace = true }
+
+[[bench]]
+name = "engine"
+harness = false

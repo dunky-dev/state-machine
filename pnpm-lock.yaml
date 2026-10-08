@@ -45,14 +45,14 @@ importers:
         specifier: ^4.1.7
         version: 4.1.7(@types/node@22.19.19)(jsdom@29.1.1)(vite@8.0.14(@types/node@22.19.19)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))
 
-  benchmark:
+  benchmark/ts:
     dependencies:
       '@dunky.dev/react-state-machine':
         specifier: workspace:^
-        version: link:../packages/react
+        version: link:../../packages/react
       '@dunky.dev/state-machine':
         specifier: workspace:^
-        version: link:../packages/core
+        version: link:../../packages/core
     devDependencies:
       '@types/jsdom':
         specifier: ^21.1.7
@@ -94,11 +94,11 @@ importers:
         specifier: ^5.32.0
         version: 5.32.1
 
-  benchmark/demo:
+  benchmark/ts/demo:
     dependencies:
       '@dunky.dev/state-machine':
         specifier: workspace:^
-        version: link:../../packages/core
+        version: link:../../../packages/core
     devDependencies:
       '@vitejs/plugin-react':
         specifier: ^6.0.2

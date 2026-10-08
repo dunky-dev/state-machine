@@ -29,13 +29,13 @@ jobs:
         # the same path, so the base must match.
         env:
           BASE_PATH: /state-machine/benchmark/demo/
-        run: pnpm -C benchmark/demo build
+        run: pnpm -C benchmark/ts/demo build
 
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: benchmark/demo/dist
+          path: benchmark/ts/demo/dist
 
   deploy:
     needs: build

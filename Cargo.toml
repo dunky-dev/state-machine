@@ -4,7 +4,7 @@
 # `cargo test --workspace` for the others.
 [workspace]
 resolver = "3"
-members = ["crates/core", "crates/macros", "crates/wasm", "crates/sandbox"]
+members = ["crates/core", "crates/macros", "crates/wasm", "crates/sandbox", "benchmark/rust"]
 # Built by its own pipeline (uniffi-bindgen-react-native) for iOS/Android.
 exclude = ["crates/uniffi"]
 

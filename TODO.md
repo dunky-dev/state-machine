@@ -31,5 +31,5 @@ ran on the Rust engine, is on the local branch `rust-engine-under-ts` (head `4e4
 ## Later
 
 - [ ] Review what else to bring back from `rust-engine-under-ts` on the TS side.
-- [ ] Benchmarks split by engine: the TS suite moves to `benchmark/ts`, and a Rust suite
-      lives in `benchmark/rust` (the Rust engine measured natively, on its own).
+- [x] Benchmarks split by engine: `benchmark/ts` (the TS suite) and `benchmark/rust` (the
+      Rust engine, natively, on the same scenarios).

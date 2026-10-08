@@ -45,7 +45,7 @@ engine is built for it:
 | Memory / machine, 64-field (KB)  |    **4.4** |    4.1 | **134** |
 
 → **~7× XState's throughput**, on par with XState for memory but at least **2× lighter than Zag** — and the gap widens as context grows, because memory stays ~flat in field count (no per-field cell). ᵃ Zag uses async ops, so a synchronous ops/s loop can't time it. Full methodology + per-scenario tables in the
-**[benchmark README](./benchmark/README.md)**.
+**[benchmark README](./benchmark/ts/README.md)**.
 
 **▶ [Try the live benchmark demo](https://dunky.dev/state-machine/benchmark/demo)** — watch all three engines run in your browser.
 
@@ -73,7 +73,7 @@ The full layered model and the "the machine never sees props" rule are in:
 
 - **[`ARCHITECTURE.md`](./ARCHITECTURE.md)** — the big-picture map and the layered model.
 - **[`packages/core/README.md`](./packages/core/README.md)** — the state machine engine and its full API.
-- **[`benchmark/README.md`](./benchmark/README.md)** — what's measured, the methodology, and results vs. XState & Zag.
+- **[`benchmark/`](./benchmark/README.md)** — the TS suite (methodology, results vs. XState & Zag) and the Rust suite.
 - **[`ACCESSIBILITY.md`](./ACCESSIBILITY.md)** — the external specs every package answers to.
 - **[`AGENTS.md`](./AGENTS.md)** — the contributor / agent contract.
 

@@ -1,8 +1,8 @@
 packages:
   - packages/**/*
   - sandbox/**/*
-  - benchmark
-  - benchmark/demo
+  - benchmark/ts
+  - benchmark/ts/demo
   - website
 allowBuilds:
   esbuild: true

@@ -17,8 +17,8 @@ explicit yes — benchmark numbers are noisy and the user may just want a look.
 
 ## Step 1 — run it
 
-The suite is its own workspace package under `benchmark/`, but the root has a
-delegating script, so this works from the repo root or from `benchmark/`:
+The TS suite is its own workspace package under `benchmark/ts/`, but the root has a
+delegating script, so this works from the repo root or from `benchmark/ts/`:
 
 ```bash
 pnpm benchmark
@@ -41,7 +41,7 @@ rendering 1000-row mount + re-render).
 After showing the numbers, ask the user — use the AskUserQuestion tool — whether
 to update the documented results. Offer at least:
 
-- **Update all docs** — refresh numbers in the benchmark README, the core package
+- **Update all docs** — refresh numbers in the TS benchmark README, the core package
   README, and the website benchmark page.
 - **Don't update** — just keep the run output.
 
@@ -51,7 +51,7 @@ Do not proceed to Step 3 unless the user says yes.
 
 Four files carry benchmark numbers. Update all four in one pass:
 
-### A. `benchmark/README.md` — full tables (source of truth)
+### A. `benchmark/ts/README.md` — full tables (source of truth)
 
 Each `## N.` section has its table inline, followed by a one-line `→` takeaway.
 Update the numbers in those tables and **recheck each takeaway's "X faster" claim**
@@ -100,7 +100,7 @@ The website benchmark page (at that path from the repo root) carries:
    the numbers and **recheck the section heading ratios** against the fresh figures
    (e.g. if throughput is now 6.1 M vs 897 K, the heading becomes "~7×", not "~8×").
 
-Apply the same K/M notation rules as `benchmark/README.md`.
+Apply the same K/M notation rules as `benchmark/ts/README.md`.
 
 ### D. root `README.md` — the "Fast at scale" headline table
 
@@ -115,3 +115,10 @@ notation rules.
 - Run `pnpm format` at the repo root so formatting matches the repo style.
 - Remind the user these are first-look numbers from one machine — a single run is
   a snapshot, not a verdict.
+
+## The Rust suite
+
+The Rust engine has its own suite in `benchmark/rust` (`cargo bench -p dunky-benchmark`).
+When the user asks for Rust numbers, run it the same way: show the tables first, then
+ask before updating `benchmark/rust/README.md`. Its "TS engine" column is copied from
+`benchmark/ts/README.md`, so refresh it when the TS tables change.
