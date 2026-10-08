@@ -1,11 +1,5 @@
 import { useEffect, useMemo, useSyncExternalStore } from 'react'
-import {
-  connector,
-  toMachine,
-  type Connect,
-  type Machine,
-  type MachineSource,
-} from '@dunky.dev/state-machine'
+import { connector, machine, type Connect, type TransitionConfig } from '@dunky.dev/state-machine'
 
 /**
  * A substrate-specific effect: a setup/teardown function plus the prop names it depends on.
@@ -25,14 +19,9 @@ export type ComponentEffect<Machine, Props> = [
 ]
 
 /**
- * The generic React bridge. Builds the machine once from the first render's props —
- * from a config, or as a ready machine (e.g. a Rust machine via wasm) —
+ * The generic React bridge. Builds the machine once from the first render's props,
  * keeps props fresh via setProps, runs substrate effects, and drives React via
  * useSyncExternalStore over the connector's snapshot.
- *
- * A ready machine must come fresh from `createConfig` (one per component instance):
- * the hook owns its lifecycle, exactly like a config-built one. Sharing one machine
- * between components is not supported.
  */
 export function useMachine<
   State extends string,
@@ -42,14 +31,14 @@ export function useMachine<
   Api,
   Computed = Record<string, never>,
 >(
-  createConfig: (props: Props) => MachineSource<State, Context, Event, Computed>,
+  createConfig: (props: Props) => TransitionConfig<State, Context, Event, Computed>,
   connect: Connect<State, Context, Event, Props, Api, Computed>,
-  effects: ComponentEffect<Machine<State, Context, Event, Computed>, Props>[],
+  effects: ComponentEffect<ReturnType<typeof machine<State, Context, Event, Computed>>, Props>[],
   props: Props,
-): { api: Api; machine: Machine<State, Context, Event, Computed> } {
+): { api: Api; machine: ReturnType<typeof machine<State, Context, Event, Computed>> } {
   const { service, connection } = useMemo(
     () => {
-      const service = toMachine(createConfig(props))
+      const service = machine(createConfig(props))
       const connection = connector(service, connect, props)
       return { service, connection }
     },

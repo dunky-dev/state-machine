@@ -1,9 +1,9 @@
 # dunky-core
 
-The engine of [`@dunky.dev/state-machine`](../../packages/core), and the crate to write
-machines in Rust. [`packages/core/SPEC.md`](../../packages/core/SPEC.md) is its behavior
-contract; the Rust tests in `tests/` are ported from `packages/core/tests`. Machines
-written in TypeScript run on it too (through `dunky-wasm`'s runtime).
+Dunky's state machines in Rust: the twin of the TypeScript engine,
+[`@dunky.dev/state-machine`](../../packages/core). Both follow one behavior contract,
+[`packages/core/SPEC.md`](../../packages/core/SPEC.md); the Rust tests in `tests/` are
+ported from `packages/core/tests`. Use it in Rust programs and native bindings.
 
 ```rust
 use dunky_core::{Config, Context, Event, Machine, State, Types};
@@ -42,7 +42,5 @@ assert_eq!(dialog.state(), DialogState::Open);
 ## Learn more
 
 - [`SPEC.md`](./SPEC.md) — what the crate guarantees: authoring in Rust, timers as
-  commands, change reporting, and the binding API (cargo feature `host`). The behavior
-  contract every machine follows is [`packages/core/SPEC.md`](../../packages/core/SPEC.md).
-- [`dunky-wasm`](../wasm) — export a machine to JavaScript; wrap it with `fromWasm` from
-  `@dunky.dev/state-machine`.
+  commands, change reporting, and how it stays in sync with the TS engine. The behavior
+  contract both engines follow is [`packages/core/SPEC.md`](../../packages/core/SPEC.md).

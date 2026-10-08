@@ -1,5 +1,3 @@
-import type { MachineSource } from '@dunky.dev/state-machine'
-
 // =============================================================================
 // cmdk — shared types
 //
@@ -61,14 +59,3 @@ export interface CommandPaletteProps {
   /** Fired whenever the palette opens or closes. */
   onOpenChange?: (open: boolean) => void
 }
-
-/** Where a renderer gets its palette machine: the TS config, or a ready machine (e.g. the
- * Rust palette via wasm). Both seed from the same props and speak the same events. */
-export type CommandPaletteSource = (
-  props: CommandPaletteProps,
-) => MachineSource<
-  CommandPaletteState,
-  CommandPaletteContext,
-  CommandPaletteEvent,
-  CommandPaletteComputed
->

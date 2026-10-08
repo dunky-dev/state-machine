@@ -9,5 +9,4 @@ export type {
   CommandPaletteComputed,
   CommandPaletteState,
   CommandPaletteProps,
-  CommandPaletteSource,
 } from './types'

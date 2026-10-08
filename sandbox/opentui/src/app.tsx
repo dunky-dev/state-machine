@@ -1,11 +1,8 @@
 import { useState } from 'react'
-import { DEMO_COMMANDS, type CommandPaletteSource } from '@sandbox/cmdk-core'
+import { DEMO_COMMANDS } from '@sandbox/cmdk-core'
 import { CommandPalette } from './command-palette'
 
-/** The language the palette machine is written in. Both run on the Rust engine. */
-export type Language = 'ts' | 'rust'
-
-export function App({ language, source }: { language: Language; source: CommandPaletteSource }) {
+export function App() {
   const [last, setLast] = useState('—')
 
   return (
@@ -25,8 +22,7 @@ export function App({ language, source }: { language: Language; source: CommandP
           NAMED ANSI color ('green'), which the terminal maps to its own palette. */}
       <text attributes={1}>⌘K Command Pallete</text>
 
-      <CommandPalette source={source} commands={DEMO_COMMANDS} onSelect={c => setLast(c.label)} />
-      <text>Machine written in {language === 'rust' ? 'Rust' : 'TypeScript'}</text>
+      <CommandPalette commands={DEMO_COMMANDS} onSelect={c => setLast(c.label)} />
 
       <box style={{ flexDirection: 'column', alignItems: 'center' }}>
         <text>One state machine drives this ⌘K palette.</text>

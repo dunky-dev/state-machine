@@ -1,0 +1,14 @@
+[package]
+name = "dunky-sandbox"
+description = "The sandbox machines written in Rust (the command palette, a dialog): twins of the TS ones."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+dunky-core = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

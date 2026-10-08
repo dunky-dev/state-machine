@@ -13,34 +13,29 @@ corepack enable
 pnpm install
 ```
 
-The engine is Rust (`crates/`), so every workspace task needs a Rust toolchain: the
-core package loads the generated `packages/core/wasm`, and the sandbox and benchmark
-load their own Rust machines. Build them once after cloning (and after changing a
-crate):
-
-```bash
-rustup target add wasm32-unknown-unknown
-cargo install wasm-bindgen-cli --version "$(grep -A1 'name = "wasm-bindgen"' Cargo.lock | sed -n 's/version = "\(.*\)"/\1/p')"
-brew install binaryen   # optional: wasm-opt, the size pass
-pnpm build:wasm
-```
-
 ## Commands
 
-| Command                        | What it does                                                             |
-| ------------------------------ | ------------------------------------------------------------------------ |
-| `pnpm test`                    | Full test suite, watch mode                                              |
-| `pnpm test:ci`                 | Full test suite, once                                                    |
-| `pnpm typecheck`               | `tsc -b` across the whole workspace                                      |
-| `pnpm lint`                    | `oxlint`                                                                 |
-| `pnpm format` / `format:check` | `oxfmt`                                                                  |
-| `pnpm build`                   | Build every publishable package                                          |
-| `pnpm changeset`               | Add a changeset — see [Versioning](./AGENTS.md#versioning)               |
-| `pnpm build:wasm`              | Build the engine and the Rust machines to wasm (`packages/core/wasm`, …) |
-| `pnpm test:rust`               | `cargo test` across the Rust workspace                                   |
-| `pnpm lint:rust`               | `cargo clippy` (warnings are errors) + `cargo fmt --check`               |
+| Command                        | What it does                                               |
+| ------------------------------ | ---------------------------------------------------------- |
+| `pnpm test`                    | Full test suite, watch mode                                |
+| `pnpm test:ci`                 | Full test suite, once                                      |
+| `pnpm typecheck`               | `tsc -b` across the whole workspace                        |
+| `pnpm lint`                    | `oxlint`                                                   |
+| `pnpm format` / `format:check` | `oxfmt`                                                    |
+| `pnpm build`                   | Build every publishable package                            |
+| `pnpm changeset`               | Add a changeset — see [Versioning](./AGENTS.md#versioning) |
 
 Target one package or one file instead of the whole workspace:
+
+### Rust
+
+The Rust engine (`crates/`) is a plain Cargo workspace; run cargo at the repo root:
+
+| Command                 | What it does                                        |
+| ----------------------- | --------------------------------------------------- |
+| `cargo test`            | Every crate's tests                                 |
+| `cargo lint`            | `clippy`, warnings as errors (`.cargo/config.toml`) |
+| `cargo fmt` / `--check` | `rustfmt`                                           |
 
 ## Sandbox
 
@@ -54,10 +49,6 @@ pnpm -C sandbox/react dev
 pnpm -C sandbox/opentui dev  # terminal — needs Bun
 pnpm -C sandbox/native dev   # Expo  — needs a simulator or device
 ```
-
-The React and Solid sandboxes run the palette written in Rust with `?machine=rust`;
-the opentui one with `pnpm -C sandbox/opentui dev:rust`. Build the wasm first
-(`pnpm build:wasm`).
 
 ## Filing an issue
 

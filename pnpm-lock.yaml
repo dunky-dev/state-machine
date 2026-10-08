@@ -53,9 +53,6 @@ importers:
       '@dunky.dev/state-machine':
         specifier: workspace:^
         version: link:../packages/core
-      '@sandbox/cmdk-core':
-        specifier: workspace:*
-        version: link:../sandbox/shared
     devDependencies:
       '@types/jsdom':
         specifier: ^21.1.7

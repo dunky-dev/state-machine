@@ -1,11 +1,5 @@
 import { createEffect, createStore, onCleanup, onSettled, reconcile } from 'solid-js'
-import {
-  connector,
-  toMachine,
-  type Connect,
-  type Machine,
-  type MachineSource,
-} from '@dunky.dev/state-machine'
+import { connector, machine, type Connect, type TransitionConfig } from '@dunky.dev/state-machine'
 
 /**
  * One substrate-specific effect: a setup/teardown function plus the prop names
@@ -19,15 +13,10 @@ export type ComponentEffect<Machine, Props> = [
 ]
 
 /**
- * The generic Solid bridge: builds the machine (from a config, or a ready machine such
- * as a Rust machine via wasm) + connector once, mirrors the
+ * The generic Solid bridge: builds the machine + connector once, mirrors the
  * connector's snapshot into a fine-grained store, runs the lifecycle and the
  * component's effects. Returns the connect() api (reactive store proxy) and
  * the running machine.
- *
- * A ready machine must come fresh from `createConfig` (one per component instance):
- * the hook owns its lifecycle, exactly like a config-built one. Sharing one machine
- * between components is not supported.
  */
 export function useMachine<
   State extends string,
@@ -37,14 +26,14 @@ export function useMachine<
   Api extends object,
   Computed = Record<string, never>,
 >(
-  createConfig: (props: Props) => MachineSource<State, Context, Event, Computed>,
+  createConfig: (props: Props) => TransitionConfig<State, Context, Event, Computed>,
   connect: Connect<State, Context, Event, Props, Api, Computed>,
-  effects: ComponentEffect<Machine<State, Context, Event, Computed>, Props>[],
+  effects: ComponentEffect<ReturnType<typeof machine<State, Context, Event, Computed>>, Props>[],
   props: Props,
-): { api: Api; machine: Machine<State, Context, Event, Computed> } {
+): { api: Api; machine: ReturnType<typeof machine<State, Context, Event, Computed>> } {
   // Seed with a plain copy, never the live props proxy: setProps value-dedups,
   // and a held proxy would compare equal to its own fresh spread and never wake.
-  const service = toMachine(createConfig(props))
+  const service = machine(createConfig(props))
   const connection = connector(service, connect, { ...props })
 
   // Fine-grained mirror of the snapshot: reading `api.x` subscribes to that

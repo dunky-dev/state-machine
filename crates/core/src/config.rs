@@ -37,10 +37,6 @@ pub enum Guard<T: Types> {
     /// True iff any guard passes. Empty → false.
     Or(Vec<Guard<T>>),
     Not(Box<Guard<T>>),
-    /// Evaluated by the machine's [`Host`](crate::Host): a binding's callback (e.g. a JS
-    /// guard of a TS-authored machine), by the binding's own id.
-    #[cfg(feature = "host")]
-    External(u32),
 }
 
 impl<T: Types> Guard<T> {
@@ -73,13 +69,6 @@ pub enum Action<T: Types> {
     Fn(ActionFn<T>),
     Named(Named<ActionFn<T>>),
     OneOf(Vec<Branch<T>>),
-    /// Run by the machine's [`Host`](crate::Host), with no internal borrow held.
-    #[cfg(feature = "host")]
-    External(u32),
-    /// A run of host actions, run by the [`Host`](crate::Host) in one call (in order,
-    /// stopping at the first failure), by the binding's own list id.
-    #[cfg(feature = "host")]
-    ExternalList(u32),
 }
 
 impl<T: Types> Action<T> {
@@ -135,9 +124,6 @@ impl<T: Types> Branch<T> {
 pub enum Effect<T: Types> {
     Fn(EffectFn<T>),
     Named(Named<EffectFn<T>>),
-    /// Started by the machine's [`Host`](crate::Host), with no internal borrow held.
-    #[cfg(feature = "host")]
-    External(u32),
 }
 
 impl<T: Types> Effect<T> {
@@ -159,9 +145,6 @@ impl<T: Types> From<&'static str> for Effect<T> {
 pub enum Delay<T: Types> {
     Ms(u32),
     Named(Named<DelayFn<T>>),
-    /// Resolved by the machine's [`Host`](crate::Host).
-    #[cfg(feature = "host")]
-    External(u32),
 }
 
 impl<T: Types> From<u32> for Delay<T> {
@@ -181,10 +164,6 @@ pub struct Transition<T: Types> {
     pub(crate) target: Option<T::State>,
     pub(crate) guard: Option<Guard<T>>,
     pub(crate) actions: Vec<Action<T>>,
-    /// The binding's id for this transition: when it leaves the state, the host runs it
-    /// whole (`Host::transition`).
-    #[cfg(feature = "host")]
-    pub(crate) host_id: Option<u32>,
 }
 
 /// Builds one transition candidate inside `StateBuilder::on` / `after`.
@@ -233,32 +212,17 @@ impl<T: Types> TransitionBuilder<T> {
         self.0.actions.push(action);
         self
     }
-    /// The binding's id for this transition. When it leaves the state, the host runs it
-    /// whole, in one call: effect cleanups, exit actions, the transition's actions, the
-    /// switch and its notification, entry actions and effects. Only for a host whose code
-    /// cannot read the engine's state mid-transition (e.g. a machine without derived
-    /// values), and a target without host delays: the engine switches after the call.
-    #[cfg(feature = "host")]
-    pub fn host_id(mut self, id: u32) -> Self {
-        self.0.host_id = Some(id);
-        self
-    }
 }
 
 /// A handler for one event (or one `after` delay): candidates in order, first passing guard wins.
 pub(crate) struct Entry<T: Types> {
     candidates: Vec<Transition<T>>,
-    /// The host evaluates the candidates' guards in one call, by the binding's own list id.
-    #[cfg(feature = "host")]
-    pub(crate) pick: Option<u32>,
 }
 
 impl<T: Types> Default for Entry<T> {
     fn default() -> Self {
         Self {
             candidates: Vec::new(),
-            #[cfg(feature = "host")]
-            pick: None,
         }
     }
 }
@@ -372,23 +336,6 @@ impl<T: Types> StateBuilder<T> {
         self.0.tags.push(tag);
         self
     }
-    /// The host evaluates the guards of the handler for `kind` in one call: its list `list`.
-    #[cfg(feature = "host")]
-    pub fn pick(mut self, kind: <T::Event as EventEnum>::Kind, list: u32) -> Self {
-        self.0.on[<T::Event as EventEnum>::kind_index(kind)].pick = Some(list);
-        self
-    }
-    /// The host evaluates the guards of the most recent `after` in one call.
-    #[cfg(feature = "host")]
-    pub fn after_pick(mut self, list: u32) -> Self {
-        self.0
-            .after
-            .last_mut()
-            .expect("after_pick() needs a preceding after()")
-            .1
-            .pick = Some(list);
-        self
-    }
 }
 
 fn empty_transition<T: Types>() -> Transition<T> {
@@ -396,8 +343,6 @@ fn empty_transition<T: Types>() -> Transition<T> {
         target: None,
         guard: None,
         actions: Vec::new(),
-        #[cfg(feature = "host")]
-        host_id: None,
     }
 }
 
@@ -439,18 +384,6 @@ impl<T: Types> Config<T> {
             <T::State as StateEnum>::NAMES.len(),
             <T::Event as EventEnum>::KIND_NAMES.len(),
         )
-    }
-
-    /// A builder for a machine whose states and event types are known only at runtime
-    /// (a binding building a TS-authored machine): `states` and `kinds` are their counts.
-    #[cfg(feature = "host")]
-    pub fn builder_sized(
-        initial: T::State,
-        context: T::Context,
-        states: usize,
-        kinds: usize,
-    ) -> ConfigBuilder<T> {
-        Self::builder_with_counts(initial, context, states, kinds)
     }
 
     fn builder_with_counts(
@@ -539,13 +472,6 @@ impl<T: Types> ConfigBuilder<T> {
         self
     }
 
-    /// The host evaluates the guards of the any-state handler for `kind` in one call.
-    #[cfg(feature = "host")]
-    pub fn pick_any(&mut self, kind: <T::Event as EventEnum>::Kind, list: u32) -> &mut Self {
-        self.inner.on_any[<T::Event as EventEnum>::kind_index(kind)].pick = Some(list);
-        self
-    }
-
     pub fn guard(
         &mut self,
         name: &'static str,
@@ -598,34 +524,6 @@ impl<T: Types> ConfigBuilder<T> {
             eq: eq_any::<V>,
         });
         ComputedKey::new(id)
-    }
-
-    /// A computed value the machine's [`Host`](crate::Host) evaluates and keeps (e.g. a JS
-    /// function of a TS-authored machine). Returns its id.
-    #[cfg(feature = "host")]
-    pub fn computed_external(&mut self, name: &'static str) -> usize {
-        let id = self.inner.computed.len();
-        self.inner.computed.push(ComputedDef {
-            name,
-            eval: ComputedSource::External(id as u32),
-            // The host decides whether a new value changed.
-            eq: |_, _| false,
-        });
-        id
-    }
-
-    /// Data-reaction on computed value `id` (for computed values defined by id).
-    #[cfg(feature = "host")]
-    pub fn watch_computed_id(
-        &mut self,
-        id: usize,
-        actions: impl IntoIterator<Item = Action<T>>,
-    ) -> &mut Self {
-        self.inner.watch.push(Watch {
-            source: WatchSource::Computed(id),
-            actions: actions.into_iter().collect(),
-        });
-        self
     }
 
     /// Data-reaction on a context field: its actions run (deferred) whenever the field
@@ -722,8 +620,6 @@ impl<T: Types> Registry<'_, T> {
     fn guard(&self, guard: &mut Guard<T>) {
         match guard {
             Guard::Fn(_) => {}
-            #[cfg(feature = "host")]
-            Guard::External(_) => {}
             Guard::Named(n) => n.imp = self.guards.get(n.name).cloned(),
             Guard::And(gs) | Guard::Or(gs) => gs.iter_mut().for_each(|g| self.guard(g)),
             Guard::Not(g) => self.guard(g),
@@ -733,8 +629,6 @@ impl<T: Types> Registry<'_, T> {
         for a in actions {
             match a {
                 Action::Fn(_) => {}
-                #[cfg(feature = "host")]
-                Action::External(_) | Action::ExternalList(_) => {}
                 Action::Named(n) => n.imp = self.actions.get(n.name).cloned(),
                 Action::OneOf(branches) => {
                     for b in branches {

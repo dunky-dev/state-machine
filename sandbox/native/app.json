@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "experiments": { "tsconfigPaths": false },
     "ios": { "supportsTablet": true, "bundleIdentifier": "dev.dunky.cmdk" },
     "android": { "package": "dev.dunky.cmdk" }
   }

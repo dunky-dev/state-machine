@@ -1,4 +1,6 @@
-import type { Action, ActionArg, ActionParams, OneOf, OneOfBranch } from './types'
+import { isDev } from './constants'
+import { makeGuardParams, resolveGuard } from './guards'
+import type { Action, ActionArg, Actions, ActionParams, Guard, OneOf, OneOfBranch } from './types'
 
 /** A context patch, or a function of the action params that returns one. */
 export type Patch<Context extends object, Event, Computed = Record<string, never>, Send = Event> =
@@ -44,4 +46,56 @@ export function isOneOf<Context extends object, Event, Computed>(
     action !== null &&
     (action as { __oneOf?: boolean }).__oneOf === true
   )
+}
+
+// `context` / `computed` are the live objects — their identity never changes, so no getter.
+export interface ActionHost<Context extends object, Event, Computed> {
+  actions: Record<string, Action<Context, Event, Computed>> | undefined
+  guards: Record<string, Guard<Context, Event, Computed>> | undefined
+  context: Context
+  computed: Computed
+  setContext: (patch: Partial<Context>) => void
+  send: (event: Event) => void
+}
+
+export function runAction<Context extends object, Event, Computed>(
+  host: ActionHost<Context, Event, Computed>,
+  action: ActionArg<Context, Event, Computed>,
+  event: Event,
+): void {
+  if (isOneOf(action)) {
+    const params = makeGuardParams(host.context, event, host.computed, host.guards)
+    for (const branch of action.branches) {
+      if (!branch.guard || resolveGuard(branch.guard, params, host.guards)) {
+        runActions(host, branch.actions, event)
+        return
+      }
+    }
+    return
+  }
+  const named = action as Exclude<typeof action, OneOf<Context, Event, Computed>>
+  const fn = typeof named === 'function' ? named : host.actions?.[named]
+  if (!fn) {
+    const msg = `[machine] no action "${action as string}"`
+    if (isDev) throw new Error(msg)
+    console.warn(msg)
+    return
+  }
+  fn({
+    context: host.context,
+    setContext: host.setContext,
+    event,
+    send: host.send,
+    computed: host.computed,
+  })
+}
+
+export function runActions<Context extends object, Event, Computed>(
+  host: ActionHost<Context, Event, Computed>,
+  actions: Actions<Context, Event, Computed> | undefined,
+  event: Event,
+): void {
+  if (!actions) return
+  if (!Array.isArray(actions)) return runAction(host, actions, event)
+  for (const action of actions) runAction(host, action, event)
 }

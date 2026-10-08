@@ -58,50 +58,6 @@ describe('from context', () => {
     expect(seen).toEqual([true, false])
   })
 
-  it('a read right after a write, in the same action, sees the write', () => {
-    let seen: number | undefined
-    const m = machine<'idle', { n: number }, { type: 'inc' }, { double: number }>({
-      initial: 'idle',
-      context: { n: 1 },
-      computed: { double: ({ context }) => context.n * 2 },
-      states: {
-        idle: {
-          on: {
-            inc: {
-              actions: [
-                ({ context, setContext, computed }) => {
-                  setContext({ n: context.n + 1 })
-                  seen = computed.double
-                },
-              ],
-            },
-          },
-        },
-      },
-    })
-    expect(m.computed.double).toBe(2) // cached before the write
-    m.send({ type: 'inc' })
-    expect(seen).toBe(4)
-  })
-
-  it('a definition that throws rethrows on read, and runs again on the next read', () => {
-    let ready = false
-    const m = machine<'idle', { n: number }, { type: 'noop' }, { checked: number }>({
-      initial: 'idle',
-      context: { n: 1 },
-      computed: {
-        checked: ({ context }) => {
-          if (!ready) throw new Error('not ready')
-          return context.n
-        },
-      },
-      states: { idle: {} },
-    })
-    expect(() => m.computed.checked).toThrow('not ready')
-    ready = true
-    expect(m.computed.checked).toBe(1)
-  })
-
   it('is available to a guard', () => {
     const m = machine<
       'idle' | 'done',
@@ -296,31 +252,6 @@ describe('chaining — computed from computed', () => {
     m.send({ type: 'bumpN' }) // base depends on n → whole chain invalidates
     m.send({ type: 'read' })
     expect([baseRuns, derivedRuns]).toEqual([2, 2])
-  })
-
-  it('a chain updates after an upstream value that stayed equal', () => {
-    const m = machine<
-      'idle',
-      { n: number },
-      { type: 'set'; n: number },
-      { parity: string; label: string; shout: string }
-    >({
-      initial: 'idle',
-      context: { n: 1 },
-      computed: {
-        parity: ({ context }) => (context.n % 2 ? 'odd' : 'even'),
-        label: ({ computed }) => `n is ${computed.parity}`,
-        shout: ({ computed }) => computed.label.toUpperCase(),
-      },
-      states: {
-        idle: { on: { set: { actions: [({ event, setContext }) => setContext({ n: event.n })] } } },
-      },
-    })
-    expect(m.computed.shout).toBe('N IS ODD')
-    m.send({ type: 'set', n: 3 }) // parity stays 'odd', so label and shout keep their values
-    expect(m.computed.shout).toBe('N IS ODD')
-    m.send({ type: 'set', n: 4 })
-    expect(m.computed.shout).toBe('N IS EVEN')
   })
 })
 

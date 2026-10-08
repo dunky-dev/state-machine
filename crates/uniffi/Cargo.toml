@@ -17,7 +17,7 @@ crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
 dunky-core = { path = "../core" }
-dunky-sandbox = { path = "../../sandbox/shared/rust" }
+dunky-sandbox = { path = "../sandbox" }
 serde_json = "1"
 # Must stay on the uniffi minor that uniffi-bindgen-react-native is built with
 # (ubrn 0.31.0-6 -> uniffi 0.31): the generated C++/TS check the contract version.

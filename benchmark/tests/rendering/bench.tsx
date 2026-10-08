@@ -38,8 +38,6 @@ import {
 import { useSelector as useXSelector } from '@xstate/react'
 import { machine, type Machine } from '@dunky.dev/state-machine'
 import { useSelector } from '@dunky.dev/react-state-machine'
-import { readFileSync, writeFileSync } from 'node:fs'
-import { WASM_SKIPPED, wasmBuilt } from '../../wasm-built'
 
 type Ctx = { highlighted: number }
 type Ev = { type: 'move'; to: number }
@@ -114,24 +112,12 @@ const renderCounts = {
   'core/instance': 0,
   'zag/instance': 0,
   'xstate/selector': 0,
-  // The same rows over machines written in Rust (benchmark/rust → wasm, via fromWasm).
-  'wasm/selector': 0,
-  'wasm/instance': 0,
 }
 
-// Fine-grained row: re-renders only when ITS highlighted-ness flips. `counter`
-// lets the wasm arena reuse the very same row over a Rust machine.
-function SelectorRow({
-  m,
-  index,
-  counter = 'selector',
-}: {
-  m: Machine<'idle', Ctx, Ev>
-  index: number
-  counter?: 'selector' | 'wasm/selector'
-}) {
+// Fine-grained row: re-renders only when ITS highlighted-ness flips.
+function SelectorRow({ m, index }: { m: Machine<'idle', Ctx, Ev>; index: number }) {
   const isHL = useSelector(m, () => m.context.highlighted === index)
-  renderCounts[counter]++
+  renderCounts.selector++
   return <div data-hl={isHL ? '1' : '0'}>{index}</div>
 }
 
@@ -145,15 +131,9 @@ function NaiveRow({ m, index }: { m: Machine<'idle', Ctx, Ev>; index: number }) 
 }
 
 // Per-instance core row: each owns its machine; re-renders only when its own bool flips.
-function CoreInstanceRow({
-  m,
-  counter = 'core/instance',
-}: {
-  m: ReturnType<typeof makeCoreHighlightMachine>
-  counter?: 'core/instance' | 'wasm/instance'
-}) {
+function CoreInstanceRow({ m }: { m: ReturnType<typeof makeCoreHighlightMachine> }) {
   const on = useSelector(m, () => m.context.on)
-  renderCounts[counter]++
+  renderCounts['core/instance']++
   return <div data-hl={on ? '1' : '0'} />
 }
 
@@ -178,7 +158,7 @@ function XStateSelectorRow({ actor, index }: { actor: XActor; index: number }) {
   return <div data-hl={isHL ? '1' : '0'}>{index}</div>
 }
 
-type Strategy = keyof typeof renderCounts
+type Strategy = 'selector' | 'naive' | 'core/instance' | 'zag/instance' | 'xstate/selector'
 type Row = { mount: number; mountMs: number; renders: number; ms: number }
 
 export async function runRenderingBench(N: number, moves: number) {
@@ -316,51 +296,6 @@ export async function runRenderingBench(N: number, moves: number) {
       k => actor.send({ type: 'move', to: k % N }),
     )
     actor.stop()
-  }
-
-  // --- The same two arenas over the Rust core (wasm), when it is built ---
-  const rust = wasmBuilt() ? await import('../../rust') : null
-  if (!rust) console.warn(WASM_SKIPPED)
-  if (rust) {
-    rust.loadRust() // idempotent; the suite's wasm section already loaded it
-    const { createHighlight, createList } = rust
-    const m = createList()
-    m.start()
-    results['wasm/selector'] = run(
-      'wasm/selector',
-      () =>
-        Array.from({ length: N }, (_, i) => (
-          <SelectorRow key={i} m={m} index={i} counter='wasm/selector' />
-        )),
-      k => m.send({ type: 'move', to: k % N }),
-    )
-    m.stop()
-
-    const ms_ = Array.from({ length: N }, (_, i) => createHighlight(i === 0))
-    ms_.forEach(m => m.start())
-    let cur = 0
-    results['wasm/instance'] = run(
-      'wasm/instance',
-      () => ms_.map((m, i) => <CoreInstanceRow key={i} m={m} counter='wasm/instance' />),
-      k => {
-        const next = k % N
-        ms_[cur].send({ type: 'set', on: false })
-        ms_[next].send({ type: 'set', on: true })
-        cur = next
-      },
-    )
-    ms_.forEach(m => m.stop())
-  }
-
-  // SPIKE_RENDER_OUT=<file.json>: also write these rows as JSON (the spike report).
-  if (process.env.SPIKE_RENDER_OUT) {
-    const file = process.env.SPIKE_RENDER_OUT
-    let prev: Record<string, unknown> = {}
-    try {
-      prev = JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>
-    } catch {}
-    prev[String(N)] = results
-    writeFileSync(file, JSON.stringify(prev, null, 2))
   }
 
   console.log(`\n### Rendering — list of ${N}: first render (mount) + ${moves} highlight moves`)

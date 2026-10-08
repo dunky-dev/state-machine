@@ -4,8 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun run src/index.tsx",
-    "dev:rust": "bun run src/index.tsx --machine=rust"
+    "dev": "bun run src/index.tsx"
   },
   "dependencies": {
     "@dunky.dev/opentui-state-machine": "workspace:^",

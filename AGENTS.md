@@ -4,10 +4,11 @@ The working contract for anyone — human or agent — modifying code in this
 repo. This file is the canonical entry point: read it first, every time.
 
 This is Dunky's state-machine monorepo: UI behavior authored once as
-state machines — in TypeScript (`packages/core`) or Rust (`crates/core`) —
-running on one Rust engine, rendered anywhere through thin per-substrate
-targets (`react`, `solid`, `native`, `opentui`), with a benchmark suite,
-per-substrate sandboxes, and the docs website alongside.
+plain TypeScript state machines (`packages/core`), rendered anywhere
+through thin per-substrate targets (`react`, `solid`, `native`, `opentui`), with
+a benchmark suite, per-substrate sandboxes, and the docs website
+alongside. The same machines also exist in Rust (`crates/core`): a second
+engine that follows the same spec, for Rust programs and native bindings.
 
 ## Preflight
 
@@ -24,13 +25,13 @@ editing files in that scope — it overrides anything here for that scope
 
 ## Scopes
 
-| Scope     | Path          | What it is                                                                                |
-| --------- | ------------- | ----------------------------------------------------------------------------------------- |
-| Packages  | `packages/**` | The core machine, substrate targets (react, solid, native, opentui), and shared internals |
-| Crates    | `crates/**`   | The Rust engine and its bindings (wasm for JS, JSI for React Native)                      |
-| Benchmark | `benchmark/`  | Perf suite comparing against competitor libraries                                         |
-| Sandbox   | `sandbox/`    | Per-substrate demo apps for manual verification                                           |
-| Website   | `website/`    | The docs site                                                                             |
+| Scope     | Path          | What it is                                                                                  |
+| --------- | ------------- | ------------------------------------------------------------------------------------------- |
+| Packages  | `packages/**` | The core machine, substrate targets (react, solid, native, opentui), and shared internals   |
+| Benchmark | `benchmark/`  | Perf suite comparing against competitor libraries                                           |
+| Sandbox   | `sandbox/`    | Per-substrate demo apps for manual verification                                             |
+| Website   | `website/`    | The docs site                                                                               |
+| Crates    | `crates/**`   | The Rust engine (`core`, `macros`), the sandbox machines in Rust, the RN binding (`uniffi`) |
 
 Some changes are cross-scope: a change in `core/` may need follow-up in
 the targets, sandboxes, and docs — and vice versa. Check what else your
@@ -42,10 +43,9 @@ These are invariants, not preferences. Violating them breaks the
 layered model:
 
 - **Core never imports a substrate.** No React, no React Native, no
-  DOM, no `window`, no `document`. `packages/core/*` is TypeScript over
-  the Rust engine (`crates/core`, compiled to wasm), and the engine is
-  just as substrate-free. If you reach for a substrate API in `core/`,
-  stop — the code belongs in a target.
+  DOM, no `window`, no `document`. `packages/core/*` is pure
+  TypeScript. If you reach for a substrate API in `core/`, stop — the
+  code belongs in a target.
 - **Targets never reimplement state.** Targets read from the machine
   via its connector. They do not fork the state graph, mirror context,
   or shadow transitions. If a target needs new state, the state goes in
@@ -55,6 +55,26 @@ layered model:
   prop-dependent, so they live in the target as `ComponentEffect`s.
   Props-free, platform-free effects belong in the core machine config's
   `effects` (authored via `setup()`).
+
+## Two engines, one spec
+
+The machine behavior is implemented twice: in TypeScript (`packages/core`)
+and in Rust (`crates/core`). Neither runs on the other: each is optimized
+for its own runtime, with no trade-off made for the other.
+`packages/core/SPEC.md` is the one behavior contract both follow.
+
+- **A behavior change is one PR for both.** Update `packages/core/SPEC.md`,
+  the TS engine, the Rust engine, and both test suites together. A change
+  that lands in one engine only is not done.
+- **Tests are twins.** `crates/core/tests` is ported from
+  `packages/core/tests`, file by file: a new behavior test on one side gets
+  its twin on the other.
+- **Check parity before shipping.** Read the diff of each engine against
+  the spec, and say in the PR which behavior changed and where each engine
+  handles it.
+- **Engine-only things stay out of the shared spec.** TS-only typing
+  (`setup()`) and Rust-only authoring (derives, timers as commands) live in
+  their own docs: `packages/core/README.md` and `crates/core/SPEC.md`.
 
 ## Workflow
 

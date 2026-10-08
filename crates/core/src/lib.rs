@@ -1,10 +1,10 @@
-//! `dunky-core` — the engine of `@dunky.dev/state-machine`, and the crate to write
-//! machines in Rust.
+//! `dunky-core` — the Rust implementation of Dunky's state machines, next to the TS one
+//! (`@dunky.dev/state-machine`).
 //!
-//! The behavior contract is `packages/core/SPEC.md`; what is specific to this crate is
-//! `crates/core/SPEC.md`. The engine (flat states, run-to-completion, guards, actions,
-//! effects, `after` timers, computed data, watchers, selections, connector, composition,
-//! store) serves Rust programs, and machines written in TypeScript through `dunky-wasm`.
+//! Both implement the same behavior contract, `packages/core/SPEC.md`; what is specific
+//! to this crate is `crates/core/SPEC.md`. The engine (flat states, run-to-completion,
+//! guards, actions, effects, `after` timers, computed data, watchers, selections,
+//! connector, composition, store) serves Rust programs and native bindings.
 //!
 //! Rust-specific shape:
 //! - **Typed**: states, events and context are Rust types (`#[derive(State, Event, Context)]`).
@@ -28,23 +28,18 @@ mod selection;
 mod store;
 mod timers;
 mod traits;
-mod ts;
 
 pub mod testing;
 
 pub use broadcast::Subscription;
 pub use compose::{Combined, Composition, Member};
 pub use computed::{ComputedKey, ComputedParams};
-#[cfg(feature = "host")]
-pub use computed::{Evaluation, Reads};
 pub use config::{
     Action, ActionFn, Branch, Cleanup, Config, ConfigBuilder, Delay, Effect, Guard, StateBuilder,
     TransitionBuilder,
 };
 pub use connector::{ConnectSnapshot, Connector, Reaction};
 pub use machine::{Changes, Machine, Sender};
-#[cfg(feature = "host")]
-pub use machine::{Host, HostTransition};
 pub use params::{ActionParams, GuardParams, View};
 pub use selection::Selection;
 pub use store::Store;
@@ -52,10 +47,9 @@ pub use timers::{Command, TimerId};
 pub use traits::{Context, EventEnum, Field, StateEnum, Types};
 #[cfg(feature = "serde")]
 pub use traits::{DeserializeEvent, SerializeFields};
-pub use ts::TsType;
 
 #[cfg(feature = "derive")]
-pub use dunky_macros::{Context, Event, State, TsType};
+pub use dunky_macros::{Context, Event, State};
 
 /// The `machine.init` marker name: what a boot effect or a data-reaction sees as its
 /// event type (`ActionParams::event()` returns `None` for it).
@@ -65,6 +59,4 @@ pub const MACHINE_INIT: &str = "machine.init";
 pub mod __private {
     #[cfg(feature = "serde")]
     pub use serde;
-
-    pub use crate::ts::{key as ts_key, literal as ts_literal, object as ts_object};
 }

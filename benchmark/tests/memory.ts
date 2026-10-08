@@ -4,8 +4,6 @@
  * The central claim — "flat memory at 5k scale, even with fat context" (the
  * trading-view case) — asserted in the README with no script until now. This
  * measures it: build N machines, hold them live, report retained heap / machine.
- * For core that is the JS heap PLUS the engine's own heap: the Rust engine runs in
- * wasm, whose memory a JS heap sample does not see.
  *
  * Two context widths, because the whole point of the plain-object model is that
  * memory should stay ~flat in FIELD COUNT (no per-field reactive cell):
@@ -21,8 +19,6 @@ import { createActor, createMachine as createXMachine, assign } from 'xstate'
 import { createMachine as createZagMachine } from '@zag-js/core'
 import { VanillaMachine } from '@zag-js/vanilla'
 import { machine } from '@dunky.dev/state-machine'
-// Not public API: the same module instance the package uses (one engine per process).
-import { engineHeapBytes } from '../../packages/core/src/wasm'
 import { heapMB } from '../report'
 
 const FIELDS = { thin: 2, fat: 64 } as const
@@ -133,8 +129,6 @@ type Sendable = { send: (e: { type: string }) => void }
 
 interface Engine {
   build: (fields: number) => unknown
-  /** Memory the JS heap does not see (MB), e.g. core's wasm engine. */
-  outsideHeapMB?: () => number
   // Fire one `hit` so a write actually happens. Core owns its context copy from
   // construction (idle ≈ written by design); for XState the first assign()
   // allocates a per-actor context, so its written footprint grows — the
@@ -145,7 +139,7 @@ interface Engine {
 const sendHit = (m: unknown) => (m as Sendable).send({ type: 'hit' })
 
 const ENGINES: Record<string, Engine> = {
-  core: { build: buildCore, write: sendHit, outsideHeapMB: () => engineHeapBytes() / 1024 / 1024 },
+  core: { build: buildCore, write: sendHit },
   xstate: { build: buildXstate, write: sendHit },
   // bind a shared per-width config so we measure machine overhead, not config dup
   zag: {
@@ -161,15 +155,14 @@ const ENGINES: Record<string, Engine> = {
 }
 
 function measureOnce(engine: Engine, N: number, fields: number, write: boolean): number {
-  const sample = () => heapMB() + (engine.outsideHeapMB?.() ?? 0)
-  const before = sample()
+  const before = heapMB()
   const hold: unknown[] = Array.from({ length: N })
   for (let i = 0; i < N; i++) {
     const m = engine.build(fields)
     if (write) engine.write(m)
     hold[i] = m
   }
-  const after = sample()
+  const after = heapMB()
   // keep `hold` reachable across the sample so it isn't collected
   if ((hold as unknown[]).length !== N) throw new Error('unreachable')
   return after - before // MB retained by the N machines

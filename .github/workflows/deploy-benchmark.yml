@@ -21,8 +21,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/ci-setup
-      # The demo runs @dunky.dev/state-machine, which loads the engine's wasm.
-      - uses: ./.github/actions/wasm-setup
 
       - name: Build demo
         # The canonical demo ships with the docs site at

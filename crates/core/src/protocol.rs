@@ -1,6 +1,5 @@
-//! The handle protocol the bindings speak (wasm, React Native over JSI): one change mask
-//! per call, and timer commands as flat numbers. The TS adapter decodes every binding
-//! with the same code, so the layout lives here, once.
+//! The handle protocol a binding speaks (React Native over JSI): one change mask per
+//! call, and timer commands as flat numbers. The layout lives here, once.
 
 use crate::machine::Machine;
 use crate::timers::Command;

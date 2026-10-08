@@ -2,25 +2,25 @@
 
 ## Overview
 
-`dunky-core` is the engine of [`@dunky.dev/state-machine`](../../packages/core), in Rust.
-Every machine runs on it: a machine written in Rust with this crate, and a machine
-written in TypeScript, through the runtime in [`dunky-wasm`](../wasm/SPEC.md).
+`dunky-core` is the Rust implementation of Dunky's state machines. The TypeScript
+implementation is [`@dunky.dev/state-machine`](../../packages/core). They are two
+engines with one behavior contract,
+[`packages/core/SPEC.md`](../../packages/core/SPEC.md): flat states, run-to-completion,
+guards, actions, effects, timed transitions, derived data, data-reactions, observation,
+the connector, composition, and the cross-instance store.
 
-The behavior contract is [`packages/core/SPEC.md`](../../packages/core/SPEC.md): flat
-states, run-to-completion, guards, actions, effects, timed transitions, derived data,
-data-reactions, observation, the connector, composition, and the cross-instance store.
-This SPEC covers only what is specific to the crate: authoring a machine in Rust, timers
-without a clock, and the binding API.
+This SPEC covers only what is specific to the crate: authoring a machine in Rust, and
+timers without a clock.
 
 ```
-  Rust types + config builder              a binding (dunky-wasm, React Native)
-        |                                     |   host: runs the external parts,
-        |  build once                         |   hears every change
-        v                                     |
+  Rust types + config builder
+        |
+        |  build once
+        v
   config  (shared by every machine of the type)
-        |                                     |
-        v                                     v
-  machine  ------ timer commands out ------>  host clock
+        |
+        v
+  machine  ------ timer commands out ------>  host clock (an event loop, a test clock)
      ^  |                                        |
      |  +-------- changes out (state, fields)    |
      |                                           |
@@ -29,24 +29,32 @@ without a clock, and the binding API.
 
 ## Intent
 
-Write the engine once and run it for every host: JS through wasm, React Native through
-JSI, and Rust programs directly. The engine stays free of IO and platform, so one build
-behaves the same everywhere; a host supplies the clock and the boundary.
+Bring the same machines to Rust programs and native bindings (React Native over JSI),
+optimized for Rust with no trade-off made for another runtime. The engine stays free of
+IO and platform, so one build behaves the same everywhere; a host supplies the clock.
 
 ## Scope & boundaries
 
 **In scope.** The engine runtime; typed authoring of machines; timers as commands; change
-reporting; and the binding API (cargo feature `host`).
+reporting.
 
 **Out of scope — invariants, not preferences.**
 
 - **No IO, no clock, no platform.** The engine never reads time and never schedules work.
   A host does.
-- **No JS.** Bindings live in their own crates: `dunky-wasm` for JS, `crates/uniffi` for
-  React Native.
+- **No JS.** Bindings live in their own crates (`crates/uniffi` for React Native).
 - **One thread.** A machine and what it shares stay on one thread. A binding that crosses
   threads enforces that itself.
 - **At most 64 context fields** per machine: each field is one bit of the change mask.
+
+## Staying in sync with the TS engine
+
+- A behavior change lands in `packages/core/SPEC.md`, in both engines, and in both test
+  suites, in the same PR.
+- The Rust tests in `tests/` are ported from `packages/core/tests`, file by file: a new
+  behavior test on one side gets its twin on the other.
+- What only one engine has (this SPEC, or a TS-only API like `setup()` typing) stays out
+  of the shared contract.
 
 ## Authoring a machine in Rust
 
@@ -64,12 +72,6 @@ reporting; and the binding API (cargo feature `host`).
   equality (`PartialEq` by default).
 - With the `serde` feature, a context field serializes by index and an event rebuilds
   from its kind and its payload: what a binding needs to cross into another runtime.
-- **TS types.** A machine type knows its TypeScript types (`TsType`), so a binding can
-  generate them instead of anyone writing them twice. The derives write them for the
-  states, for the events (with `#[event(deserialize)]`) and for the context (with
-  `#[context(serialize)]`); the data types they hold derive `TsType`. Names and shapes
-  follow the serde attributes the values cross with: `None` is `null`, a field serde
-  skips when it is `None` is optional, every number is a `number`.
 
 ## The behavior contract
 
@@ -91,12 +93,12 @@ The contract is `packages/core/SPEC.md`'s. These guarantees are specific to the 
 
 ### Re-entrancy
 
-- User code written in Rust (guards, actions, effects, delays, derived definitions) gets
-  params — the context, the event, derived values, a way to write context, a way to
-  dispatch — not the machine.
-- Observers (subscriptions, selections, lifecycle listeners, effect cleanups) and host
-  callbacks run while the engine holds no mutable borrow: they may read, dispatch, or
-  write context. A dispatch made during a run-to-completion step is queued.
+- User code (guards, actions, effects, delays, derived definitions) gets params — the
+  context, the event, derived values, a way to write context, a way to dispatch — not
+  the machine.
+- Observers (subscriptions, selections, lifecycle listeners, effect cleanups) run while
+  the engine holds no borrow: they may read, dispatch, or write context. A dispatch made
+  during a run-to-completion step is queued.
 
 ### Equality
 
@@ -107,57 +109,10 @@ The contract is `packages/core/SPEC.md`'s. These guarantees are specific to the 
 
 - A missing named implementation panics in debug builds, and warns and does nothing in
   release builds.
-- A runaway step (more than 10,000 items in one run-to-completion step) stops. Without a
-  host it panics in debug builds and drops the queue in release builds. With a host, the
-  step stops and the binding raises the failure in its own runtime.
+- A runaway step (more than 10,000 items in one run-to-completion step) panics in debug
+  builds and drops the queue in release builds.
 - A panicking cleanup does not leak the others: every cleanup runs, then the first panic
   resumes.
-
-## The binding API
-
-A **host** (cargo feature `host`) connects a machine to another runtime. It has two jobs:
-
-- **Run the external parts.** A config may reference guards, actions, effects, delays
-  and derived definitions by number instead of Rust code — for example, the user code of
-  a machine written in TypeScript. The engine calls the host for them while it holds no
-  mutable borrow, so the host may read derived values, write context, and dispatch.
-- **Hear every change.** After each effective change the engine notifies the host: once
-  per change, in order, with no borrow held, with the current state and what changed
-  since the previous notify.
-
-Fewer calls, same order:
-
-- A run of external actions is one host call, and so is a guard walk over a handler's
-  candidates (the host returns the first that passes).
-- The host keeps the cleanups of the effects it starts. When the state's effects stop,
-  the engine tells it once, and the host runs them all, in start order, even past one
-  that fails.
-- A host may hold a notification or an effects stop back and deliver it first with its
-  next callback. The engine settles the host — everything held back is delivered — before
-  it switches state, when a transition ends, and when the machine stops.
-- A transition with a host id that leaves its state runs **whole** on the host, in one
-  call: the effects stop, exit actions, the transition's actions, the switch and its
-  notification, entry actions, the target's effects. The engine switches state after the
-  call, so a binding gives a host id only when nothing the host runs can read the
-  engine's state mid-transition (no derived values) and the target has no host delay. If
-  the call fails before the switch, the machine stays where it was.
-
-The contract:
-
-- **Failure.** When a host callback fails, the host raises the machine's halt flag. The
-  engine stops the current step at its next checkpoint: no more user code runs in that
-  step, nothing more applies, and what is queued stays queued. The binding raises the
-  failure and lowers the flag. A derived value evaluated during a failure is not cached.
-- **Context the host owns.** A host that keeps the context itself (the JS object of a TS
-  machine) reports which fields a write changed, and announces the write to its own
-  observers. The engine stamps the fields at once, or at its next safe point when it is
-  in the middle of a step, then runs the watchers; it does not notify for that write.
-  Without watchers, a report only stamps: it runs no code and cannot fail.
-- **External derived values.** The host keeps their values. An evaluation tells the
-  engine whether the value changed, by the host's own equality, and what it read —
-  context fields, the state, other derived values — or nothing when it read the same
-  inputs as the previous evaluation. The engine tracks staleness from what it read.
-- A machine written in Rust has no external parts: its host only hears changes.
 
 ## Performance guarantees
 
@@ -165,12 +120,13 @@ The contract:
 - A derived value is fresh by a stamp comparison: a read re-reads and compares no input
   value.
 - One config per machine type, shared by every instance.
+- A machine pays only for what it uses: field stamps grow with the fields it writes,
+  broadcasts exist from the first subscriber, and states without effects or timers do no
+  effect work.
 
 ## Edge cases that carry design meaning
 
-- A host callback may dispatch; the event runs after the current item.
-- A write a host makes in the middle of a step applies at the next safe point, before the
-  step ends, so watchers and notifications see it in order.
+- An observer may dispatch; the event runs after the current item.
 - A due timer reported after stop, after the state was left, or after the state was
   entered again is ignored.
 - A context with more than 64 fields is rejected when the machine is built.

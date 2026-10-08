@@ -13,9 +13,6 @@ default = ["derive", "serde"]
 derive = ["dep:dunky-macros"]
 # Per-field serialization (SerializeFields) for bindings that mirror context into JS.
 serde = ["dep:serde"]
-# The binding API: the `Host` trait and the `External` parts it runs, so a runtime can
-# drive machines written in another language (TS machines on the wasm / JSI runtimes).
-host = []
 
 [dependencies]
 dunky-macros = { workspace = true, optional = true }

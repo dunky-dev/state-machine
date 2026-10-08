@@ -10,7 +10,6 @@
     { "path": "./packages/opentui" },
     { "path": "./packages/shared/utils" },
     { "path": "./packages/shared/bindings" },
-    { "path": "./benchmark" },
-    { "path": "./sandbox/shared" }
+    { "path": "./benchmark" }
   ]
 }

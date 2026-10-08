@@ -1,9 +1,9 @@
 import { createEffect, For, Show } from 'solid-js'
 import { type ComponentEffect, normalize, useMachine } from '@dunky.dev/solid-state-machine'
 import {
+  commandPaletteMachineConfig,
   type CommandPaletteMachine,
   type CommandPaletteProps,
-  type CommandPaletteSource,
   connectCommandPalette,
 } from '@sandbox/cmdk-core'
 
@@ -27,10 +27,13 @@ const cmdkShortcut: ComponentEffect<CommandPaletteMachine, CommandPaletteProps> 
 // machine and `normalize` maps the logical bindings to DOM props. The
 // component is just markup; the look lives in the stylesheet shared with the
 // React app.
-// `source` is the TS config or the Rust machine (see main.tsx), read once: the machine
-// is built once, like any initial-only prop.
-export function CommandPalette(props: CommandPaletteProps & { source: CommandPaletteSource }) {
-  const { api } = useMachine(props.source, connectCommandPalette, [cmdkShortcut], props)
+export function CommandPalette(props: CommandPaletteProps) {
+  const { api } = useMachine(
+    commandPaletteMachineConfig,
+    connectCommandPalette,
+    [cmdkShortcut],
+    props,
+  )
 
   let inputEl: HTMLInputElement | undefined
 

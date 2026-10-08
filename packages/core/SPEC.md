@@ -16,21 +16,19 @@ anywhere. The map below is the whole engine — every feature and how they
 connect.
 
 ```
-   config  -  the whole behavior, declared once         a machine written in Rust
-   |                                                    (dunky-core), exported to
-   |   initial state + seed context                     its own wasm module
-   |   states, each with:  on, entry, exit, effects, after, tags       |
-   |   any-state handlers: on                                          |
-   |   derived data:       computed                                    |
-   |   data-reactions:     watch                                       |
-   |   reusable + named:   guards, actions, effects, delays            |
-   |   guards compose (and / or / not)                                 |
-   |   actions set context or run one-of                               |
-   |                                                                   |
-   |  build                                                            |  wrap
-   v                                                                   |
-   machine  -  a live service (current state, context, computed) <-----+
-   |           both kinds run on the Rust engine
+   config  -  the whole behavior, declared once
+   |
+   |   initial state + seed context
+   |   states, each with:  on, entry, exit, effects, after, tags
+   |   any-state handlers: on
+   |   derived data:       computed
+   |   data-reactions:     watch
+   |   reusable + named:   guards, actions, effects, delays
+   |   guards compose (and / or / not); actions set context or run one-of
+   |
+   |  build
+   v
+   machine  -  a live service (current state, context, computed)
    |
    |   lifecycle:  [ stopped ]  --start-->  [ running ]  --stop-->
    |
@@ -72,6 +70,11 @@ connect.
    +-- createStore  ..  state shared between machine instances
 ```
 
+**Two engines.** This contract has two implementations: this package
+(TypeScript) and [`crates/core`](../../crates/core) (Rust). A behavior
+change here lands in both, with their tests, in the same PR (see
+[AGENTS.md](../../AGENTS.md#two-engines-one-spec)).
+
 ## Intent
 
 Author a state **once**, as a plain state
@@ -85,34 +88,18 @@ place rather than rebuilt on every change; there are no signals and no
 immutable snapshots. Performance is a constraint of the spec, not an
 afterthought (see [Performance guarantees](#performance-guarantees)).
 
-The engine is **Rust**, compiled to WebAssembly (`crates/core`). A machine is
-written in TypeScript (a config) or in Rust (`dunky-core`); both run on that
-one engine, honor this spec, and give the same service, so a target cannot
-tell them apart. For a TS machine, Rust runs the graph and calls back into
-the user code, and the context stays a plain JS object. The protocol between
-the engine and this package is
-[`crates/wasm/SPEC.md`](../../crates/wasm/SPEC.md)'s; authoring in Rust is
-[`crates/core/SPEC.md`](../../crates/core/SPEC.md)'s.
-
 ## Scope & boundaries
 
 **In scope.** The state graph and its runtime; context and derived
 (computed) data; guards, actions, effects, timed (`after`) transitions,
 and data-reactions (`watch`); the observation surface; the view boundary
-(the connector and its reactions); multi-machine composition; a
-cross-instance reactive cell; and the service over a machine written in
-Rust.
-
-**Runtime.** The package needs WebAssembly (browsers, Node, Bun, Deno). The
-engine is inlined and starts synchronously the first time a machine is
-built — importing the package costs nothing, and there is no asynchronous
-initialization step. React Native's Hermes has no WebAssembly, so the
-package does not run there yet.
+(the connector and its reactions); multi-machine composition; and a
+cross-instance reactive cell.
 
 **Out of scope — invariants, not preferences.**
 
-- **No substrate.** Core is TypeScript over the Rust engine. No web, native,
-  or terminal API; no DOM, `window`, `document`, or platform globals. Reaching for one
+- **No substrate.** Core is pure TypeScript. No web, native, or terminal
+  API; no DOM, `window`, `document`, or platform globals. Reaching for one
   means the code belongs in a target, not here.
 - **The machine never sees props.** A machine is pure behavior. It does
   not read the consumer's props; props enter only at the edge (context
@@ -138,11 +125,6 @@ and bridged to a view by a **connector**.
   changes; and reusable **named** guards, actions, effects, and delays
   that transitions reference by name.
 - Building a config yields a **service** that is live but stopped.
-- Wrapping a machine written in Rust yields the same kind of service — see
-  [Machines written in Rust](#machines-written-in-rust).
-- Anything that builds a service (a target's lifecycle hook) accepts a
-  **source**: a config, which it builds into a stopped service, or a ready
-  service, which it uses as is.
 - A **connector** turns the service's current state into the surface a
   view renders and fires the consumer's callbacks — without the machine
   ever knowing those callbacks exist.
@@ -211,9 +193,6 @@ method names it exposes.
   transitions exist only while running.
 - Lifecycle transitions are observable, so a bridge can wire and tear down
   external subscriptions in step with start and stop.
-- A service lives as long as JS references it — a consumer, a dispatch
-  handle an effect kept, or a pending timer, which holds its service like a
-  JS timer holds `this`. The engine never keeps a service alive on its own.
 
 ### Run-to-completion
 
@@ -224,7 +203,7 @@ method names it exposes.
 - Deferred work (a watcher's actions) shares the same queue and ordering.
 - A runaway feedback loop — e.g. a watcher that writes the field it
   watches, or actions that dispatch in a cycle — is detected and aborted
-  with a diagnostic, rather than hanging.
+  during development with a diagnostic, rather than hanging.
 
 ### Transition resolution
 
@@ -293,8 +272,6 @@ The order of operations on a matched transition is fixed and observable:
   always see live values.
 - Updating context is a **shallow merge** that notifies observers **only
   if** at least one field actually changed; a no-op update is silent.
-- The update is the only write the engine observes: mutating the object
-  directly notifies nobody, runs no watcher, and refreshes no derived value.
 - The common case — setting context — has a write-sugar that composes
   several patches in order, each an object or a function of the current
   params, with later function-patches seeing earlier writes.
@@ -361,27 +338,6 @@ The order of operations on a matched transition is fixed and observable:
   when that value changes (by identity, or a supplied equality). It may
   select a single field, the current state, or a composite over anything.
 - Neither form fires on subscribe; both hand back a way to detach.
-
-### Machines written in Rust
-
-A machine written in Rust, in its own wasm module, is wrapped into a
-service. The wrapped service honors this whole contract, and adds:
-
-- **The same notifications.** Observers are notified once per change, in
-  order, exactly as for the same machine written in TypeScript.
-- **A context mirror.** The context is one plain object with a stable
-  identity, updated in place: each change re-reads only the fields it
-  touched. It is read-only from JS; the machine's own actions write it.
-- **Derived values served by Rust.** A derived value keeps its identity
-  until it changes. A **mapping** may rebuild it on the JS side from a Rust
-  value — its own or another derived value — and runs only when that value
-  changed; for example, indices that crossed the boundary map back onto the
-  host's own objects, so rich values never cross.
-- **Events by type.** An event carries its payload by its fields; a
-  malformed payload is an error at dispatch. An event type the machine does
-  not know is ignored, like an unhandled event.
-- **One wrapper.** A machine instance is wrapped once; wrapping it again is
-  an error.
 
 ### Development vs. production
 
@@ -495,6 +451,3 @@ chaining array methods, or allocating closures inside loops.
   ignored, never applied.
 - Referencing a missing named implementation is a hard error in
   development and a degraded no-op in production.
-- An event type the machine does not know is ignored, for both kinds of
-  machine.
-- A machine written in Rust is wrapped once; a second wrap is an error.

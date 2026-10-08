@@ -3,9 +3,6 @@
 //! Borrow discipline (the Rust shape of the TS engine's re-entrancy rules):
 //! - Rust actions, guards, effects, delays and computed definitions run while the core is
 //!   borrowed; they get params instead of the machine handle.
-//! - Host callbacks (`External` guards/actions/effects/delays/computed — e.g. the JS
-//!   functions of a TS-authored machine) run with no MUTABLE borrow held: they may read
-//!   the machine, mark context changes ([`Machine::mark_changed`]) and send.
 //! - Observers (subscribe, selections, lifecycle listeners, effect cleanups) run with NO
 //!   borrow held, so they may read the machine, send to it, or patch it. Sends made while
 //!   a flush is in progress are queued and run after the current item, never interleaved.
@@ -16,7 +13,7 @@ use std::collections::VecDeque;
 use std::rc::{Rc, Weak};
 
 use crate::broadcast::{Broadcast, Subscription};
-use crate::computed::{self, ComputedKey, ComputedRuntime, Evaluation};
+use crate::computed::{self, ComputedKey, ComputedRuntime};
 use crate::config::{
     Action, Cleanup, Config, Delay, Effect, Entry, Guard, Transition, WatchSource, missing,
 };
@@ -28,69 +25,6 @@ use crate::traits::{Context, EventEnum, StateEnum, Types};
 /// Runaway guard for one flush. A real chain is a handful of items; thousands means a
 /// feedback loop (a watcher writing what it watches, actions sending in a cycle).
 const MAX_FLUSH: u32 = 10_000;
-
-/// The binding that runs a machine's `External` parts — e.g. the JS functions of a
-/// TS-authored machine — and hears about its changes. On a failure (a JS exception) the
-/// host keeps the error, returns a placeholder, and raises the machine's halt flag
-/// ([`Machine::halt_flag`]); the engine then stops the current step and the binding
-/// rethrows.
-///
-/// Part of the binding API (cargo feature `host`).
-#[cfg_attr(not(feature = "host"), allow(dead_code))]
-pub trait Host<T: Types> {
-    fn guard(&self, id: u32, event: Option<&T::Event>) -> bool;
-    fn action(&self, id: u32, event: Option<&T::Event>);
-    /// Start effect `id`. The host keeps its cleanup, if any, for [`Host::stop_effects`].
-    fn effect(&self, id: u32, event: Option<&T::Event>);
-    /// The effects the host started stop: run their cleanups, in start order, all of them
-    /// even if one fails. A host may hold this back to deliver it with its next callback,
-    /// first, and no later than [`Host::settle`] — which the engine calls before it
-    /// switches state.
-    fn stop_effects(&self);
-    fn delay(&self, id: u32, event: Option<&T::Event>) -> u32;
-    /// Evaluate external computed value `id`. The host keeps the value; the engine keeps
-    /// what the evaluation read, to tell when the value goes stale.
-    fn computed(&self, id: u32) -> Evaluation;
-    /// Evaluate the guards of candidate list `list` in order: the index of the first that
-    /// passes (a candidate without a guard passes).
-    fn pick(&self, list: u32, event: Option<&T::Event>) -> Option<usize>;
-    /// Run the actions of list `list` in order, stopping at the first failure.
-    fn actions(&self, list: u32, event: Option<&T::Event>);
-    /// The machine changed (once per effective change, like a coarse subscriber), with
-    /// no borrow held. `state` is the current state; `changes` is what changed since the
-    /// previous notify. A host may hold a notification back to deliver it with its next
-    /// callback, as long as it delivers it first and no later than [`Host::settle`].
-    fn notify(&self, state: T::State, changes: Changes);
-    /// A transition finished: deliver any notification held back.
-    fn settle(&self);
-    /// Run transition `id` whole (a transition built with a host id that leaves its
-    /// state): if `stop`, stop the effects; run `from`'s exit actions and the
-    /// transition's actions; announce the switch to `to`; run `to`'s entry actions; and if
-    /// `start`, start `to`'s effects (keeping their cleanups).
-    fn transition(
-        &self,
-        id: u32,
-        from: T::State,
-        to: T::State,
-        event: Option<&T::Event>,
-        stop: bool,
-        start: bool,
-    ) -> HostTransition;
-}
-
-/// How a transition the host ran whole ended ([`Host::transition`]).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(not(feature = "host"), allow(dead_code))]
-pub enum HostTransition {
-    /// Every step ran.
-    Done,
-    /// Failed before the switch: the machine stays where it was.
-    FailedBefore,
-    /// Failed in the switch's notification or an entry action: no effect started.
-    FailedAfter,
-    /// Failed while starting the effects: some may have started.
-    FailedInEffects,
-}
 
 pub(crate) enum Item<T: Types> {
     Event(T::Event),
@@ -120,8 +54,6 @@ pub(crate) struct Core<T: Types> {
     /// Bumped on every state entry; a timer scheduled under another generation is stale.
     entry_counter: u64,
     state_cleanups: Vec<Cleanup>,
-    /// The host started effects in the current state (it keeps their cleanups).
-    host_effects: bool,
     timers: Vec<TimerRecord<T>>,
     next_timer_id: u32,
     commands: Vec<Command>,
@@ -134,8 +66,6 @@ pub(crate) struct Core<T: Types> {
     pub(crate) state_changed_at: u64,
     /// Effective changes made inside the current borrow; drained into notifications.
     pending_notifies: u32,
-    /// What those changes touched, for the host's next notify.
-    notify_changes: Changes,
     /// Changes since the last `take_changes()`, for bindings.
     changed_fields: u64,
     changed_state: bool,
@@ -156,7 +86,6 @@ impl<T: Types> Core<T> {
         }
         self.stamp_fields(mask);
         self.changed_fields |= mask;
-        self.notify_changes.fields |= mask;
         self.pending_notifies += 1;
     }
 
@@ -176,17 +105,11 @@ impl<T: Types> Core<T> {
     }
 
     fn set_state(&mut self, next: T::State) {
-        self.switch_state(next);
-        self.notify_changes.state = true;
-        self.pending_notifies += 1;
-    }
-
-    /// Switch to `next` without owing a notification (the host announced it).
-    fn switch_state(&mut self, next: T::State) {
         self.state = next;
         self.tick += 1;
         self.state_changed_at = self.tick;
         self.changed_state = true;
+        self.pending_notifies += 1;
     }
 }
 
@@ -201,15 +124,6 @@ pub(crate) struct Inner<T: Types> {
     watch_stamps: RefCell<Vec<u64>>,
     lifecycle: OnceCell<Rc<Broadcast>>,
     stop_listeners: OnceCell<Rc<Broadcast>>,
-    host: OnceCell<Rc<dyn Host<T>>>,
-    /// Context changes a host marked while the core was borrowed; applied at the next
-    /// safe point.
-    external_mask: Cell<u64>,
-    /// The engine's own failure (a feedback loop) when a host is attached.
-    failure: RefCell<Option<String>>,
-    /// The current step must stop: a host callback failed (the host raises it) or the
-    /// engine did. Shared with the host, so a check is a load.
-    halt: Rc<Cell<bool>>,
     pub(crate) weak_self: Weak<Inner<T>>,
 }
 
@@ -272,7 +186,6 @@ impl<T: Types> Machine<T> {
             running: false,
             entry_counter: 0,
             state_cleanups: Vec::new(),
-            host_effects: false,
             timers: Vec::new(),
             next_timer_id: 1,
             commands: Vec::new(),
@@ -281,7 +194,6 @@ impl<T: Types> Machine<T> {
             field_changed_at: Vec::new(),
             state_changed_at: 0,
             pending_notifies: 0,
-            notify_changes: Changes::default(),
             changed_fields: 0,
             changed_state: false,
         };
@@ -294,10 +206,6 @@ impl<T: Types> Machine<T> {
             watch_stamps: RefCell::new(vec![0; config.0.watch.len()]),
             lifecycle: OnceCell::new(),
             stop_listeners: OnceCell::new(),
-            host: OnceCell::new(),
-            external_mask: Cell::new(0),
-            failure: RefCell::new(None),
-            halt: Rc::new(Cell::new(false)),
             weak_self: weak.clone(),
         }))
     }
@@ -307,13 +215,6 @@ impl<T: Types> Machine<T> {
         let m = Self::new(config);
         m.0.core.borrow_mut().ctx = context;
         m
-    }
-
-    /// Attach the host that runs this machine's `External` parts. A machine has one host
-    /// for life: returns false when it already has one.
-    #[cfg(feature = "host")]
-    pub fn set_host(&self, host: Rc<dyn Host<T>>) -> bool {
-        self.0.host.set(host).is_ok()
     }
 
     pub fn config(&self) -> &Config<T> {
@@ -387,51 +288,6 @@ impl<T: Types> Machine<T> {
         });
     }
 
-    /// A host changed fields of a context it owns (a TS machine's JS context): stamp them
-    /// and run the watchers — right away when possible, else at the next safe point. The
-    /// host notifies its own observers of the write. Without watchers it only stamps: no
-    /// code runs.
-    #[cfg(feature = "host")]
-    pub fn mark_changed(&self, mask: u64) {
-        if mask == 0 {
-            return;
-        }
-        let inner = &*self.0;
-        let applied = match inner.core.try_borrow_mut() {
-            Ok(mut core) => {
-                core.stamp_fields(mask);
-                true
-            }
-            Err(_) => false,
-        };
-        if !applied {
-            inner.external_mask.set(inner.external_mask.get() | mask);
-            return;
-        }
-        if inner.config.0.watch.is_empty() {
-            return;
-        }
-        inner.with_flush(|inner| {
-            if let Ok(core) = inner.core.try_borrow() {
-                inner.detect_watched(&core, mask);
-            }
-            inner.drain_notifies();
-        });
-    }
-
-    /// The engine's own failure since the last call (a feedback loop), when a host is attached.
-    #[cfg(feature = "host")]
-    pub fn take_failure(&self) -> Option<String> {
-        self.0.failure.borrow_mut().take()
-    }
-
-    /// The flag that stops the current step. A host raises it when a callback fails and
-    /// lowers it once the binding has rethrown, before the next call.
-    #[cfg(feature = "host")]
-    pub fn halt_flag(&self) -> Rc<Cell<bool>> {
-        self.0.halt.clone()
-    }
-
     /// Coarse subscription: fires on any later change (state or context), never on subscribe.
     pub fn subscribe(&self, listener: impl Fn() + 'static) -> Subscription {
         self.0.bus().add(Rc::new(listener))
@@ -469,7 +325,7 @@ impl<T: Types> Machine<T> {
             inner.start_effects(state, None);
             true
         });
-        if started && !inner.aborted() {
+        if started {
             if let Some(listeners) = inner.lifecycle.get() {
                 inner.with_flush(|_| listeners.notify());
             }
@@ -490,12 +346,9 @@ impl<T: Types> Machine<T> {
             // Watchers need no teardown: they detect only while running, and a run
             // still queued is dropped when it comes up.
             inner.stop_effects();
-            if let Some(host) = inner.host() {
-                host.settle();
-            }
             true
         });
-        if stopped && !inner.aborted() {
+        if stopped {
             if let Some(listeners) = inner.stop_listeners.get() {
                 inner.with_flush(|_| listeners.notify());
             }
@@ -524,7 +377,7 @@ impl<T: Types> Machine<T> {
             .add(Rc::new(listener))
     }
 
-    /// Host callback: the timer `id` (from a [`Command::StartTimer`]) came due.
+    /// The host clock: timer `id` (from a [`Command::StartTimer`]) came due.
     pub fn fire_timer(&self, id: TimerId) {
         let item = {
             let mut core = self.0.core.borrow_mut();
@@ -581,15 +434,6 @@ impl<T: Types> Inner<T> {
         self.bus.get_or_init(Broadcast::new)
     }
 
-    pub(crate) fn host(&self) -> Option<&Rc<dyn Host<T>>> {
-        self.host.get()
-    }
-
-    /// The current step must stop: a host callback failed, or the engine itself did.
-    pub(crate) fn aborted(&self) -> bool {
-        self.halt.get()
-    }
-
     /// Run `f` as part of a flush: re-entrant sends queue instead of nesting, and the queue
     /// drains after `f` unless an outer flush owns it.
     fn with_flush<R>(&self, f: impl FnOnce(&Self) -> R) -> R {
@@ -611,9 +455,6 @@ impl<T: Types> Inner<T> {
         let _reset = FlushReset(&self.flushing, false);
         let mut ticks = 0u32;
         loop {
-            if self.aborted() {
-                break; // the binding rethrows; what is still queued stays queued
-            }
             let item = self.queue.borrow_mut().pop_front();
             let Some(item) = item else { break };
             ticks += 1;
@@ -623,11 +464,6 @@ impl<T: Types> Inner<T> {
                     "[machine] one flush exceeded {MAX_FLUSH} steps — feedback loop \
                      (e.g. a watcher writing the field it watches, or actions sending in a cycle)"
                 );
-                if self.host.get().is_some() {
-                    *self.failure.borrow_mut() = Some(msg);
-                    self.halt.set(true);
-                    break;
-                }
                 if cfg!(debug_assertions) {
                     panic!("{msg}");
                 }
@@ -671,7 +507,6 @@ impl<T: Types> Inner<T> {
                 }
             }
         }
-        self.absorb_external();
     }
 
     /// The first candidate whose guard passes.
@@ -686,157 +521,46 @@ impl<T: Types> Inner<T> {
         {
             return Some(first);
         }
-        // The host evaluates the whole list in one call, with no borrow held.
-        #[cfg(feature = "host")]
-        if let Some(list) = entry.pick
-            && let Some(host) = self.host()
-        {
-            let picked = host.pick(list, event);
-            self.absorb_external();
-            return if self.aborted() {
-                None
-            } else {
-                picked.and_then(|i| entry.get(i))
-            };
-        }
-        let picked = {
-            let core = self.core.borrow();
-            let params = GuardParams {
-                core: &core,
-                inner: self,
-                event,
-            };
-            entry.iter().find(|t| {
-                t.guard
-                    .as_ref()
-                    .is_none_or(|g| eval_guard(g, &params) && !self.aborted())
-                    || self.aborted()
-            })
+        let core = self.core.borrow();
+        let params = GuardParams {
+            core: &core,
+            inner: self,
+            event,
         };
-        if self.aborted() { None } else { picked }
+        entry
+            .iter()
+            .find(|t| t.guard.as_ref().is_none_or(|g| eval_guard(g, &params)))
     }
 
     fn apply(&self, t: &Transition<T>, event: Option<&T::Event>) {
-        let cur = self.core.borrow().state;
+        let (cur, running) = {
+            let core = self.core.borrow();
+            (core.state, core.running)
+        };
         let next = t.target.unwrap_or(cur);
         let leaving = next != cur;
-        // A leaving transition with a host id runs whole on the host, in one call.
-        #[cfg(feature = "host")]
-        if leaving
-            && let Some(id) = t.host_id
-            && let Some(host) = self.host()
-        {
-            self.host_transition(host, id, cur, next, event);
-            return;
-        }
-        self.apply_steps(t, event, cur, next);
-        if leaving && let Some(host) = self.host() {
-            host.settle();
-        }
-    }
-
-    fn apply_steps(
-        &self,
-        t: &Transition<T>,
-        event: Option<&T::Event>,
-        cur: T::State,
-        next: T::State,
-    ) {
-        let leaving = next != cur;
-        let running = self.core.borrow().running;
         let states = &self.config.0.states;
         if leaving {
             if running {
                 self.stop_effects();
-                if self.aborted() {
-                    return;
-                }
             }
             self.run_actions(&states[cur.index()].exit, event);
-            if self.aborted() {
-                return;
-            }
         }
         self.run_actions(&t.actions, event);
-        if self.aborted() {
-            return;
-        }
         if leaving {
-            // What the host holds back (an effects stop) lands before the switch.
-            if let Some(host) = self.host() {
-                host.settle();
-                if self.aborted() {
-                    return;
-                }
-            }
             self.core.borrow_mut().set_state(next);
             self.detect_watched(&self.core.borrow(), 0);
             self.drain_notifies();
             self.run_actions(&states[next.index()].entry, event);
-            if self.aborted() {
-                return;
-            }
             if self.core.borrow().running {
                 self.start_effects(next, event);
             }
         }
     }
 
-    /// A leaving transition the host runs whole, in one call.
-    #[cfg(feature = "host")]
-    fn host_transition(
-        &self,
-        host: &Rc<dyn Host<T>>,
-        id: u32,
-        cur: T::State,
-        next: T::State,
-        event: Option<&T::Event>,
-    ) {
-        let running = self.core.borrow().running;
-        let stop = running && self.stop_own_effects();
-        if self.aborted() {
-            return;
-        }
-        let outcome = host.transition(id, cur, next, event, stop, running);
-        self.absorb_external();
-        if outcome == HostTransition::FailedBefore {
-            return;
-        }
-        let node = &self.config.0.states[next.index()];
-        let started = matches!(
-            outcome,
-            HostTransition::Done | HostTransition::FailedInEffects
-        );
-        let schedule = {
-            let mut core = self.core.borrow_mut();
-            core.switch_state(next);
-            let schedule = started && core.running;
-            if schedule {
-                core.host_effects = !node.effects.is_empty();
-                if node.after.is_empty() {
-                    core.entry_counter += 1; // a new entry, with no timer to stamp
-                }
-            }
-            schedule
-        };
-        if !self.config.0.watch.is_empty() {
-            self.detect_watched(&self.core.borrow(), 0);
-        }
-        // The host announced the switch; the engine's own subscribers still hear it.
-        if let Some(bus) = self.bus.get() {
-            bus.notify();
-        }
-        if schedule && !node.after.is_empty() {
-            self.schedule_after(next, event);
-        }
-    }
-
     pub(crate) fn run_actions(&self, actions: &[Action<T>], event: Option<&T::Event>) {
         for action in actions {
             self.run_action(action, event);
-            if self.aborted() {
-                return;
-            }
         }
     }
 
@@ -859,33 +583,9 @@ impl<T: Types> Inner<T> {
                         .iter()
                         .find(|b| b.guard.as_ref().is_none_or(|g| eval_guard(g, &params)))
                 };
-                if self.aborted() {
-                    return;
-                }
                 if let Some(branch) = picked {
                     self.run_actions(&branch.actions, event);
                 }
-            }
-            #[cfg(feature = "host")]
-            Action::External(id) => {
-                // No borrow held: the host may read computed values, mark changes, send.
-                if let Some(host) = self.host() {
-                    host.action(*id, event);
-                } else {
-                    missing("action host for", &id.to_string());
-                }
-                self.absorb_external();
-                self.drain_notifies();
-            }
-            #[cfg(feature = "host")]
-            Action::ExternalList(list) => {
-                if let Some(host) = self.host() {
-                    host.actions(*list, event);
-                } else {
-                    missing("action host for list", &list.to_string());
-                }
-                self.absorb_external();
-                self.drain_notifies();
             }
         }
     }
@@ -903,46 +603,19 @@ impl<T: Types> Inner<T> {
         self.drain_notifies();
     }
 
-    /// Apply context changes a host marked while the core was borrowed.
-    fn absorb_external(&self) {
-        let mask = self.external_mask.replace(0);
-        if mask == 0 {
-            return;
-        }
-        self.core.borrow_mut().stamp_fields(mask);
-        self.detect_watched(&self.core.borrow(), mask);
-    }
-
     /// Deliver the notifications owed by the changes made in the last borrow — once per
     /// effective change, with no borrow held so observers can read and send.
     pub(crate) fn drain_notifies(&self) {
-        let (n, state, mut changes) = {
-            let mut core = self.core.borrow_mut();
-            (
-                std::mem::take(&mut core.pending_notifies),
-                core.state,
-                std::mem::take(&mut core.notify_changes),
-            )
-        };
-        if n == 0 {
-            return;
-        }
-        let host = self.host.get();
-        let bus = self.bus.get();
-        for _ in 0..n {
-            if let Some(bus) = bus {
+        let n = std::mem::take(&mut self.core.borrow_mut().pending_notifies);
+        if let Some(bus) = self.bus.get() {
+            for _ in 0..n {
                 bus.notify();
-            }
-            if let Some(host) = &host {
-                host.notify(state, std::mem::take(&mut changes));
             }
         }
     }
 
     fn start_effects(&self, state: T::State, event: Option<&T::Event>) {
-        if !self.schedule_after(state, event) {
-            return;
-        }
+        self.schedule_after(state, event);
         let node = &self.config.0.states[state.index()];
         for effect in &node.effects {
             let cleanup = match effect {
@@ -954,33 +627,16 @@ impl<T: Types> Inner<T> {
                         continue;
                     }
                 },
-                // No borrow held: the host may read computed values, mark changes, send.
-                #[cfg(feature = "host")]
-                Effect::External(id) => {
-                    match self.host() {
-                        Some(host) => {
-                            self.core.borrow_mut().host_effects = true;
-                            host.effect(*id, event);
-                        }
-                        None => missing("effect host for", &id.to_string()),
-                    }
-                    None
-                }
             };
             if let Some(cleanup) = cleanup {
                 self.core.borrow_mut().state_cleanups.push(cleanup);
             }
-            self.absorb_external();
             self.drain_notifies();
-            if self.aborted() {
-                return;
-            }
         }
     }
 
     /// Enter `state`'s timed transitions: a new entry generation, one timer per `after`.
-    /// Returns false when a host delay failed.
-    fn schedule_after(&self, state: T::State, event: Option<&T::Event>) -> bool {
+    fn schedule_after(&self, state: T::State, event: Option<&T::Event>) {
         let node = &self.config.0.states[state.index()];
         let generation = {
             let mut core = self.core.borrow_mut();
@@ -1001,18 +657,7 @@ impl<T: Types> Inner<T> {
                         0
                     }
                 },
-                #[cfg(feature = "host")]
-                Delay::External(id) => match self.host() {
-                    Some(host) => host.delay(*id, event),
-                    None => {
-                        missing("delay host for", &id.to_string());
-                        0
-                    }
-                },
             };
-            if self.aborted() {
-                return false;
-            }
             let mut core = self.core.borrow_mut();
             let id = core.next_timer_id;
             core.next_timer_id = core.next_timer_id.wrapping_add(1).max(1);
@@ -1025,7 +670,6 @@ impl<T: Types> Inner<T> {
             });
             core.commands.push(Command::StartTimer { id, ms });
         }
-        true
     }
 
     fn call_effect(
@@ -1043,32 +687,18 @@ impl<T: Types> Inner<T> {
     }
 
     /// Cancel the state's timers and run its effect cleanups. A failing cleanup must not
-    /// leak the others: finish the pass, then report the first failure (a Rust panic is
-    /// resumed; a host failure is left for the binding to rethrow).
+    /// leak the others: finish the pass, then resume the first panic.
     fn stop_effects(&self) {
-        if self.stop_own_effects()
-            && let Some(host) = self.host()
-        {
-            host.stop_effects();
-        }
-    }
-
-    /// Cancel the state's timers and run the engine's own cleanups. Returns whether the
-    /// host has effects to stop too.
-    fn stop_own_effects(&self) -> bool {
-        let (mut cleanups, host_effects) = {
+        let mut cleanups = {
             let mut core = self.core.borrow_mut();
             let core = &mut *core;
-            if core.timers.is_empty() && core.state_cleanups.is_empty() && !core.host_effects {
-                return false;
+            if core.timers.is_empty() && core.state_cleanups.is_empty() {
+                return;
             }
             for t in core.timers.drain(..) {
                 core.commands.push(Command::CancelTimer { id: t.id });
             }
-            (
-                std::mem::take(&mut core.state_cleanups),
-                std::mem::replace(&mut core.host_effects, false),
-            )
+            std::mem::take(&mut core.state_cleanups)
         };
         let mut first_panic = None;
         for cleanup in cleanups.drain(..) {
@@ -1086,7 +716,6 @@ impl<T: Types> Inner<T> {
         if let Some(payload) = first_panic {
             std::panic::resume_unwind(payload);
         }
-        host_effects
     }
 
     /// Seed each computed watch with its value's change stamp. A field watch needs no
@@ -1148,14 +777,6 @@ pub(crate) fn eval_guard<T: Types>(guard: &Guard<T>, params: &GuardParams<'_, T>
         Guard::And(gs) => gs.iter().all(|g| eval_guard(g, params)),
         Guard::Or(gs) => gs.iter().any(|g| eval_guard(g, params)),
         Guard::Not(g) => !eval_guard(g, params),
-        #[cfg(feature = "host")]
-        Guard::External(id) => match params.inner.host() {
-            Some(host) => host.guard(*id, params.event),
-            None => {
-                missing("guard host for", &id.to_string());
-                false
-            }
-        },
     }
 }
 

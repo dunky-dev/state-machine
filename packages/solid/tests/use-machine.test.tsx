@@ -68,25 +68,6 @@ const noEffects: ComponentEffect<ToggleMachine, ToggleProps>[] = []
 
 afterEach(() => vi.clearAllMocks())
 
-describe('useMachine — machine source', () => {
-  it('accepts a ready machine instead of a config and runs that very instance', () => {
-    // The shape a Rust machine takes (built outside the engine, e.g. via wasm).
-    const ready = machine(createConfig()({}))
-    let captured: { api: ToggleApi; machine: ToggleMachine } | undefined
-    function Comp() {
-      const props: ToggleProps = {}
-      captured = useMachine(() => ready, connect, noEffects, props)
-      return null
-    }
-    render(() => <Comp />)
-    expect(captured!.machine).toBe(ready)
-    captured!.api.toggle()
-    flush()
-    expect(ready.state).toBe('open')
-    expect(captured!.api.open).toBe(true)
-  })
-})
-
 describe('useMachine — lifecycle', () => {
   it('returns { api, machine }: api is the connect() output, machine is the running service', () => {
     let captured: { api: ToggleApi; machine: ToggleMachine } | undefined
