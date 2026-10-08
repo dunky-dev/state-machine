@@ -38,8 +38,25 @@ pnpm -C sandbox/solid dev
 pnpm -C sandbox/opentui dev
 
 # Native — needs Expo + an iOS/Android simulator or device.
-pnpm -C sandbox/native start    # then press i / a, or scan the QR
+pnpm -C sandbox/native dev      # then press i / a, or scan the QR
 ```
 
 All four consume the workspace packages straight from their TypeScript `src/`
 (Vite alias / Bun workspace / Metro watch-folders) — no build step.
+
+## The same palette, written in Rust
+
+Both palettes run on the Rust engine. By default the sandboxes run the one written in
+TypeScript (`shared/src/machine.ts`); each web and terminal sandbox can also run its
+Rust twin (`crates/sandbox`, wrapped with `fromWasm` from `@dunky.dev/state-machine-wasm`) — same `connect()`, same markup,
+only the machine's source language differs:
+
+```bash
+pnpm build:wasm                          # once: Rust → wasm (see CONTRIBUTING.md)
+pnpm -C sandbox/react dev                # then open http://localhost:5173/?machine=rust
+pnpm -C sandbox/solid dev                # then open http://localhost:5173/?machine=rust
+pnpm -C sandbox/opentui dev:rust         # Bun runs the wasm
+```
+
+React Native has no WebAssembly (Hermes), so the native sandbox waits for the engine
+over JSI.

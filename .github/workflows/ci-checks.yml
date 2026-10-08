@@ -33,6 +33,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/ci-setup
+      # The sandbox machines written in Rust (crates/sandbox -> wasm).
+      - uses: ./.github/actions/wasm-setup
       - run: pnpm test:ci
 
   typecheck:
@@ -41,6 +43,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/ci-setup
+      # The sandbox machines written in Rust (crates/sandbox -> wasm).
+      - uses: ./.github/actions/wasm-setup
       - run: pnpm typecheck
 
   lint:

@@ -6,10 +6,13 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./rust": "./src/rust.ts",
+    "./rust-node": "./src/rust-node.ts"
   },
   "peerDependencies": {
     "@dunky.dev/state-machine": "workspace:^",
-    "@dunky.dev/state-machine-bindings": "workspace:^"
+    "@dunky.dev/state-machine-bindings": "workspace:^",
+    "@dunky.dev/state-machine-wasm": "workspace:^"
   }
 }

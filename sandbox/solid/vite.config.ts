@@ -13,6 +13,7 @@ export default defineConfig({
     dedupe: ['solid-js', '@solidjs/web'],
     alias: {
       '@dunky.dev/state-machine': resolve(__dirname, '../../packages/core/src'),
+      '@dunky.dev/state-machine-wasm': resolve(__dirname, '../../packages/wasm/src'),
       '@dunky.dev/solid-state-machine': resolve(__dirname, '../../packages/solid/src'),
       '@dunky.dev/state-machine-utils': resolve(__dirname, '../../packages/shared/utils/src'),
       '@dunky.dev/state-machine-bindings': resolve(__dirname, '../../packages/shared/bindings/src'),

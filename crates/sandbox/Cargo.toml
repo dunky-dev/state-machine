@@ -1,14 +1,28 @@
 [package]
 name = "dunky-sandbox"
-description = "The sandbox machines written in Rust (the command palette, a dialog): twins of the TS ones."
+description = "The sandbox machines written in Rust (the command palette, a dialog), exported to wasm for every sandbox through fromWasm."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish = false
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# The JS classes (export_machine!), on for the wasm build (pnpm build:wasm) only, so
+# crates reusing the machines (crates/uniffi) never link the JS exports.
+wasm = ["dep:dunky-wasm", "dep:wasm-bindgen"]
+
 [dependencies]
 dunky-core = { workspace = true }
+dunky-wasm = { workspace = true, optional = true }
 serde = { workspace = true }
+wasm-bindgen = { workspace = true, optional = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }
+
+[[example]]
+name = "typescript"
+required-features = ["wasm"]

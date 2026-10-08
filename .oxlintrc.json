@@ -45,5 +45,5 @@
     }
   },
   "globals": {},
-  "ignorePatterns": ["**/dist/**", "website/src/snippets/**"]
+  "ignorePatterns": ["**/dist/**", "website/src/snippets/**", "crates/sandbox/pkg/**"]
 }

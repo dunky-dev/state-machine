@@ -7,9 +7,9 @@ import type { KeyEvent } from '@opentui/core'
 import { useMachine } from '@dunky.dev/react-state-machine'
 import { normalize } from '@dunky.dev/opentui-state-machine'
 import {
-  commandPaletteMachineConfig,
   type CommandPaletteMachine,
   type CommandPaletteProps,
+  type CommandPaletteSource,
   connectCommandPalette,
 } from '@sandbox/cmdk-core'
 
@@ -54,8 +54,12 @@ const paletteKeys = (machine: CommandPaletteMachine) => (key: KeyEvent) => {
 // the SAME shared machine, `connect` produces the SAME logical bindings — only
 // `normalize` (from the opentui package) and the JSX elements differ. The index
 // math, filtering, and selection all live in the shared machine, unchanged.
-export function CommandPalette(props: CommandPaletteProps) {
-  const { api, machine } = useMachine(commandPaletteMachineConfig, connectCommandPalette, [], props)
+// `source` is the TS config or the Rust machine (see index.tsx); nothing else differs.
+export function CommandPalette({
+  source,
+  ...props
+}: CommandPaletteProps & { source: CommandPaletteSource }) {
+  const { api, machine } = useMachine(source, connectCommandPalette, [], props)
 
   // Starts closed — press Ctrl+K to open. (⌘K can't be used in a terminal:
   // macOS/Ghostty don't forward Cmd to the program — Cmd is an app/OS modifier —

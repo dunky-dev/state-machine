@@ -3,7 +3,7 @@
 //!
 //! Events go in by kind index; a u32 change mask comes out, and timers come out as
 //! flat commands (`dunky_core::protocol`). Values cross as JSON strings instead of JS
-//! values. Pending its rework onto the host protocol `crates/wasm` speaks.
+//! values. It still needs a TS facade over this handle (like `fromWasm` for wasm).
 
 use std::mem::ManuallyDrop;
 use std::sync::Arc;
@@ -16,8 +16,7 @@ use dunky_sandbox::palette::{self, Palette, PaletteEvent};
 
 uniffi::setup_scaffolding!();
 
-// The change mask and the command encoding are the shared protocol (the TS adapter
-// decodes every binding with the same code): `dunky_core::protocol`.
+// The change mask and the command encoding: `dunky_core::protocol`.
 use dunky_core::protocol::{FIELD_SHIFT, HIGH_FIELD, encode_commands, take_change_mask};
 
 /// Bad input from JS, thrown as an `Error` with this message.

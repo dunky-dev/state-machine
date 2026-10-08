@@ -37,6 +37,11 @@ The Rust engine (`crates/`) is a plain Cargo workspace; run cargo at the repo ro
 | `cargo lint`            | `clippy`, warnings as errors (`.cargo/config.toml`) |
 | `cargo fmt` / `--check` | `rustfmt`                                           |
 
+`pnpm build:wasm` builds the sandbox machines written in Rust to wasm (`crates/sandbox/pkg`),
+with their TS types: the sandbox's `?machine=rust` mode and its Rust tests need it. It
+needs the `wasm32-unknown-unknown` target and `wasm-bindgen-cli` at the version
+`Cargo.toml` pins.
+
 ## Sandbox
 
 Each sandbox renders the same command-palette machine on a different

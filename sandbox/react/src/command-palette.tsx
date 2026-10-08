@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react'
 import { type ComponentEffect, normalize, useMachine } from '@dunky.dev/react-state-machine'
 import {
-  commandPaletteMachineConfig,
   type CommandPaletteMachine,
   type CommandPaletteProps,
+  type CommandPaletteSource,
   connectCommandPalette,
 } from '@sandbox/cmdk-core'
 
@@ -28,13 +28,12 @@ const cmdkShortcut: ComponentEffect<CommandPaletteMachine, CommandPaletteProps> 
 // machine, `connect` produces logical bindings, and `normalize` turns them into
 // DOM props (onPress→onClick, role/aria-*, etc). The component is just markup;
 // the look lives in the stylesheet shared with the Solid app.
-export function CommandPalette(props: CommandPaletteProps) {
-  const { api } = useMachine(
-    commandPaletteMachineConfig,
-    connectCommandPalette,
-    [cmdkShortcut],
-    props,
-  )
+// `source` is the TS config or the Rust machine (see main.tsx); nothing else differs.
+export function CommandPalette({
+  source,
+  ...props
+}: CommandPaletteProps & { source: CommandPaletteSource }) {
+  const { api } = useMachine(source, connectCommandPalette, [cmdkShortcut], props)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Focus the input whenever the palette opens (a renderer concern, not the
