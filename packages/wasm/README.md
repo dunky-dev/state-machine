@@ -40,10 +40,11 @@ In JS a TS machine is a little faster (its context already lives in JS); a Rust 
 is for reuse: the same machine runs in Rust programs and on React Native. The protocol:
 [`crates/wasm/SPEC.md`](../../crates/wasm/SPEC.md).
 
-## Why the TS engine does not run on Rust
+## Why two engines, not Rust everywhere
 
-We tried it: the TS engine as a thin layer over the Rust engine, compiled to wasm. It was
-not faster. Every event crosses the JS↔wasm bridge, and user code (guards, actions,
-effects) stays in JS, so it crosses back. After batching the calls, one event reached
-~9.9 M/sec, still ~15% below the pure TS engine (11.6 M/sec), and the package grew by
-~75 kB gzip. So each engine runs on its own, and wasm is for machines written in Rust.
+We tried one engine: the TS package as a thin layer over the Rust engine, compiled to wasm.
+It worked, but it was not the win it looked like. Part of the TS side still had to mirror
+the Rust engine — the context, the computed cache and the transition steps stay in JS,
+next to the user code — and every event still paid the JS↔wasm bridge, so it gave up a
+bit of speed. So we maintain both engines against one spec: each one runs natively, and
+wasm is for machines written in Rust.
