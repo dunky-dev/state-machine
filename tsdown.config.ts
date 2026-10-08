@@ -14,6 +14,7 @@ export default defineConfig({
     'packages/dom',
     'packages/react',
     'packages/solid',
+    'packages/vue',
     'packages/native',
     'packages/opentui',
     'packages/shared/utils',

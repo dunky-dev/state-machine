@@ -1,7 +1,7 @@
-# cmdk sandbox — one machine, four substrates
+# cmdk sandbox — one machine, five substrates
 
 A ⌘K **command palette** driven by a single substrate-agnostic state machine,
-rendered four ways. The interesting parts — fuzzy filtering, arrow-key
+rendered five ways. The interesting parts — fuzzy filtering, arrow-key
 navigation with wraparound, active-row tracking, selection — all live in
 `shared/`, the same bytes on every target. Each app only supplies the markup and
 runs its substrate's `normalize()` over the bindings the shared `connect()`
@@ -10,9 +10,10 @@ produces.
 ```
 sandbox/
 +-- shared/      @sandbox/cmdk-core — the machine + connect() + commands (NO framework)
-|                + src/styles.css — the one stylesheet the React and Solid apps share
+|                + src/styles.css — the one stylesheet the React, Solid, and Vue apps share
 +-- react/       Vite + React DOM     → normalize → onClick / aria-* / role
 +-- solid/       Vite + Solid         → normalize → onClick / aria-* / tabindex
++-- vue/         Vite + Vue SFCs      → normalize → onClick / onKeydown / aria-*
 +-- opentui/     Bun + @opentui/react → normalize → onMouseDown / focusable / cells
 +-- native/      Expo + React Native  → normalize → onPress / accessibilityState
 ```
@@ -34,6 +35,9 @@ pnpm -C sandbox/react dev
 # DOM (Solid) — opens at http://localhost:5173
 pnpm -C sandbox/solid dev
 
+# DOM (Vue) — opens at http://localhost:5173
+pnpm -C sandbox/vue dev
+
 # Terminal — needs Bun. Press ⌘K / Ctrl+K to open the palette.
 pnpm -C sandbox/opentui dev
 
@@ -41,5 +45,5 @@ pnpm -C sandbox/opentui dev
 pnpm -C sandbox/native start    # then press i / a, or scan the QR
 ```
 
-All four consume the workspace packages straight from their TypeScript `src/`
+All five consume the workspace packages straight from their TypeScript `src/`
 (Vite alias / Bun workspace / Metro watch-folders) — no build step.
