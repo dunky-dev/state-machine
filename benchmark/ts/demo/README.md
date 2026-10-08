@@ -9,7 +9,7 @@ panels' backlogs grow as the load climbs.
 ```bash
 pnpm benchmark:demo     # from the repo root
 # or
-cd benchmark/demo && pnpm dev
+cd benchmark/ts/demo && pnpm dev
 ```
 
 Then open the printed URL (default <http://localhost:5173>). It's idle until you

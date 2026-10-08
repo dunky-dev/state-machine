@@ -45,7 +45,7 @@ engine is built for it:
 | Memory / machine, 64-field (KB)  |    **4.4** |    4.1 | **134** |
 
 → **~7× XState's throughput**, on par with XState for memory but at least **2× lighter than Zag** — and the gap widens as context grows, because memory stays ~flat in field count (no per-field cell). ᵃ Zag uses async ops, so a synchronous ops/s loop can't time it. Full methodology + per-scenario tables in the
-**[benchmark README](./benchmark/README.md)**.
+**[benchmark README](./benchmark/ts/README.md)**.
 
 **▶ [Try the live benchmark demo](https://dunky.dev/state-machine/benchmark/demo)** — watch all three engines run in your browser.
 
@@ -57,7 +57,9 @@ elements — the left two are agnostic, the right three are per-target:
 ![How Dunky works, from agnostic to substrate: the dunky engine powers, the machine decides, the binding connects, the behavior appears](./website/src/assets/diagrams/flow-animated.svg)
 
 - **core** — the state-machine engine. Pure behavior: states, transitions,
-  context, effects. Knows nothing about a renderer.
+  context, effects. Knows nothing about a renderer. The same machines also
+  exist in Rust ([`crates/core`](./crates/core)): a second engine that
+  follows the same spec, for Rust programs and native bindings.
 - **connector** — turns machine state into agnostic _bindings_ and keeps that
   view in sync as the machine changes.
 - **normalize** — per target, translates those bindings into real props
@@ -71,7 +73,7 @@ The full layered model and the "the machine never sees props" rule are in:
 
 - **[`ARCHITECTURE.md`](./ARCHITECTURE.md)** — the big-picture map and the layered model.
 - **[`packages/core/README.md`](./packages/core/README.md)** — the state machine engine and its full API.
-- **[`benchmark/README.md`](./benchmark/README.md)** — what's measured, the methodology, and results vs. XState & Zag.
+- **[`benchmark/`](./benchmark/README.md)** — the TS suite (methodology, results vs. XState & Zag) and the Rust suite.
 - **[`ACCESSIBILITY.md`](./ACCESSIBILITY.md)** — the external specs every package answers to.
 - **[`AGENTS.md`](./AGENTS.md)** — the contributor / agent contract.
 

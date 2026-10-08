@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build && pnpm build:benchmark-demo",
-    "build:benchmark-demo": "BASE_PATH=/state-machine/benchmark/demo/ OUT_DIR=../../website/dist/state-machine/benchmark/demo pnpm -C ../benchmark/demo build",
+    "build:benchmark-demo": "BASE_PATH=/state-machine/benchmark/demo/ OUT_DIR=../../../website/dist/state-machine/benchmark/demo pnpm -C ../benchmark/ts/demo build",
     "preview": "astro preview",
     "astro": "astro"
   },

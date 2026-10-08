@@ -25,3 +25,13 @@ toggle.start()
 toggle.send({ type: 'flip' })
 toggle.state // 'on'
 ```
+
+## In Rust
+
+The same machines exist in Rust, on a second engine that follows the same spec. See
+[Two engines](/rust) and [Machines in Rust](/rust/machines):
+
+```toml
+[dependencies]
+dunky-core = { git = "https://github.com/dunky-dev/state-machine" }
+```

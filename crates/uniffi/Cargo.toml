@@ -1,0 +1,24 @@
+# React Native binding of the engine, built by uniffi-bindgen-react-native.
+# Standalone on purpose: the root workspace excludes it, so its mobile-only
+# toolchain can never break the other crates' builds.
+[package]
+name = "dunky-uniffi"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/dunky-dev/state-machine"
+publish = false
+
+[lib]
+name = "dunky_uniffi"
+# staticlib: what ubrn links into the iOS xcframework and the Android turbo-module.
+# cdylib: what ubrn's `jsi2` flavour loads instead, keeping that path open.
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+dunky-core = { path = "../core" }
+dunky-sandbox = { path = "../sandbox" }
+serde_json = "1"
+# Must stay on the uniffi minor that uniffi-bindgen-react-native is built with
+# (ubrn 0.31.0-6 -> uniffi 0.31): the generated C++/TS check the contract version.
+uniffi = "=0.31"

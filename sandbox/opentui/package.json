@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun run src/index.tsx"
+    "dev": "bun run src/index.tsx",
+    "dev:rust": "bun run src/index.tsx --machine=rust"
   },
   "dependencies": {
     "@dunky.dev/opentui-state-machine": "workspace:^",
@@ -12,6 +13,7 @@
     "@dunky.dev/state-machine": "workspace:^",
     "@dunky.dev/state-machine-bindings": "workspace:^",
     "@dunky.dev/state-machine-utils": "workspace:^",
+    "@dunky.dev/state-machine-wasm": "workspace:^",
     "@opentui/core": "^0.4.1",
     "@opentui/react": "^0.4.1",
     "@sandbox/cmdk-core": "workspace:^",

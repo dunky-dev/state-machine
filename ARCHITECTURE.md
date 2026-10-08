@@ -99,6 +99,12 @@ Zag, whose machines read props directly.)
 | `packages/shared/bindings/` | Substrate-agnostic event + attr vocabulary (onPress, role, …)     |
 | `packages/shared/utils/`    | mergeProps, composeHandlers                                       |
 | `packages/<target>/`        | Hook + normalize per substrate (react, solid, native, opentui, …) |
+| `crates/core/`              | The Rust engine: the same spec, in Rust (`dunky-core`)            |
+| `crates/macros/`            | `#[derive(State, Event, Context)]` for Rust machines              |
+| `crates/wasm/`              | Rust machines as JS classes (`export_machine!`)                   |
+| `packages/wasm/`            | `fromWasm`: a Rust machine behind the TS `Machine` interface      |
+| `crates/sandbox/`           | The sandbox machines in Rust, twins of `sandbox/shared` ones      |
+| `crates/uniffi/`            | The Rust engine for React Native over JSI (in progress)           |
 
 ## The map
 
@@ -137,6 +143,32 @@ Three package groups, three jobs:
   merging, handler composition).
 - **`<target>/`** — _the substrate side_. One folder per renderer
   (`react`, `solid`, `native`, `opentui`). Owns its runtime bridge and its props translator.
+
+## Two engines, one spec
+
+```
+                 packages/core/SPEC.md
+            (the one behavior contract)
+               /                    \
+              v                      v
+packages/core (TypeScript)      crates/core (Rust)
+the engine for JS and every     the engine for Rust programs and
+target; pure TS, no wasm        native bindings (crates/uniffi)
+              |                      |
+packages/core/tests  <-- twins -->  crates/core/tests
+```
+
+The two engines are independent: each is tuned for its own runtime. They stay
+in sync through the spec, twin test suites, and one rule: a behavior change
+updates the spec, both engines and both test suites in the same PR (see
+[AGENTS.md](AGENTS.md#two-engines-one-spec)). The sandbox machines have Rust
+twins too (`crates/sandbox`).
+
+A machine written in Rust can run in JS too: `export_machine!` (`crates/wasm`) makes
+it a JS class in its own wasm module, and `fromWasm` (`@dunky.dev/state-machine-wasm`)
+puts it behind the same `Machine` interface, so targets take it like a config
+(`useMachine` accepts a ready machine). It still runs on the Rust engine; its TS types
+are generated from its Rust types.
 
 ## The machine parts
 

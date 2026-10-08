@@ -697,6 +697,52 @@ const shareOnX = `https://twitter.com/intent/tweet?text=${encodeURIComponent(sha
     </section>
     <!-- /lab section -->
 
+    <!-- TWO ENGINES: the same machines in TypeScript and in Rust, one spec -->
+    <section class="engines-section" aria-labelledby="engines-heading">
+      <div class="engines-inner">
+        <p class="engines-eyebrow">Two engines · one spec</p>
+        <h2 id="engines-heading" class="engines-heading">
+          Write it in TypeScript.<br /><span class="engines-heading-alt"
+            >Or in Rust.</span
+          >
+        </h2>
+        <p class="engines-sub">
+          The same machines exist twice: a TypeScript engine for JS and every
+          target, and a Rust engine for Rust programs and native bindings. Both
+          follow one behavior contract, with twin test suites, and neither runs
+          on the other, so each stays tuned for its own runtime.
+        </p>
+        <div class="engines-grid">
+          <div class="engine-card engine-card-ts">
+            <p class="engine-label">TypeScript · @dunky.dev/state-machine</p>
+            <pre class="engine-code"><code>{`const dialog = machine({
+  initial: 'closed',
+  context: { openCount: 0 },
+  states: {
+    closed: { on: { open: { target: 'open' } } },
+    open: { on: { close: { target: 'closed' } } },
+  },
+})`}</code></pre>
+          </div>
+          <div class="engine-card engine-card-rust">
+            <p class="engine-label">Rust · dunky-core</p>
+            <pre class="engine-code"><code>{`let mut b = Config::<Dialog>::builder(
+    Closed, DialogCtx { open_count: 0 });
+b.state(Closed, |s| s.on(E::Open,
+    |t| t.target(Open)));
+b.state(Open, |s| s.on(E::Close,
+    |t| t.target(Closed)));
+let dialog = Machine::new(&b.build());`}</code></pre>
+          </div>
+        </div>
+        <p class="engines-note">
+          A machine written in Rust also runs in a JS app through wasm, behind
+          the same <code>Machine</code> interface, so every target takes it.
+        </p>
+        <a href={`${base}rust`} class="engines-cta">How the two engines work →</a>
+      </div>
+    </section>
+
     <!-- CONTRIBUTE SECTION -->
     <section class="contrib-section">
       <div class="contrib-inner">
@@ -1640,6 +1686,107 @@ const shareOnX = `https://twitter.com/intent/tweet?text=${encodeURIComponent(sha
         transition: opacity 0.15s;
       }
       .origin-cta:hover {
+        opacity: 0.7;
+      }
+
+      /* ====================================================================
+         TWO ENGINES SECTION
+         ==================================================================== */
+      .engines-section {
+        background-color: var(--color-bg);
+        padding: 6rem 1.5rem;
+        border-top: 1px solid var(--color-border);
+      }
+      .engines-inner {
+        max-width: 64rem;
+        margin: 0 auto;
+      }
+      .engines-eyebrow {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--color-accent);
+        margin: 0 0 1.25rem;
+      }
+      .engines-heading {
+        font-size: 2.5rem;
+        font-weight: 800;
+        line-height: 1.08;
+        letter-spacing: -0.02em;
+        color: var(--color-fg);
+        margin: 0 0 1.25rem;
+      }
+      @media (min-width: 640px) {
+        .engines-heading {
+          font-size: 3rem;
+        }
+      }
+      .engines-heading-alt {
+        color: var(--color-accent);
+      }
+      .engines-sub {
+        font-size: 1.0625rem;
+        line-height: 1.75;
+        color: var(--color-muted);
+        max-width: 42rem;
+        margin: 0 0 2.5rem;
+      }
+      .engines-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 1rem;
+        margin-bottom: 2rem;
+      }
+      @media (min-width: 768px) {
+        .engines-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      .engine-card {
+        border: 1px solid var(--color-border);
+        border-top-width: 3px;
+        border-radius: 0.75rem;
+        padding: 1.25rem;
+        background: var(--color-panel);
+        min-width: 0;
+      }
+      .engine-card-ts {
+        border-top-color: var(--color-accent);
+      }
+      .engine-card-rust {
+        border-top-color: #22c5d3;
+      }
+      .engine-label {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--color-fg);
+        margin: 0 0 0.75rem;
+      }
+      .engine-code {
+        margin: 0;
+        overflow-x: auto;
+        font-family: var(--font-mono);
+        font-size: 13px;
+        line-height: 1.6;
+        color: var(--color-fg);
+        background: transparent;
+      }
+      .engines-note {
+        font-size: 0.95rem;
+        line-height: 1.7;
+        color: var(--color-muted);
+        margin: 0 0 1.5rem;
+      }
+      .engines-cta {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--color-accent);
+        text-decoration: none;
+      }
+      .engines-cta:hover {
         opacity: 0.7;
       }
 

@@ -45,14 +45,14 @@ importers:
         specifier: ^4.1.7
         version: 4.1.7(@types/node@22.19.19)(jsdom@29.1.1)(vite@8.0.14(@types/node@22.19.19)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))
 
-  benchmark:
+  benchmark/ts:
     dependencies:
       '@dunky.dev/react-state-machine':
         specifier: workspace:^
-        version: link:../packages/react
+        version: link:../../packages/react
       '@dunky.dev/state-machine':
         specifier: workspace:^
-        version: link:../packages/core
+        version: link:../../packages/core
     devDependencies:
       '@types/jsdom':
         specifier: ^21.1.7
@@ -94,11 +94,11 @@ importers:
         specifier: ^5.32.0
         version: 5.32.1
 
-  benchmark/demo:
+  benchmark/ts/demo:
     dependencies:
       '@dunky.dev/state-machine':
         specifier: workspace:^
-        version: link:../../packages/core
+        version: link:../../../packages/core
     devDependencies:
       '@vitejs/plugin-react':
         specifier: ^6.0.2
@@ -232,6 +232,12 @@ importers:
         specifier: ^4.1.7
         version: 4.1.7(@types/node@24.13.2)(jsdom@29.1.1)(vite@8.0.14(@types/node@24.13.2)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))
 
+  packages/wasm:
+    dependencies:
+      '@dunky.dev/state-machine':
+        specifier: workspace:*
+        version: link:../core
+
   sandbox/native:
     dependencies:
       '@dunky.dev/native-state-machine':
@@ -289,6 +295,9 @@ importers:
       '@dunky.dev/state-machine-utils':
         specifier: workspace:^
         version: link:../../packages/shared/utils
+      '@dunky.dev/state-machine-wasm':
+        specifier: workspace:^
+        version: link:../../packages/wasm
       '@opentui/core':
         specifier: ^0.4.1
         version: 0.4.1(typescript@7.0.2)(web-tree-sitter@0.25.10)
@@ -323,6 +332,9 @@ importers:
       '@dunky.dev/state-machine-utils':
         specifier: workspace:^
         version: link:../../packages/shared/utils
+      '@dunky.dev/state-machine-wasm':
+        specifier: workspace:^
+        version: link:../../packages/wasm
       '@sandbox/cmdk-core':
         specifier: workspace:^
         version: link:../shared
@@ -354,6 +366,9 @@ importers:
       '@dunky.dev/state-machine-bindings':
         specifier: workspace:^
         version: link:../../packages/shared/bindings
+      '@dunky.dev/state-machine-wasm':
+        specifier: workspace:^
+        version: link:../../packages/wasm
 
   sandbox/solid:
     dependencies:
@@ -369,6 +384,9 @@ importers:
       '@dunky.dev/state-machine-utils':
         specifier: workspace:^
         version: link:../../packages/shared/utils
+      '@dunky.dev/state-machine-wasm':
+        specifier: workspace:^
+        version: link:../../packages/wasm
       '@sandbox/cmdk-core':
         specifier: workspace:^
         version: link:../shared

@@ -13,6 +13,7 @@
     "@dunky.dev/state-machine": "workspace:^",
     "@dunky.dev/state-machine-bindings": "workspace:^",
     "@dunky.dev/state-machine-utils": "workspace:^",
+    "@dunky.dev/state-machine-wasm": "workspace:^",
     "@sandbox/cmdk-core": "workspace:^",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"

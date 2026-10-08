@@ -3,6 +3,7 @@
   "references": [
     { "path": "./tsconfig.json" },
     { "path": "./packages/core" },
+    { "path": "./packages/wasm" },
     { "path": "./packages/dom" },
     { "path": "./packages/react" },
     { "path": "./packages/solid" },
@@ -10,6 +11,7 @@
     { "path": "./packages/opentui" },
     { "path": "./packages/shared/utils" },
     { "path": "./packages/shared/bindings" },
-    { "path": "./benchmark" }
+    { "path": "./benchmark/ts" },
+    { "path": "./sandbox/shared" }
   ]
 }

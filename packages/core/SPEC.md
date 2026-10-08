@@ -70,6 +70,11 @@ connect.
    +-- createStore  ..  state shared between machine instances
 ```
 
+**Two engines.** This contract has two implementations: this package
+(TypeScript) and [`crates/core`](../../crates/core) (Rust). A behavior
+change here lands in both, with their tests, in the same PR (see
+[AGENTS.md](../../AGENTS.md#two-engines-one-spec)).
+
 ## Intent
 
 Author a state **once**, as a plain state

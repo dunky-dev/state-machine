@@ -7,7 +7,7 @@
  * The single command passes --expose-gc (memory needs it; harmless elsewhere).
  *
  * Each bench is also exported standalone if you want to run one in isolation:
- *   node --expose-gc --import tsx -e "import('./benchmark/tests/memory').then(m=>m.runMemory())"
+ *   node --expose-gc --import tsx -e "import('./benchmark/ts/tests/memory').then(m=>m.runMemory())"
  * (or import the run* fn from its file). The rendering bench bootstraps jsdom
  * itself, so it's safe to run alone too.
  *
