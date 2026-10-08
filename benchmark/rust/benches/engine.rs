@@ -1,6 +1,7 @@
 //! The Rust engine's benchmark: the TS suite's engine scenarios, run natively.
 //!
 //!   cargo bench -p dunky-benchmark
+//!   DUNKY_BENCH=guard cargo bench -p dunky-benchmark   # only the rows that match
 //!
 //! Each row is the twin of a row in `benchmark/ts`, so the two READMEs compare the same
 //! work. ops/sec is the median of 5 samples of ~100 ms, after a 100 ms warmup.
@@ -36,11 +37,21 @@ static ALLOC: Counting = Counting;
 
 const SAMPLES: usize = 5;
 const SAMPLE: Duration = Duration::from_millis(100);
+
+/// `DUNKY_BENCH_LONG=1` samples for 2 s each: long enough to attach a profiler.
+fn sample_time() -> Duration {
+    if std::env::var_os("DUNKY_BENCH_LONG").is_some() {
+        Duration::from_secs(2)
+    } else {
+        SAMPLE
+    }
+}
 const BATCH: u64 = 1_000;
 
 fn ops_per_sec(mut op: impl FnMut()) -> f64 {
+    let sample = sample_time();
     let warm = Instant::now();
-    while warm.elapsed() < SAMPLE {
+    while warm.elapsed() < sample {
         for _ in 0..BATCH {
             op();
         }
@@ -49,7 +60,7 @@ fn ops_per_sec(mut op: impl FnMut()) -> f64 {
     for _ in 0..SAMPLES {
         let start = Instant::now();
         let mut n = 0u64;
-        while start.elapsed() < SAMPLE {
+        while start.elapsed() < sample {
             for _ in 0..BATCH {
                 op();
             }
@@ -80,7 +91,15 @@ fn section(title: &str) {
     println!("| {:-<46} | {:->10} | {:->8} |", "", "", "");
 }
 
+/// The `DUNKY_BENCH` filter: run only the rows whose name contains it.
+fn selected(name: &str) -> bool {
+    std::env::var("DUNKY_BENCH").map_or(true, |filter| name.contains(&filter))
+}
+
 fn row(name: &str, op: impl FnMut()) {
+    if !selected(name) {
+        return;
+    }
     let ops = ops_per_sec(op);
     println!("| {name:<46} | {:>10} | {:>8.1} |", human(ops), 1e9 / ops);
 }
@@ -93,6 +112,9 @@ const FRAMES: usize = 600;
 /// Time `work` (one frame's worth of machine work) frame by frame: the median, p99 and
 /// worst frame, as a share of the 16.67 ms budget, and the allocations per frame.
 fn frame(name: &str, mut work: impl FnMut()) {
+    if !selected(name) {
+        return;
+    }
     for _ in 0..60 {
         work();
     }
@@ -169,10 +191,7 @@ fn frame_budget() {
     let wide = Machine::new(&wide_config());
     wide.start();
     for k in 0..64 {
-        std::mem::forget(
-            wide.select(move |v| wide_field(v.context(), k))
-                .subscribe(|_| bump()),
-        );
+        std::mem::forget(wide_select(&wide, k).subscribe(|_| bump()));
     }
     let mut i = 0;
     frame("64 observers, 1,000 field changes", || {
@@ -204,7 +223,7 @@ fn main() {
     let wide = Machine::new(&wide_config());
     wide.start();
     for k in 0..64 {
-        let sel = wide.select(move |v| wide_field(v.context(), k));
+        let sel = wide_select(&wide, k);
         std::mem::forget(sel.subscribe(|_| bump()));
     }
     let mut i = 0;

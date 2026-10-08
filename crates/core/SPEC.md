@@ -63,7 +63,10 @@ reporting.
   **context** (a struct).
 - Derives generate the glue: the state names and indices; one event kind per variant,
   which keys the handlers; and for the context, a patch builder that sets fields by name,
-  one handle per field, and a reader that records which fields a derived value reads.
+  one typed handle per field (`Field<Ctx, V>`: its bit and how to read it), and a reader
+  that records which fields a derived value reads.
+- A selection of one field (`select_field`, the twin of TS `select.context(key)`) reads
+  through the field's handle.
 - A **config** is built once, with a builder, from the initial state and the seed
   context. It is cheap to share: every machine of the type uses the same config.
 - Guards, actions, effects and delays are inline closures or registered names; a name
@@ -116,7 +119,11 @@ The contract is `packages/core/SPEC.md`'s. These guarantees are specific to the 
 
 ## Performance guarantees
 
-- Notifying observers in the steady state allocates nothing.
+- The steady state allocates nothing: events, notifications, selections and recomputes
+  reuse their memory.
+- A field selection wakes only on a write to its field (and a state selection only on a
+  state change): every other notification skips it with one bit test, in subscription
+  order. Which selections fire, and when, is exactly the contract's.
 - A derived value is fresh by a stamp comparison: a read re-reads and compares no input
   value.
 - One config per machine type, shared by every instance.

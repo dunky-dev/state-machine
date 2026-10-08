@@ -92,3 +92,11 @@ In JS, a machine written in TypeScript is a little faster: its context already l
 JS, while a Rust machine refreshes a JS mirror of its context on each change. Write a
 machine in Rust to **reuse** it: the same machine runs in Rust programs and on React
 Native.
+
+## Why the TS engine does not run on Rust
+
+We tried it: the TS engine as a thin layer over the Rust engine, through wasm. It was not
+faster. Every event crosses the JS↔wasm bridge, and your guards, actions and effects stay
+in JS, so the calls cross back. After batching them, one event reached ~9.9 M/sec, still
+~15% below the pure TS engine (11.6 M/sec), with ~75 kB gzip more to download. So each
+engine runs on its own, and wasm is for machines written in Rust.

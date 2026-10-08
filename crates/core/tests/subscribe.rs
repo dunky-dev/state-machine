@@ -6,10 +6,8 @@
 //!   `select` is a method.
 //! - "without equals, a fresh-object selector fires every change (Object.is)": identity
 //!   semantics. Rust selections compare with `PartialEq`, which the value-dedup test pins.
-//! - "select.context(key) selects one field with the exact value type" and "select(fn)
-//!   function form still works alongside the scope methods": JS facade shapes. Rust's
-//!   `Field` handles carry no value type, so a one-field selection is
-//!   `select(|v| v.context().x)`, the selection the tests below pin.
+//! - "select(fn) function form still works alongside the scope methods": a JS facade
+//!   shape; in Rust `select` and `select_field` are plain methods.
 //! - ".value reads the current selected value": the first of two such TS tests; the
 //!   second ("on demand") covers it.
 //! - "does NOT fire on subscribe; fires on a context change", "multiple subscribers all
@@ -238,4 +236,56 @@ fn a_selection_listener_may_patch_the_machine_it_observes() {
     });
     m.send(PlaneEvent::MoveX);
     assert_eq!(seen.entries(), [1, 5]);
+}
+
+#[test]
+fn select_field_selects_one_field_with_its_type() {
+    let m = plane();
+    let x = m.select_field(Pos::X);
+    let xv: i32 = x.value();
+    assert_eq!(xv, 0);
+    let seen: Log<i32> = Log::default();
+    let _ = x.subscribe({
+        let seen = seen.clone();
+        move |x| seen.push(*x)
+    });
+    m.send(PlaneEvent::BumpOther); // changed `other`, not `x`: silent
+    assert!(seen.entries().is_empty());
+    m.send(PlaneEvent::MoveX);
+    assert_eq!(seen.entries(), [1]);
+}
+
+// Rust-only: a selection made inside an action cannot read the machine yet, so it seeds
+// on its first wake. A field selection must still report the next change of its field,
+// even when that first wake came from another field.
+#[test]
+fn a_field_selection_made_mid_action_reports_the_next_change() {
+    type Slot = std::rc::Rc<std::cell::RefCell<Option<dunky_core::Machine<Plane>>>>;
+    let handle: Slot = Slot::default();
+    let seen: Log<i32> = Log::default();
+    let m = build(
+        Config::<Plane>::builder(PlaneState::Idle, Pos::default()).state(PlaneState::Idle, |s| {
+            let (handle, seen) = (handle.clone(), seen.clone());
+            s.on(PlaneEventKind::MoveX, |t| {
+                t.act(|p| Pos::patch().x(p.context().x + 1))
+            })
+            .on(PlaneEventKind::BumpOther, move |t| {
+                t.run(move |p| {
+                    if p.context().other == 0 {
+                        // The core is borrowed by this action: the selection seeds later.
+                        let m = handle.borrow().clone().expect("machine");
+                        std::mem::forget(m.select_field(Pos::X).subscribe({
+                            let seen = seen.clone();
+                            move |x| seen.push(*x)
+                        }));
+                    }
+                    p.set_context(Pos::patch().other(p.context().other + 1));
+                })
+            })
+        }),
+    );
+    *handle.borrow_mut() = Some(m.clone());
+    m.send(PlaneEvent::BumpOther);
+    m.send(PlaneEvent::MoveX);
+    assert_eq!(seen.entries(), [1]);
 }

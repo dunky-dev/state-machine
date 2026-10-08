@@ -511,7 +511,8 @@ fn expand_context(input: DeriveInput) -> syn::Result<TokenStream2> {
 
         #[allow(dead_code)]
         impl #name {
-            #(pub const #consts: ::dunky_core::Field<#name> = ::dunky_core::Field::new(#indices);)*
+            #(pub const #consts: ::dunky_core::Field<#name, #tys> =
+                ::dunky_core::Field::new(#indices, |c: &#name| &c.#idents);)*
 
             /// Start a patch: `Self::patch().field(value)`.
             pub fn patch() -> #patch {

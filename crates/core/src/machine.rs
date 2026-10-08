@@ -20,7 +20,7 @@ use crate::config::{
 use crate::params::{ActionParams, GuardParams, View};
 use crate::selection::Selection;
 use crate::timers::{Command, TimerId};
-use crate::traits::{Context, EventEnum, StateEnum, Types};
+use crate::traits::{Context, EventEnum, Field, StateEnum, Types};
 
 /// Runaway guard for one flush. A real chain is a handful of items; thousands means a
 /// feedback loop (a watcher writing what it watches, actions sending in a cycle).
@@ -66,12 +66,26 @@ pub(crate) struct Core<T: Types> {
     pub(crate) state_changed_at: u64,
     /// Effective changes made inside the current borrow; drained into notifications.
     pending_notifies: u32,
+    /// What those changes touched: field bits, plus `STATE_BIT` for a state change.
+    pending_changes: u64,
     /// Changes since the last `take_changes()`, for bindings.
     changed_fields: u64,
     changed_state: bool,
 }
 
+/// A change bit no context field uses (fields take bits 0..64, all of them only with a
+/// 64-field context, where a field selection may then also wake on a state change).
+const STATE_BIT: u64 = 1 << 63;
+
 impl<T: Types> Core<T> {
+    /// The notifications owed since the last take, and what they changed.
+    fn take_owed(&mut self) -> (u32, u64) {
+        (
+            std::mem::take(&mut self.pending_notifies),
+            std::mem::take(&mut self.pending_changes),
+        )
+    }
+
     /// Apply `patch`; return the mask of the fields that actually changed.
     pub(crate) fn patch(&mut self, patch: <T::Context as Context>::Patch) -> u64 {
         let mask = self.ctx.apply(patch);
@@ -87,6 +101,7 @@ impl<T: Types> Core<T> {
         self.stamp_fields(mask);
         self.changed_fields |= mask;
         self.pending_notifies += 1;
+        self.pending_changes |= mask;
     }
 
     /// Stamp the fields in `mask` as changed now.
@@ -110,6 +125,7 @@ impl<T: Types> Core<T> {
         self.state_changed_at = self.tick;
         self.changed_state = true;
         self.pending_notifies += 1;
+        self.pending_changes |= STATE_BIT;
     }
 }
 
@@ -194,6 +210,7 @@ impl<T: Types> Machine<T> {
             field_changed_at: Vec::new(),
             state_changed_at: 0,
             pending_notifies: 0,
+            pending_changes: 0,
             changed_fields: 0,
             changed_state: false,
         };
@@ -273,7 +290,9 @@ impl<T: Types> Machine<T> {
         let reset = FlushReset(&inner.flushing, false);
         inner.process(Item::Event(event));
         drop(reset);
-        inner.flush();
+        if !inner.queue.borrow().is_empty() {
+            inner.flush();
+        }
     }
 
     /// Shallow-merge `patch` into the context (bridges use this to refresh prop-seeded
@@ -301,8 +320,22 @@ impl<T: Types> Machine<T> {
         Selection::new(self.clone(), Rc::new(selector))
     }
 
+    /// A value-deduped view of one context field (TS: `select.context(key)`). It wakes
+    /// only on writes to that field.
+    pub fn select_field<V: Clone + 'static>(&self, field: Field<T::Context, V>) -> Selection<T, V> {
+        Selection::waking(
+            self.clone(),
+            Rc::new(move |v: &View<'_, T>| field.get(v.context()).clone()),
+            field.bit(),
+        )
+    }
+
     pub fn select_state(&self) -> Selection<T, T::State> {
-        self.select(|v| v.state())
+        Selection::waking(
+            self.clone(),
+            Rc::new(|v: &View<'_, T>| v.state()),
+            STATE_BIT,
+        )
     }
 
     pub fn select_computed<V: 'static>(&self, key: ComputedKey<V>) -> Selection<T, Rc<V>> {
@@ -476,12 +509,17 @@ impl<T: Types> Inner<T> {
         match item {
             Item::Event(event) => {
                 let kind = <T::Event as EventEnum>::kind_index(event.kind());
-                let state = self.core.borrow().state;
+                let (state, running) = {
+                    let core = self.core.borrow();
+                    (core.state, core.running)
+                };
                 let Some(entry) = self.config.lookup(state, kind) else {
                     return;
                 };
+                // Guards cannot write, so the state and the lifecycle read here hold
+                // until `apply`.
                 if let Some(t) = self.resolve(entry, Some(&event)) {
-                    self.apply(t, Some(&event));
+                    self.apply(t, Some(&event), state, running);
                 }
             }
             Item::After {
@@ -496,9 +534,10 @@ impl<T: Types> Inner<T> {
                         return;
                     }
                 }
+                // Same entry generation: the machine is still in `state`, running.
                 let entry = &self.config.0.states[state.index()].after[index].1;
                 if let Some(t) = self.resolve(entry, event.as_ref()) {
-                    self.apply(t, event.as_ref());
+                    self.apply(t, event.as_ref(), state, true);
                 }
             }
             Item::Watch { index } => {
@@ -532,11 +571,7 @@ impl<T: Types> Inner<T> {
             .find(|t| t.guard.as_ref().is_none_or(|g| eval_guard(g, &params)))
     }
 
-    fn apply(&self, t: &Transition<T>, event: Option<&T::Event>) {
-        let (cur, running) = {
-            let core = self.core.borrow();
-            (core.state, core.running)
-        };
+    fn apply(&self, t: &Transition<T>, event: Option<&T::Event>, cur: T::State, running: bool) {
         let next = t.target.unwrap_or(cur);
         let leaving = next != cur;
         let states = &self.config.0.states;
@@ -591,25 +626,32 @@ impl<T: Types> Inner<T> {
     }
 
     fn call_action(&self, f: &crate::config::ActionFn<T>, event: Option<&T::Event>) {
-        {
+        // The notifications owed are taken in the action's own borrow: one borrow, not two.
+        let (owed, changes) = {
             let mut core = self.core.borrow_mut();
-            let mut params = ActionParams {
+            f(&mut ActionParams {
                 core: &mut core,
                 inner: self,
                 event,
-            };
-            f(&mut params);
-        }
-        self.drain_notifies();
+            });
+            core.take_owed()
+        };
+        self.notify(owed, changes);
     }
 
     /// Deliver the notifications owed by the changes made in the last borrow — once per
     /// effective change, with no borrow held so observers can read and send.
     pub(crate) fn drain_notifies(&self) {
-        let n = std::mem::take(&mut self.core.borrow_mut().pending_notifies);
+        let (n, changes) = self.core.borrow_mut().take_owed();
+        self.notify(n, changes);
+    }
+
+    /// Notify the subscribers `n` times (once per effective change), with no borrow held;
+    /// `changes` is what those changes touched.
+    fn notify(&self, n: u32, changes: u64) {
         if let Some(bus) = self.bus.get() {
             for _ in 0..n {
-                bus.notify();
+                bus.notify_changed(changes);
             }
         }
     }

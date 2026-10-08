@@ -50,3 +50,11 @@ The crate using the macro also depends on `wasm-bindgen` (the version this crate
 and its event type derives `#[event(deserialize)]`.
 
 What the protocol guarantees: [`SPEC.md`](./SPEC.md).
+
+## Why the TS engine does not run on Rust
+
+We tried it: the TS engine as a thin layer over the Rust engine, compiled to wasm. It was
+not faster. Every event crosses the JS↔wasm bridge, and user code (guards, actions,
+effects) stays in JS, so it crosses back. After batching the calls, one event reached
+~9.9 M/sec, still ~15% below the pure TS engine (11.6 M/sec), and the package grew by
+~75 kB gzip. So each engine runs on its own, and wasm is for machines written in Rust.

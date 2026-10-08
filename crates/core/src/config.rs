@@ -543,9 +543,9 @@ impl<T: Types> ConfigBuilder<T> {
 
     /// Data-reaction on a context field: its actions run (deferred) whenever the field
     /// changes, in any state, while the machine runs.
-    pub fn watch(
+    pub fn watch<V>(
         &mut self,
-        field: Field<T::Context>,
+        field: Field<T::Context, V>,
         actions: impl IntoIterator<Item = Action<T>>,
     ) -> &mut Self {
         self.inner.watch.push(Watch {

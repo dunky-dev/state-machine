@@ -83,6 +83,8 @@ assert!(dialog.has_tag("visible"));
 assert_eq!(dialog.context().open_count, 1);
 
 let _sub = dialog.subscribe(|| println!("changed"));
+// One field, typed (TS: select.context('openCount')): wakes only when it changes.
+let _count = dialog.select_field(DialogCtx::OPEN_COUNT).subscribe(|n| println!("{n}"));
 ```
 
 ## Timers are commands

@@ -1,6 +1,5 @@
 use core::cell::Cell;
 use core::fmt::Debug;
-use core::marker::PhantomData;
 
 /// A machine's finite set of states — a fieldless enum. Derive it with `#[derive(State)]`.
 pub trait StateEnum: Copy + Eq + Debug + 'static {
@@ -89,19 +88,17 @@ impl SerializeFields for () {
     }
 }
 
-/// A typed handle to one context field (generated as `Context::FIELD_NAME` consts).
-pub struct Field<C> {
+/// A typed handle to one context field of type `V` (generated as `Context::FIELD_NAME`
+/// consts): its index in the change mask, and how to read it.
+pub struct Field<C, V> {
     index: usize,
-    _context: PhantomData<fn() -> C>,
+    get: fn(&C) -> &V,
 }
 
-impl<C> Field<C> {
+impl<C, V> Field<C, V> {
     #[doc(hidden)]
-    pub const fn new(index: usize) -> Self {
-        Self {
-            index,
-            _context: PhantomData,
-        }
+    pub const fn new(index: usize, get: fn(&C) -> &V) -> Self {
+        Self { index, get }
     }
     pub const fn index(self) -> usize {
         self.index
@@ -109,15 +106,19 @@ impl<C> Field<C> {
     pub const fn bit(self) -> u64 {
         1 << self.index
     }
+    /// The field's value in `context`.
+    pub fn get(self, context: &C) -> &V {
+        (self.get)(context)
+    }
 }
 
-impl<C> Clone for Field<C> {
+impl<C, V> Clone for Field<C, V> {
     fn clone(&self) -> Self {
         *self
     }
 }
-impl<C> Copy for Field<C> {}
-impl<C> Debug for Field<C> {
+impl<C, V> Copy for Field<C, V> {}
+impl<C, V> Debug for Field<C, V> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "Field({})", self.index)
     }
