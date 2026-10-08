@@ -1,0 +1,119 @@
+---
+title: Machines in Rust
+description: Write a Dunky machine in Rust with dunky-core.
+---
+
+`dunky-core` has the same machine model as the TS engine: flat states,
+run-to-completion, guards, actions, effects, `after` timers, computed values, watchers
+and subscriptions. The difference is the shape: states, events and context are Rust
+types, and the config is built once with a builder.
+
+```toml
+[dependencies]
+dunky-core = { git = "https://github.com/dunky-dev/state-machine" }
+```
+
+## Types
+
+A machine names three types, and the derives generate the glue:
+
+```rust
+use dunky_core::{Config, Context, Event, Machine, State, Types};
+
+#[derive(State, Clone, Copy, PartialEq, Eq, Debug)]
+enum DialogState { Closed, Open, Closing }
+
+#[derive(Event, Clone, Debug)]
+enum DialogEvent { Open, Close, Toggle }
+
+#[derive(Context, Clone, Debug, PartialEq)]
+struct DialogCtx { exit_ms: u32, open_count: u32 }
+
+struct Dialog;
+impl Types for Dialog {
+    type State = DialogState;
+    type Event = DialogEvent;
+    type Context = DialogCtx;
+}
+```
+
+- `State`: one name per variant (`Closing` → `"closing"`).
+- `Event`: one kind per variant (`DialogEventKind::Open`, …), which keys the handlers. A
+  variant can carry a payload.
+- `Context`: a patch builder (`DialogCtx::patch().open_count(1)`), one `Field` per
+  field, and tracked reads for computed values.
+
+## Config
+
+Build the config once; every machine of the type shares it.
+
+```rust
+fn config(exit_ms: u32) -> Config<Dialog> {
+    use DialogEventKind as E;
+    use DialogState::{Closed, Closing, Open};
+    let mut b = Config::<Dialog>::builder(Closed, DialogCtx { exit_ms, open_count: 0 });
+    b.delay("exitDelay", |g| g.context().exit_ms);
+    b.action("countOpen", |p| {
+        let n = p.context().open_count + 1;
+        p.set_context(DialogCtx::patch().open_count(n));
+    });
+    b.state(Closed, |s| s.on(E::Open, |t| t.target(Open).action("countOpen")));
+    b.state(Open, |s| s.tag("visible").on(E::Close, |t| t.target(Closing)));
+    b.state(Closing, |s| {
+        s.tag("visible")
+            .after("exitDelay", |t| t.target(Closed))
+            .on(E::Open, |t| t.target(Open).action("countOpen"))
+    });
+    b.build()
+}
+```
+
+Guards, actions, effects and delays are inline closures or registered names
+(`b.guard`, `b.action`, `b.effect`, `b.delay`); a name resolves when the config is
+built.
+
+## Running it
+
+```rust
+let dialog = Machine::new(&config(200));
+dialog.start();
+dialog.send(DialogEvent::Open);
+assert_eq!(dialog.state(), DialogState::Open);
+assert!(dialog.has_tag("visible"));
+assert_eq!(dialog.context().open_count, 1);
+
+let _sub = dialog.subscribe(|| println!("changed"));
+```
+
+## Timers are commands
+
+The engine owns no clock. An `after` timer is a **command** your host runs: take the
+commands after each call, schedule them on your event loop, and report each due timer.
+
+```rust
+for command in dialog.take_commands() {
+    // Command::StartTimer { id, ms }: call dialog.fire_timer(id) after ms.
+    // Command::CancelTimer { id }: drop it.
+}
+```
+
+In tests, `dunky_core::testing::Clock` plays the host with virtual time:
+
+```rust
+let mut clock = dunky_core::testing::Clock::new(&dialog);
+dialog.send(DialogEvent::Close); // -> closing, schedules exitDelay
+clock.sync();
+clock.advance(200);
+assert_eq!(dialog.state(), DialogState::Closed);
+```
+
+## Computed values
+
+```rust
+let label = b.computed("label", |c| format!("opened {} times", c.context.open_count()));
+// later, on a machine:
+let text = machine.computed(label);
+```
+
+A computed value is lazy and memoized: it reruns only when a field, a state or a computed
+value it read has changed.

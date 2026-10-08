@@ -1,0 +1,94 @@
+---
+title: Use in TypeScript
+description: Run a machine written in Rust from TypeScript, through wasm.
+---
+
+import Install from '../../../components/install.astro'
+
+<Install pkg='@dunky.dev/state-machine-wasm' />
+
+A machine written in Rust can run in a JS app, next to your TS machines. It still runs
+entirely on the Rust engine, inside its own wasm module; `fromWasm` puts it behind the
+same `Machine` interface the TS engine returns, so `connect()`, `useMachine` and every
+target take it unchanged.
+
+## 1. Export the machine
+
+In your Rust crate, depend on `dunky-core`, `dunky-wasm` and `wasm-bindgen`, and export
+the machine type as a JS class:
+
+```rust
+dunky_wasm::export_machine! {
+    /// The command palette.
+    pub struct PaletteMachine(palette::Palette);
+    new(commands: JsValue) {
+        // A Result body throws its error from the JS constructor.
+        dunky_wasm::from_js(commands).map(|c| Machine::with_context(&config(), palette::context(c)))
+    }
+    computed { palette::RESULTS => Vec<Command>, palette::ACTIVE_ID => Option<String> }
+    // Optional: served too, but left out of the machine's TS types.
+    internal { palette::RESULT_INDICES => Vec<u32> }
+}
+```
+
+The event type derives `#[event(deserialize)]` and the context `#[context(serialize)]`,
+so values can cross. Data types your context, events or computed values hold derive
+`TsType` next to their serde derives.
+
+## 2. Build it, with its types
+
+```bash
+cargo build --target wasm32-unknown-unknown --release
+wasm-bindgen --target web --weak-refs --reference-types --out-dir pkg \
+  target/wasm32-unknown-unknown/release/my_machines.wasm
+```
+
+Then add the class's TS types: natively, `PaletteMachine::typescript(&config)` returns
+them, generated from the Rust types. Print them from a small example binary onto the
+`.d.ts`:
+
+```bash
+cargo run --example typescript >> pkg/my_machines.d.ts
+```
+
+## 3. Use it
+
+```ts
+import { fromWasm } from '@dunky.dev/state-machine-wasm'
+import init, { PaletteMachine } from './pkg/my_machines.js'
+
+await init()
+// Machine<'closed' | 'open', { commands: …; query: string; … }, …>: typed from Rust.
+const palette = fromWasm(new PaletteMachine(commands))
+palette.start()
+palette.send({ type: 'query.set', query: 'git' })
+```
+
+In a target, return it from the first argument of `useMachine`, where a config would go:
+
+```tsx
+useMachine(props => fromWasm(new PaletteMachine(props.commands)), connect, effects, props)
+```
+
+The machine must come fresh from that function (one per component): the hook owns its
+lifecycle, as it does for a config.
+
+## Mapping computed values
+
+The `computed` option maps a raw value once per change. For example, results that
+crossed the boundary as indices go back onto your own objects:
+
+```ts
+fromWasm(new PaletteMachine(commands), {
+  computed: {
+    results: { from: 'resultIndices', map: raw => Array.from(raw as number[], i => commands[i]!) },
+  },
+})
+```
+
+## What it costs
+
+In JS, a machine written in TypeScript is a little faster: its context already lives in
+JS, while a Rust machine refreshes a JS mirror of its context on each change. Write a
+machine in Rust to **reuse** it: the same machine runs in Rust programs and on React
+Native.

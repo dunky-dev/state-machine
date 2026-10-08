@@ -1,0 +1,56 @@
+---
+title: Two engines
+description: Dunky's state machines exist twice, in TypeScript and in Rust, and both follow one spec.
+---
+
+Dunky's state machines are implemented **twice**: in TypeScript
+(`@dunky.dev/state-machine`) and in Rust (`dunky-core`). Neither engine runs on the
+other. Each is tuned for its own runtime, and both follow one behavior contract:
+[`packages/core/SPEC.md`](https://github.com/dunky-dev/state-machine/blob/main/packages/core/SPEC.md).
+
+```
+                 packages/core/SPEC.md
+            (the one behavior contract)
+               /                    \
+              v                      v
+TypeScript engine                Rust engine
+@dunky.dev/state-machine         dunky-core
+JS and every target              Rust programs, native bindings,
+                                 and JS through wasm
+```
+
+## Which one to use
+
+- **Building a JS app** (React, Solid, React Native, OpenTUI): write your machines in
+  **TypeScript**. That is the default, and the fastest path in JS: the context lives in
+  JS, so nothing crosses a boundary.
+- **Building in Rust** (a native app, a game, a server): write them in **Rust**, with
+  `dunky-core`. The same states, events, guards, effects, timers and computed values.
+- **Sharing one machine between Rust and JS**: write it in Rust, and use it from
+  TypeScript through wasm with [`fromWasm`](/rust/typescript). The machine still runs
+  on the Rust engine.
+
+## The crates
+
+| Crate          | What it is                                                                |
+| -------------- | ------------------------------------------------------------------------- |
+| `dunky-core`   | The Rust engine: machines, config builder, timers as commands, observers. |
+| `dunky-macros` | `#[derive(State, Event, Context)]`, re-exported by `dunky-core`.          |
+| `dunky-wasm`   | `export_machine!`: a Rust machine as a JS class, in your own wasm module. |
+| `dunky-uniffi` | React Native over JSI (in progress).                                      |
+
+The crates are not on crates.io yet. Use them from the repository:
+
+```toml
+[dependencies]
+dunky-core = { git = "https://github.com/dunky-dev/state-machine" }
+```
+
+## How the two stay in sync
+
+- A behavior change updates the spec, both engines and both test suites in the same
+  pull request. A change that lands in one engine only is not done.
+- The Rust tests are twins of the TS tests, file by file: a new behavior test on one
+  side gets its twin on the other.
+- What only one engine has stays out of the shared spec: TS-only typing (`setup()`),
+  and Rust-only authoring (derives, timers as commands).

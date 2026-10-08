@@ -134,6 +134,14 @@ export default defineConfig({
           ],
         },
         {
+          label: 'Rust',
+          items: [
+            { label: 'Two engines', link: 'rust' },
+            { label: 'Machines in Rust', link: 'rust/machines' },
+            { label: 'Use in TypeScript', link: 'rust/typescript' },
+          ],
+        },
+        {
           label: 'Reference',
           items: [
             { label: 'API overview', link: 'api' },
