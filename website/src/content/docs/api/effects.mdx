@@ -88,7 +88,7 @@ function Disclosure(props: DisclosureProps) {
 }
 ```
 
-The machine only sees `send({ type: 'close' })`; it has no idea an Escape key exists. On React Native the machine is unchanged; the effect swaps `keydown` for `BackHandler`. On [Solid](/libs/solid) the same tuple runs as its own `createEffect` — no rules-of-hooks constraint, but the list stays a module constant by convention.
+The machine only sees `send({ type: 'close' })`; it has no idea an Escape key exists. On React Native the machine is unchanged; the effect swaps `keydown` for `BackHandler`. On [Solid](/libs/solid) the same tuple runs as its own `createEffect`, and on [Svelte](/libs/svelte) as its own `$effect` — no rules-of-hooks constraint, but the list stays a module constant by convention.
 
 ## Named effects
 

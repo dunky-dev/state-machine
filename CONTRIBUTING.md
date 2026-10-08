@@ -19,7 +19,7 @@ pnpm install
 | ------------------------------ | ---------------------------------------------------------- |
 | `pnpm test`                    | Full test suite, watch mode                                |
 | `pnpm test:ci`                 | Full test suite, once                                      |
-| `pnpm typecheck`               | `tsc -b` across the whole workspace                        |
+| `pnpm typecheck`               | `tsc -b` across the workspace, then package `typecheck`s   |
 | `pnpm lint`                    | `oxlint`                                                   |
 | `pnpm format` / `format:check` | `oxfmt`                                                    |
 | `pnpm build`                   | Build every publishable package                            |
@@ -36,6 +36,7 @@ the short version:
 
 ```bash
 pnpm -C sandbox/react dev
+pnpm -C sandbox/svelte dev
 pnpm -C sandbox/opentui dev  # terminal — needs Bun
 pnpm -C sandbox/native dev   # Expo  — needs a simulator or device
 ```

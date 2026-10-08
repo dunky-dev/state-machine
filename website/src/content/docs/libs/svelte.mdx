@@ -1,0 +1,200 @@
+---
+title: Svelte
+description: Svelte bindings for @dunky.dev/state-machine.
+---
+
+import Install from '../../../components/install.astro'
+
+<Install pkg='@dunky.dev/svelte-state-machine' />
+
+Targets Svelte 5 (`svelte` `>=5.16.0 <5.33.5 || ^5.34.5`, tested on 5.57.1). The bridge is written in runes and ships as `.svelte.js` modules that your Svelte build compiles, like a component — use it through Vite with `@sveltejs/vite-plugin-svelte`, or SvelteKit. Vitest picks it up through the same plugin, except in a test harness that reaches it only through other packages' source files: inline it there with `test.server.deps.inline: [/@dunky\.dev\/svelte-/]`, or the runes run uncompiled.
+
+The Svelte package is a thin edge layer. Behavior lives in the core machine and the component's `connect` function; this package only adapts them to Svelte: lifecycle, reactivity, prop translation, and platform effects. **The machine itself is unchanged** — the same `createDialogConfig` and `connectDialog` run here as on any other target.
+
+`view.api` is the connector's snapshot, read lazily: `connect()` runs once a transition settles, and only when something reads the result. It is a fresh object after every machine or prop change, which markup re-reads cheaply — Svelte only touches the DOM where a value differs.
+
+## `useMachine`
+
+The one bridge. Every component calls it with the four agnostic pieces — the props as a getter — and gets back `{ api, machine }`:
+
+```svelte
+<script lang="ts">
+  import { useMachine, normalize } from '@dunky.dev/svelte-state-machine'
+  import { createDialogConfig, connectDialog, dialogEffects, type DialogProps } from './dialog'
+
+  let props: DialogProps = $props()
+
+  const view = useMachine(
+    createDialogConfig, // (props) => MachineConfig; seeds context once
+    connectDialog, // pure connect(): snapshot → view api
+    dialogEffects, // ComponentEffect[]: DOM listeners, gated by props
+    () => props, // a getter, so later prop changes keep flowing in
+  )
+</script>
+
+<button {...normalize(view.api.triggerProps)}>Open</button>
+{#if view.api.isOpen}
+  <div {...normalize(view.api.contentProps)}>Dialog content</div>
+{/if}
+```
+
+`useMachine` builds the machine and connector **once** (a component's script runs a single time, so the first props seed context; later changes flow through `setProps`, not a rebuild), starts after mount, stops on destroy — before child components tear down, as React does — and exposes the connect output as `view.api`. Call it while the component initializes. Read `view.api` where you use it; do **not** destructure it (`const { api } = useMachine(…)` captures one snapshot and loses reactivity).
+
+Props go in as a **getter** because a component's script runs once and its props are reactive bindings: the bridge reads them inside its effects. `() => props` is the usual form; a getter that builds its own object, such as `() => ({ closeOnEscape, ...rest })` after destructured defaults, works the same. The bridge compares props shallowly, like every target: to change a value `connect` reads, pass a new reference (`items = [...items, item]`) rather than mutating it in place.
+
+In an `$effect`, read the slice you need — `const isOpen = $derived(view.api.isOpen)`, or `useSelector` — so it re-runs only when that value changes. Don't read `view.api` in an effect that acts: one that reads it and then sends (or calls an action) re-runs itself in a loop, so read a derived slice there or keep the read untracked (`untrack(() => view.api.toggle())`). What wakes on a notification — reactions, your callbacks — never becomes a dependency of the effect that caused it. Selectors and callbacks run inside that notification, so they should read the machine (`machine.context`, `machine.matches(…)`): during a `view.machine.send`, `view.api` gives them the snapshot the previous send settled to, and Svelte hears of the change only once the send ends — so `flushSync()` in a callback still renders the pre-send UI (`await tick()` to focus newly opened content). Transitions that don't start at `view.machine.send` — an `after` timer, an action's own async send, a watcher fed by a core effect's `setContext` — aren't guarded: a read of `view.api` there can see a half-applied transition.
+
+### The three imports
+
+Those three values are where the dialog's behavior actually lives, and none of it is Svelte. You write them once, in a `./dialog` module (its Escape listener lives in `./effects`, below), and they run unchanged on any platform:
+
+```ts
+// dialog.ts: plain functions, no Svelte
+import { setup, type Connect, type Machine } from '@dunky.dev/state-machine'
+import { onEscapeKey } from './effects'
+
+export type DialogProps = {
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  closeOnEscape?: boolean
+}
+type State = 'closed' | 'open'
+type Context = { closeOnEscape: boolean }
+type Event = { type: 'open' } | { type: 'close' }
+type Api = {
+  isOpen: boolean
+  triggerProps: Record<string, unknown>
+  contentProps: Record<string, unknown>
+}
+export type DialogMachine = Machine<State, Context, Event>
+
+export const createDialogConfig = (props: DialogProps) =>
+  setup.as<Context, Event>().createMachine({
+    initial: props.open ? 'open' : 'closed', // props seed the machine ONCE
+    context: { closeOnEscape: props.closeOnEscape ?? true },
+    states: {
+      closed: { on: { open: { target: 'open' } } },
+      open: { on: { close: { target: 'closed' } } },
+    },
+  })
+
+export const connectDialog: Connect<State, Context, Event, DialogProps, Api> = ({
+  state,
+  send,
+}) => ({
+  isOpen: state === 'open',
+  triggerProps: {
+    onPress: () => send({ type: 'open' }),
+    expanded: state === 'open',
+  },
+  contentProps: { role: 'dialog', modal: true },
+})
+
+export const dialogEffects = [onEscapeKey]
+```
+
+So `useMachine` is the only Svelte-specific piece: `createDialogConfig` is the machine definition, `connectDialog` is the snapshot-to-view-API mapping, and `dialogEffects` are the DOM listeners. Every target imports the **same** `./dialog` module — only the bridge differs. See [Setup](/api/setup) for configs and [Connector](/api/connector) for how `connect` works in depth.
+
+## `normalize`: bindings → DOM props
+
+`connect` returns substrate-agnostic bindings (`onPress`, `role`, `describedBy`). `normalize` translates them to the DOM/ARIA props a Svelte element spread expects:
+
+```ts
+normalize(view.api.triggerProps)
+// { onclick, 'aria-expanded', role, tabindex, ... }
+```
+
+The machine binding maps handlers to the DOM's lowercase event attributes (`onPress` → `onclick`, `onValueChange` → `oninput`; Svelte event props are case-sensitive, so `onClick` would listen for a `Click` event), ARIA props (`describedBy` → `aria-describedby`), ARIA state (`checked` → `aria-checked`), and focus (`focusable` → `tabindex`). [Check out the full mapping here](https://github.com/dunky-dev/state-machine/blob/main/packages/svelte/src/normalize.ts).
+
+`undefined` values are dropped. Unknown keys pass through unchanged.
+
+## `mergeProps`: consumer + component props
+
+When a consumer spreads their own props onto the same element the component controls:
+
+```svelte
+<script lang="ts">
+  import type { HTMLButtonAttributes } from 'svelte/elements'
+  import { mergeProps, normalize, useMachine } from '@dunky.dev/svelte-state-machine'
+  import { connectDialog, createDialogConfig, dialogEffects, type DialogProps } from './dialog'
+
+  // The dialog's own props drive the machine; the rest go to the element.
+  let { open, onOpenChange, closeOnEscape, ...rest }: DialogProps & HTMLButtonAttributes =
+    $props()
+
+  const view = useMachine(createDialogConfig, connectDialog, dialogEffects, () => ({
+    open,
+    onOpenChange,
+    closeOnEscape,
+  }))
+</script>
+
+<button {...mergeProps(rest, normalize(view.api.triggerProps))}>Open</button>
+```
+
+- **Event handlers are chained, consumer-first.** If the consumer calls `e.preventDefault()`, the component's handler is skipped — a clean veto.
+- **`class` strings join into one string**; other shapes merge as `[consumer, library]`, which Svelte resolves through clsx, so `class={['card', { active }]}` survives the merge.
+- **`style` strings are joined**, the component's declarations last so they win.
+- **Everything else: component wins** (`id`, `role`, `aria-*`, even a nullish handler, as on every target) — except a nullish `class`/`style`, which keeps the consumer's. Symbol-keyed attachments from both sides are kept.
+
+A composed handler calls both sides without `this`: read `event.currentTarget` instead.
+
+## `useSelector`: fine-grained leaf subscription
+
+For a leaf component that should only update when one slice of the machine changes (useful when a single machine drives many rows and each row should only wake for its own value). It returns `{ current }` — read `.current` in markup:
+
+```svelte
+<script lang="ts">
+  import { useSelector } from '@dunky.dev/svelte-state-machine'
+  import type { RowMachine } from './rows'
+
+  let { machine, value }: { machine: RowMachine; value: string } = $props()
+
+  const isHighlighted = useSelector(
+    () => machine,
+    () => machine.context.highlightedValue === value,
+  )
+</script>
+
+<div data-highlighted={isHighlighted.current}>{value}</div>
+```
+
+`current` updates only when the selected value changes — `Object.is` by default — including when a prop the selector closes over (`value` here) changes. The machine goes in as a getter because it's a prop: the subscription follows it if it changes. For object selections, pass a custom equality function so a re-derived equal object doesn't push a new value:
+
+```ts
+const pos = useSelector(
+  machine,
+  () => ({ x: machine.context.x, y: machine.context.y }),
+  (a, b) => a.x === b.x && a.y === b.y,
+)
+```
+
+`view.api` changes as a whole on every machine change, so `useSelector` is how a leaf tracks one slice of a machine it doesn't otherwise own — e.g. thousands of items backed by one machine, each waking only for its own value.
+
+## `ComponentEffect`: platform effects
+
+Some behavior can't live in the machine because it touches the DOM or reads props the machine never sees. Declare each as a `[setup/teardown, depPropNames]` tuple; `useMachine` runs one `$effect` per entry, re-running it (cleanup → setup) when the value of one of its named prop deps changes:
+
+```ts
+// effects.ts
+import type { ComponentEffect } from '@dunky.dev/svelte-state-machine'
+import type { DialogMachine, DialogProps } from './dialog'
+
+type Effect = ComponentEffect<DialogMachine, DialogProps>
+
+export const onEscapeKey: Effect = [
+  (machine, props) => {
+    if (props.closeOnEscape === false) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') machine.send({ type: 'close' })
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  },
+  ['closeOnEscape'], // re-run only when this prop changes
+]
+```
+
+The tuple shape is **identical to every other target** — the same `./dialog` effects run everywhere. The deps are prop NAMES (typed `(keyof Props)[]`, so a typo is a compile error); the Svelte bridge tracks exactly those props, by value, and runs the body `untrack`ed, so a prop the effect merely reads never re-runs it. The machine only receives `send({ type: 'close' })`; it has no idea a keyboard event exists.
+
+See [Effects](/api/effects) for the full mental model of where each type of effect lives.

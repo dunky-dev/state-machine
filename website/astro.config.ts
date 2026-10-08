@@ -129,6 +129,7 @@ export default defineConfig({
           items: [
             { label: 'React', link: 'libs/react' },
             { label: 'Solid', link: 'libs/solid' },
+            { label: 'Svelte', link: 'libs/svelte' },
             { label: 'React Native', link: 'libs/react-native' },
             { label: 'OpenTUI', link: 'libs/opentui' },
           ],

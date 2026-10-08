@@ -1,6 +1,6 @@
-/* The one stylesheet the React and Solid apps share — same classes, same
-   look; each app only supplies markup. The non-DOM targets (opentui, native)
-   style natively and don't use this. */
+/* The one stylesheet the React, Solid, and Svelte apps share — same classes,
+   same look; each app only supplies markup. The non-DOM targets (opentui,
+   native) style natively and don't use this. */
 
 /* Page */
 

@@ -1,8 +1,9 @@
 import { defineConfig } from 'vitest/config'
 
-// Two projects: the Solid tests need vite-plugin-solid's JSX transform, which
-// must not rewrite the React `.tsx` tests. The solid project lives with its
-// package so the root carries no Solid dependencies.
+// The Solid and Svelte tests need their compiler plugins (vite-plugin-solid's
+// JSX transform must not rewrite the React `.tsx` tests), so each runs as its
+// own project, living with its package so the root carries no framework
+// dependencies.
 export default defineConfig({
   test: {
     projects: [
@@ -12,10 +13,11 @@ export default defineConfig({
           globals: false,
           environment: 'node',
           include: ['packages/**/tests/**/*.test.{ts,tsx}'],
-          exclude: ['**/node_modules/**', '**/dist/**', 'packages/solid/**'],
+          exclude: ['**/node_modules/**', '**/dist/**', 'packages/solid/**', 'packages/svelte/**'],
         },
       },
       './packages/solid/vitest.config.ts',
+      './packages/svelte/vitest.config.ts',
     ],
   },
 })
