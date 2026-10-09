@@ -104,7 +104,8 @@ Zag, whose machines read props directly.)
 | `crates/wasm/`              | Rust machines as JS classes (`export_machine!`)                   |
 | `packages/wasm/`            | `fromWasm`: a Rust machine behind the TS `Machine` interface      |
 | `crates/sandbox/`           | The sandbox machines in Rust, twins of `sandbox/shared` ones      |
-| `crates/uniffi/`            | The Rust engine for React Native over JSI (in progress)           |
+| `crates/uniffi/`            | Rust machines for React Native over JSI (uniffi; facade planned)  |
+| `sandbox/uniffi/`           | The turbo module uniffi-bindgen-react-native generates from it    |
 
 ## The map
 
@@ -146,29 +147,107 @@ Three package groups, three jobs:
 
 ## Two engines, one spec
 
+The machine behavior exists twice, in TypeScript and in Rust, against one contract.
+This is the target shape of the repo; the boxes marked _planned_ do not exist yet.
+
 ```
-                 packages/core/SPEC.md
-            (the one behavior contract)
-               /                    \
-              v                      v
-packages/core (TypeScript)      crates/core (Rust)
-the engine for JS and every     the engine for Rust programs and
-target; pure TS, no wasm        native bindings (crates/uniffi)
-              |                      |
-packages/core/tests  <-- twins -->  crates/core/tests
+                        packages/core/SPEC.md
+                      one behavior contract, two engines
+                                   |
+             +---------------------+---------------------+
+             |         sync by spec, twin test suites    |
+             v                                           v
++---------------------------+             +---------------------------+
+| TS engine                 |             | Rust engine               |
+| packages/core             |             | crates/core, crates/macros|
+| @dunky.dev/state-machine  |             | dunky-core                |
++---------------------------+             +---------------------------+
+             |                                           |
+             | authors                                   | authors
+             v                                           v
++---------------------------+             +---------------------------+
+| TS machines + connectors  |             | Rust machines + connectors|
+| setup().config()          |             | derives + Config builder  |
+| e.g. palette, connect()   |             | e.g. dropdown, connect()  |
++---------------------------+             +---------------------------+
+             |                            |              |               |
+             |                web: wasm32 |              | native: lib   | Rust app
+             |                            v              v               |
+             |              +----------------+  +----------------+       |
+             |              | crates/wasm    |  | crates/uniffi  |       |
+             |              | export_machine!|  | push protocol  |       |
+             |              | wasm-bindgen   |  | ubrn turbo mod |       |
+             |              +----------------+  +----------------+       |
+             |                      |                  |                 |
+             |        notify(state, fields), timers, field reads         |
+             |                      v                  v                 |
+             |              +----------------+  +----------------+       |
+             |              | packages/wasm  |  | RN facade      |       |
+             |              | fromWasm()     |  | (planned)      |       |
+             |              | context mirror |  | context mirror |       |
+             |              | no Rust engine |  | no Rust engine |       |
+             |              +----------------+  +----------------+       |
+             |                      |                  |                 |
+             v                      v                  v                 v
++------------------------------------------------------------+  +------------------------+
+| Machine interface (TS, packages/core)                      |  | Machine<T> (Rust,      |
+| send, state, context, computed, subscribe, select,         |  | crates/core)           |
+| start/stop. toMachine(source) takes a config or any ready  |  | same contract, typed   |
+| machine; a target cannot tell which engine built it.       |  | fields, timers as cmds |
++------------------------------------------------------------+  +------------------------+
+                            |                                              |
+                 connector per machine                          connector per machine
+                            |                                              |
++------------------------------------------------------------+  +------------------------+
+| packages/shared/bindings                                   |  | crates/bindings        |
+| roles, keyboard, focus, a11y props; substrate-free         |  | (planned) the same     |
++------------------------------------------------------------+  +------------------------+
+                            |                                              |
+     +------------+---------+---------+------------+                       |
+     v            v                   v            v                       v
++----------+ +----------+       +----------+ +----------+          +------------------+
+| react    | | solid    |       | native   | | opentui  |          | iced (planned)   |
+| web + RN | | web      |       | RN props | | terminal |          | macOS, Windows,  |
++----------+ +----------+       +----------+ +----------+          | Linux: winit +   |
+                                                                   | AccessKit; OS    |
+                                                                   | conventions in a |
+                                                                   | platform switch  |
+                                                                   +------------------+
 ```
 
-The two engines are independent: each is tuned for its own runtime. They stay
-in sync through the spec, twin test suites, and one rule: a behavior change
-updates the spec, both engines and both test suites in the same PR (see
-[AGENTS.md](AGENTS.md#two-engines-one-spec)). The sandbox machines have Rust
-twins too (`crates/sandbox`).
+How to read it:
 
-A machine written in Rust can run in JS too: `export_machine!` (`crates/wasm`) makes
-it a JS class in its own wasm module, and `fromWasm` (`@dunky.dev/state-machine-wasm`)
-puts it behind the same `Machine` interface, so targets take it like a config
-(`useMachine` accepts a ready machine). It still runs on the Rust engine; its TS types
-are generated from its Rust types.
+- **Two engines, one spec.** `packages/core` and `crates/core` each implement
+  `packages/core/SPEC.md`. Neither runs on the other: each is tuned for its own
+  runtime. They stay in sync through the spec, twin test suites (`packages/core/tests`
+  and `crates/core/tests`, file by file) and one rule: a behavior change updates the
+  spec, both engines and both suites in the same PR (see
+  [AGENTS.md](AGENTS.md#two-engines-one-spec)).
+- **A machine is authored against one engine, with its connector next to it.** TS
+  machines against the TS engine; Rust machines against the Rust engine, which is the
+  only place they run. The sandbox palette exists in both (`sandbox/shared`,
+  `crates/sandbox`), as a worked example of the twin rule.
+- **The TS engine is the default in every JS runtime**, React Native included. A
+  machine is written in Rust when it is wanted in Rust too (a Rust app) or shared
+  across the web, React Native and Rust from one source.
+- **The facades put a Rust machine behind the TS `Machine` interface.** They ship no
+  engine: they map names to numbers, keep a JS mirror of the context, re-read only the
+  fields each notify names, and fan changes out to subscribers. `packages/wasm`
+  (`fromWasm`) does it over `crates/wasm`; the React Native facade does the same over
+  `crates/uniffi`, which speaks the same push protocol (one `notify` per change, timers
+  as host calls).
+- **One binding per substrate.** `crates/wasm` for JS runtimes with wasm (web, Node,
+  Bun, so OpenTUI too). `crates/uniffi` for React Native over JSI, generated into a
+  turbo module by uniffi-bindgen-react-native (`sandbox/uniffi`).
+- **Targets are engine-blind.** They take a `Machine` through `toMachine` and
+  `connect`, so react, solid, native and opentui work unchanged whichever engine built
+  it.
+- **Rust renders too.** A Rust app holds the `Machine<T>` directly, no binding and no
+  facade. Above it the Rust column mirrors the TS one: a connector per machine, one
+  shared bindings crate (the twin of `packages/shared/bindings`), and one target, iced.
+  iced already spans macOS, Windows and Linux (winit for windows and input, AccessKit
+  for the accessibility tree), so the OS differences that remain, such as Cmd vs Ctrl
+  or Home/End conventions, are a platform switch inside the target, not a crate per OS.
 
 ## The machine parts
 
