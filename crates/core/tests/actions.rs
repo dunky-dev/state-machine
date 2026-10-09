@@ -11,7 +11,7 @@
 mod common;
 
 use common::{CounterEvent, Log, build, counter};
-use dunky_core::{
+use dunky_state_machine::{
     Action, Branch, Config, Context, Event, Guard, GuardParams, Machine, State, Types,
 };
 

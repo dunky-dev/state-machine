@@ -5,7 +5,7 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use dunky_core::{
+use dunky_state_machine::{
     ActionParams, Cleanup, Config, ConfigBuilder, Context, Event, Machine, State, Types,
 };
 

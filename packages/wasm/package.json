@@ -1,7 +1,7 @@
 {
   "name": "@dunky.dev/state-machine-wasm",
   "version": "0.0.0",
-  "description": "Run Dunky machines written in Rust from TypeScript: fromWasm wraps a class exported with dunky_wasm::export_machine! in the Machine interface.",
+  "description": "Run Dunky machines written in Rust from TypeScript: fromWasm wraps a class exported with dunky_state_machine_wasm::export_machine! in the Machine interface.",
   "license": "MIT",
   "repository": {
     "type": "git",

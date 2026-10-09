@@ -12,7 +12,7 @@ mod common;
 use std::rc::Rc;
 
 use common::{AbState, Calls, CounterEvent, Log, ab, build, counter};
-use dunky_core::{Composition, Config, Event, Machine, Member, State, Subscription, Types};
+use dunky_state_machine::{Composition, Config, Event, Machine, Member, State, Subscription, Types};
 
 struct Popup;
 

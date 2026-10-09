@@ -21,7 +21,7 @@ use common::{
     AbEvent, AbState, Calls, Count, Counter, CounterEvent, CounterEventKind, CounterState, Log, ab,
     build, counter,
 };
-use dunky_core::{Config, Context, Event, State, Types};
+use dunky_state_machine::{Config, Context, Event, State, Types};
 
 /// A machine whose events write `x`, `y` and `other`.
 struct Plane;
@@ -51,7 +51,7 @@ impl Types for Plane {
     type Context = Pos;
 }
 
-fn plane() -> dunky_core::Machine<Plane> {
+fn plane() -> dunky_state_machine::Machine<Plane> {
     build(
         Config::<Plane>::builder(PlaneState::Idle, Pos::default()).state(PlaneState::Idle, |s| {
             s.on(PlaneEventKind::MoveX, |t| {
@@ -260,7 +260,7 @@ fn select_field_selects_one_field_with_its_type() {
 // even when that first wake came from another field.
 #[test]
 fn a_field_selection_made_mid_action_reports_the_next_change() {
-    type Slot = std::rc::Rc<std::cell::RefCell<Option<dunky_core::Machine<Plane>>>>;
+    type Slot = std::rc::Rc<std::cell::RefCell<Option<dunky_state_machine::Machine<Plane>>>>;
     let handle: Slot = Slot::default();
     let seen: Log<i32> = Log::default();
     let m = build(

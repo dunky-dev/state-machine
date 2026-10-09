@@ -56,7 +56,7 @@ The Rust column of the architecture diagram (`ARCHITECTURE.md`), above the engin
 - `@dunky.dev/state-machine-wasm` (`packages/wasm`) holds `fromWasm`; the TS engine
   stays pure TS. `crates/wasm` is Dunky's JS binding (`export_machine!`), Dunky-specific,
   in this repo because its protocol and the facade change together.
-- A user's crate depends on `dunky-core` + `dunky-wasm` + `wasm-bindgen` and builds its
+- A user's crate depends on `dunky-state-machine` + `dunky-state-machine-wasm` + `wasm-bindgen` and builds its
   own `.wasm`; each module carries its own copy of the engine.
 - The binding hears changes through the engine's own `subscribe()` / `take_changes()`
   and runs timers from `take_commands()`: the engine has no hook for JS.

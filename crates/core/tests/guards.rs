@@ -9,7 +9,7 @@
 mod common;
 
 use common::{Calls, build};
-use dunky_core::{Config, ConfigBuilder, Context, Event, Guard, State, Types};
+use dunky_state_machine::{Config, ConfigBuilder, Context, Event, Guard, State, Types};
 
 struct M;
 

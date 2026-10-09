@@ -116,15 +116,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
 
 [[package]]
-name = "dunky-core"
+name = "dunky-sandbox"
 version = "0.1.0"
 dependencies = [
- "dunky-macros",
+ "dunky-state-machine",
  "serde",
 ]
 
 [[package]]
-name = "dunky-macros"
+name = "dunky-state-machine"
+version = "0.1.0"
+dependencies = [
+ "dunky-state-machine-macros",
+ "serde",
+]
+
+[[package]]
+name = "dunky-state-machine-macros"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",
@@ -133,19 +141,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "dunky-sandbox"
+name = "dunky-state-machine-uniffi"
 version = "0.1.0"
 dependencies = [
- "dunky-core",
- "serde",
-]
-
-[[package]]
-name = "dunky-uniffi"
-version = "0.1.0"
-dependencies = [
- "dunky-core",
  "dunky-sandbox",
+ "dunky-state-machine",
  "serde_json",
  "uniffi",
 ]

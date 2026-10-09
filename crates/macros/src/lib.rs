@@ -1,4 +1,4 @@
-//! Derive macros for `dunky-core`. Use them through the re-exports in `dunky_core`.
+//! Derive macros for `dunky-state-machine`. Use them through the re-exports in `dunky_state_machine`.
 
 mod ts;
 
@@ -207,14 +207,14 @@ fn expand_state(input: DeriveInput) -> syn::Result<TokenStream2> {
     let indices: Vec<usize> = (0..variants.len()).collect();
     let literals: Vec<TokenStream2> = names
         .iter()
-        .map(|n| quote!(::dunky_core::__private::ts_literal(#n)))
+        .map(|n| quote!(::dunky_state_machine::__private::ts_literal(#n)))
         .collect();
     let ts_impl = ts::impl_ts(&input, ts::union(&literals));
     let (impl_g, ty_g, where_g) = input.generics.split_for_impl();
     Ok(quote! {
         #ts_impl
 
-        impl #impl_g ::dunky_core::StateEnum for #name #ty_g #where_g {
+        impl #impl_g ::dunky_state_machine::StateEnum for #name #ty_g #where_g {
             const NAMES: &'static [&'static str] = &[#(#names),*];
             fn index(self) -> usize {
                 match self { #(#name::#variants => #indices,)* }
@@ -266,16 +266,16 @@ fn expand_event(input: DeriveInput) -> syn::Result<TokenStream2> {
                     .map(|r| quote!(#[serde(rename_all = #r)]))
                     .unwrap_or_default();
                 quote!(#index => {
-                    #[derive(::dunky_core::__private::serde::Deserialize)]
-                    #[serde(crate = "::dunky_core::__private::serde")]
+                    #[derive(::dunky_state_machine::__private::serde::Deserialize)]
+                    #[serde(crate = "::dunky_state_machine::__private::serde")]
                     #rename
                     struct __Payload { #( #(#field_attrs)* #field_idents: #field_tys, )* }
-                    let p = <__Payload as ::dunky_core::__private::serde::Deserialize>::deserialize(deserializer)?;
+                    let p = <__Payload as ::dunky_state_machine::__private::serde::Deserialize>::deserialize(deserializer)?;
                     ::core::result::Result::Ok(#name::#ident { #(#field_idents: p.#field_idents,)* })
                 })
             }
             Fields::Unnamed(_) => quote!(#index => ::core::result::Result::Err(
-                <__D::Error as ::dunky_core::__private::serde::de::Error>::custom(
+                <__D::Error as ::dunky_state_machine::__private::serde::de::Error>::custom(
                     "tuple event variants carry no field names; use named fields"
                 )
             ),),
@@ -330,8 +330,8 @@ fn expand_event(input: DeriveInput) -> syn::Result<TokenStream2> {
     };
     let deserialize_impl = if deserialize {
         quote! {
-            impl ::dunky_core::DeserializeEvent for #name {
-                fn deserialize_payload<'de, __D: ::dunky_core::__private::serde::Deserializer<'de>>(
+            impl ::dunky_state_machine::DeserializeEvent for #name {
+                fn deserialize_payload<'de, __D: ::dunky_state_machine::__private::serde::Deserializer<'de>>(
                     kind: usize,
                     deserializer: __D,
                 ) -> ::core::result::Result<Self, __D::Error> {
@@ -340,7 +340,7 @@ fn expand_event(input: DeriveInput) -> syn::Result<TokenStream2> {
                     match kind {
                         #(#payload_arms)*
                         _ => ::core::result::Result::Err(
-                            <__D::Error as ::dunky_core::__private::serde::de::Error>::custom("no such event type")
+                            <__D::Error as ::dunky_state_machine::__private::serde::de::Error>::custom("no such event type")
                         ),
                     }
                 }
@@ -356,7 +356,7 @@ fn expand_event(input: DeriveInput) -> syn::Result<TokenStream2> {
         #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
         #vis enum #kind { #(#variants),* }
 
-        impl ::dunky_core::EventEnum for #name {
+        impl ::dunky_state_machine::EventEnum for #name {
             type Kind = #kind;
             const KIND_NAMES: &'static [&'static str] = &[#(#names),*];
             fn kind(&self) -> #kind {
@@ -442,8 +442,8 @@ fn expand_context(input: DeriveInput) -> syn::Result<TokenStream2> {
                 quote! {
                     ::std::format!(
                         "{}: {}",
-                        ::dunky_core::__private::ts_key(#js),
-                        <#ty as ::dunky_core::TsType>::ts(),
+                        ::dunky_state_machine::__private::ts_key(#js),
+                        <#ty as ::dunky_state_machine::TsType>::ts(),
                     )
                 }
             })
@@ -454,14 +454,14 @@ fn expand_context(input: DeriveInput) -> syn::Result<TokenStream2> {
     };
     let serialize_impl = if serialize {
         quote! {
-            impl ::dunky_core::SerializeFields for #name {
-                fn serialize_field<__S: ::dunky_core::__private::serde::Serializer>(
+            impl ::dunky_state_machine::SerializeFields for #name {
+                fn serialize_field<__S: ::dunky_state_machine::__private::serde::Serializer>(
                     &self,
                     index: usize,
                     serializer: __S,
                 ) -> ::core::result::Result<__S::Ok, __S::Error> {
                     match index {
-                        #(#indices => ::dunky_core::__private::serde::Serialize::serialize(&self.#idents, serializer),)*
+                        #(#indices => ::dunky_state_machine::__private::serde::Serialize::serialize(&self.#idents, serializer),)*
                         _ => serializer.serialize_unit(),
                     }
                 }
@@ -511,8 +511,8 @@ fn expand_context(input: DeriveInput) -> syn::Result<TokenStream2> {
 
         #[allow(dead_code)]
         impl #name {
-            #(pub const #consts: ::dunky_core::Field<#name, #tys> =
-                ::dunky_core::Field::new(#indices, |c: &#name| &c.#idents);)*
+            #(pub const #consts: ::dunky_state_machine::Field<#name, #tys> =
+                ::dunky_state_machine::Field::new(#indices, |c: &#name| &c.#idents);)*
 
             /// Start a patch: `Self::patch().field(value)`.
             pub fn patch() -> #patch {
@@ -520,7 +520,7 @@ fn expand_context(input: DeriveInput) -> syn::Result<TokenStream2> {
             }
         }
 
-        impl ::dunky_core::Context for #name {
+        impl ::dunky_state_machine::Context for #name {
             type Patch = #patch;
             type Reader<'a> = #reader<'a>;
             const FIELDS: &'static [&'static str] = &[#(#js_names),*];

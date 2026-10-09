@@ -12,7 +12,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use common::{Ab, AbEvent, AbState, Calls, Log, ab, build};
-use dunky_core::{
+use dunky_state_machine::{
     Config, Connector, Context, Event, Machine, Reaction, State, Subscription, Types,
 };
 

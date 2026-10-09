@@ -1,7 +1,7 @@
 //! Rust-only: the derive macros name events exactly like serde, so the JS side can send
 //! `{ type, ... }` objects that both decoders (serde and `DeserializeEvent`) accept.
 
-use dunky_core::{Context, DeserializeEvent, Event, EventEnum, State, TsType};
+use dunky_state_machine::{Context, DeserializeEvent, Event, EventEnum, State, TsType};
 use serde::{Deserialize, Serialize};
 
 #[derive(Event, Clone, Debug, PartialEq, Deserialize)]

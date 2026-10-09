@@ -1,4 +1,4 @@
-//! `dunky-core` — the Rust implementation of Dunky's state machines, next to the TS one
+//! `dunky-state-machine` — the Rust implementation of Dunky's state machines, next to the TS one
 //! (`@dunky.dev/state-machine`).
 //!
 //! Both implement the same behavior contract, `packages/core/SPEC.md`; what is specific
@@ -13,8 +13,8 @@
 //! - **Change mask**: [`Machine::take_changes`] reports which fields changed, so a binding
 //!   can mirror only those into another runtime.
 
-// Lets the derive macros (which emit `::dunky_core::...`) work inside this crate too.
-extern crate self as dunky_core;
+// Lets the derive macros (which emit `::dunky_state_machine::...`) work inside this crate too.
+extern crate self as dunky_state_machine;
 
 mod broadcast;
 mod compose;
@@ -51,7 +51,7 @@ pub use traits::{DeserializeEvent, SerializeFields};
 pub use ts::TsType;
 
 #[cfg(feature = "derive")]
-pub use dunky_macros::{Context, Event, State, TsType};
+pub use dunky_state_machine_macros::{Context, Event, State, TsType};
 
 /// The `machine.init` marker name: what a boot effect or a data-reaction sees as its
 /// event type (`ActionParams::event()` returns `None` for it).
