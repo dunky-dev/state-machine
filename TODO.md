@@ -5,13 +5,32 @@ ran on the Rust engine, is on the local branch `rust-engine-under-ts` (head `4e4
 
 ## Rust machines on React Native (JSI)
 
-- [ ] `crates/uniffi` is a Rust machine as a JS object over JSI (today: the palette
-      only). It needs the same facade `fromWasm` gives a wasm class: the TS `Machine`
-      interface over the handle. Then `connect()`, the bindings and `packages/native`
-      work unchanged; it does not need to mirror `packages/shared/bindings`, which sit
-      above the machine.
-- [ ] Rework the handle onto the protocol `crates/wasm` speaks (notify per change,
-      timers as host calls) instead of JSON strings and a pulled change mask.
+Spiked on 2026-10-09: `crates/uniffi` runs in the Expo sandbox through
+uniffi-bindgen-react-native (`sandbox/uniffi`, a turbo module Expo autolinks into a dev
+build), in push mode (`attach(host)`: a `notify(state, lo, hi)` per change and timers as
+host calls, as `crates/wasm` speaks) next to the pull mode. The sandbox app times both
+against the TS engine (`sandbox/native/rust-bench.tsx`). Hermes, Release build, iPhone 17
+simulator, per event:
+
+| Event                      |     TS | Rust pull | Rust push |
+| -------------------------- | -----: | --------: | --------: |
+| execute (no payload)       | 315 ns |  1,596 ns |  1,446 ns |
+| query.set (JSON payload)   | 982 ns |  6,365 ns |  7,618 ns |
+| bare call (`stateIndex()`) |        |  1,130 ns |           |
+
+- The floor is the generated wrapper, not the engine: each method is two FFI calls (an
+  `Arc` clone, then the call) plus the status object and closures the generated TS
+  allocates. Push and pull cost the same; a notify back into JS adds ~0.3 µs.
+- A JSON payload adds ~5 µs: the string is lowered, then parsed by serde.
+- So uniffi does not get close to wasm, where a Rust machine runs within ~1.3× of the TS
+  engine. On React Native the TS engine stays the default: 315 ns per event is far below
+  any frame budget.
+
+- [ ] If Rust on React Native is still wanted: a hand-written JSI host object over the
+      handle's protocol (no per-call clone, no status allocation, typed payloads), or
+      ubrn's `jsi2` flavor — neither measured.
+- [ ] Only then, the TS facade over the handle (what `fromWasm` is to a wasm class), so
+      `connect()`, the bindings and `packages/native` work unchanged.
 
 ## Rust machines in JS (wasm) — done, notes
 

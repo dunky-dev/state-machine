@@ -1,6 +1,9 @@
 # React Native binding of the engine, built by uniffi-bindgen-react-native.
-# Standalone on purpose: the root workspace excludes it, so its mobile-only
-# toolchain can never break the other crates' builds.
+# Standalone on purpose: its own (empty) workspace, so its mobile-only toolchain can
+# never break the other crates' builds, and so it builds from a git worktree too (cargo
+# would otherwise walk up to the main checkout's workspace).
+[workspace]
+
 [package]
 name = "dunky-uniffi"
 version = "0.1.0"

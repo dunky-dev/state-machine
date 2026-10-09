@@ -5,12 +5,14 @@
 //! flat commands (`dunky_core::protocol`). Values cross as JSON strings instead of JS
 //! values. It still needs a TS facade over this handle (like `fromWasm` for wasm).
 
+use std::cell::RefCell;
 use std::mem::ManuallyDrop;
 use std::sync::Arc;
 use std::thread::{self, ThreadId};
 
 use dunky_core::{
-    Config, Context, DeserializeEvent, EventEnum, Machine, SerializeFields, StateEnum, Types,
+    Command, Config, Context, DeserializeEvent, EventEnum, Machine, SerializeFields, StateEnum,
+    Subscription, Types,
 };
 use dunky_sandbox::palette::{self, Palette, PaletteEvent};
 
@@ -85,6 +87,26 @@ fn event_name<T: Types>(kind: u32) -> Result<&'static str, MachineError> {
         .ok_or_else(|| MachineError::Invalid(format!("[machine] no event type #{kind}")))
 }
 
+/// The payload-less palette event at `kind`.
+fn unit_event(kind: u32) -> Result<PaletteEvent, MachineError> {
+    let name = event_name::<Palette>(kind)?;
+    PaletteEvent::from_kind(PaletteEvent::kind_from_index(kind as usize)).ok_or_else(|| {
+        MachineError::Invalid(format!(
+            "[machine] event \"{name}\" carries data; use sendEvent"
+        ))
+    })
+}
+
+/// The palette event at `kind` with its fields parsed from `json`.
+fn payload_event(kind: u32, json: &str) -> Result<PaletteEvent, MachineError> {
+    let name = event_name::<Palette>(kind)?;
+    let bad = |e: serde_json::Error| {
+        MachineError::Invalid(format!("[machine] bad \"{name}\" event: {e}"))
+    };
+    let payload: serde_json::Value = serde_json::from_str(json).map_err(bad)?;
+    PaletteEvent::deserialize_payload(kind as usize, payload).map_err(bad)
+}
+
 /// Appends field `index` as JSON. `None` is `null`, matching the TS machines.
 fn write_field<C: SerializeFields>(context: &C, index: usize, out: &mut Vec<u8>) {
     let start = out.len();
@@ -141,10 +163,56 @@ thread_local! {
     static PALETTE: Config<Palette> = palette::config(Vec::new());
 }
 
+/// What a machine calls on the native side (the push protocol, as `crates/wasm` speaks
+/// to JS): a notify per change, in order, and timers on the host's clock.
+#[uniffi::export(callback_interface)]
+pub trait MachineHost: Send + Sync {
+    /// Once per effective change: the state, and the fields changed since the last notify.
+    fn notify(&self, state: u32, lo: u32, hi: u32);
+    fn start_timer(&self, id: u32, ms: u32);
+    fn cancel_timer(&self, id: u32);
+}
+
+/// The attached host, and the engine subscription that feeds its `notify`.
+struct Attached {
+    host: Arc<dyn MachineHost>,
+    changes: Subscription,
+}
+
 /// The sandbox command palette (`dunky_sandbox::palette`), behind the handle protocol.
 #[derive(uniffi::Object)]
 pub struct PaletteMachine {
     machine: ThreadBound<Machine<Palette>>,
+    attached: ThreadBound<RefCell<Option<Attached>>>,
+}
+
+impl PaletteMachine {
+    /// Push mode: run the timer commands the last call emitted on the host's clock.
+    fn run_timers(&self) {
+        let attached = self.attached.get().borrow();
+        let Some(attached) = attached.as_ref() else {
+            return;
+        };
+        let machine = self.machine.get();
+        if !machine.has_commands() {
+            return;
+        }
+        for command in machine.take_commands() {
+            match command {
+                Command::StartTimer { id, ms } => attached.host.start_timer(id, ms),
+                Command::CancelTimer { id } => attached.host.cancel_timer(id),
+            }
+        }
+    }
+}
+
+impl Drop for PaletteMachine {
+    fn drop(&mut self) {
+        // The subscription holds the machine: undo it, so both are freed.
+        if let Some(attached) = self.attached.get().borrow_mut().take() {
+            attached.changes.unsubscribe();
+        }
+    }
 }
 
 #[uniffi::export]
@@ -158,34 +226,54 @@ impl PaletteMachine {
             PALETTE.with(|config| Machine::with_context(config, palette::context(commands)));
         Ok(Arc::new(Self {
             machine: ThreadBound::new(machine),
+            attached: ThreadBound::new(RefCell::new(None)),
         }))
+    }
+
+    /// Push mode: the machine notifies `host` once per change and runs its timers there.
+    pub fn attach(&self, host: Box<dyn MachineHost>) {
+        let host: Arc<dyn MachineHost> = Arc::from(host);
+        let machine = self.machine.get().clone();
+        let notify = host.clone();
+        let changes = self.machine.get().subscribe(move || {
+            let changes = machine.take_changes();
+            let fields = changes.fields;
+            notify.notify(
+                machine.state().index() as u32,
+                fields as u32,
+                (fields >> 32) as u32,
+            );
+        });
+        *self.attached.get().borrow_mut() = Some(Attached { host, changes });
+        self.run_timers();
+    }
+
+    /// Push mode: a payload-less event by kind index; changes arrive through the host.
+    pub fn send(&self, kind: u32) -> Result<(), MachineError> {
+        self.machine.get().send(unit_event(kind)?);
+        self.run_timers();
+        Ok(())
+    }
+
+    /// Push mode: an event with a payload, by kind index; `json` holds its fields.
+    pub fn send_json(&self, kind: u32, json: String) -> Result<(), MachineError> {
+        self.machine.get().send(payload_event(kind, &json)?);
+        self.run_timers();
+        Ok(())
     }
 
     /// Payload-less event by kind index. Returns the change mask.
     pub fn send_kind(&self, kind: u32) -> Result<u32, MachineError> {
-        let name = event_name::<Palette>(kind)?;
-        let event = PaletteEvent::from_kind(PaletteEvent::kind_from_index(kind as usize))
-            .ok_or_else(|| {
-                MachineError::Invalid(format!(
-                    "[machine] event \"{name}\" carries data; use sendEvent"
-                ))
-            })?;
         let machine = self.machine.get();
-        machine.send(event);
+        machine.send(unit_event(kind)?);
         Ok(take_change_mask(machine))
     }
 
     /// An event with a payload, by kind index; `json` holds its fields. Returns the
     /// change mask.
     pub fn send_payload_json(&self, kind: u32, json: String) -> Result<u32, MachineError> {
-        let name = event_name::<Palette>(kind)?;
-        let bad = |e: serde_json::Error| {
-            MachineError::Invalid(format!("[machine] bad \"{name}\" event: {e}"))
-        };
-        let payload: serde_json::Value = serde_json::from_str(&json).map_err(bad)?;
-        let event = PaletteEvent::deserialize_payload(kind as usize, payload).map_err(bad)?;
         let machine = self.machine.get();
-        machine.send(event);
+        machine.send(payload_event(kind, &json)?);
         Ok(take_change_mask(machine))
     }
 
