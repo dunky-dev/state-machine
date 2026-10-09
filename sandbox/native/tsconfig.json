@@ -4,5 +4,5 @@
     "jsx": "react-jsx",
     "types": ["react"]
   },
-  "include": ["index.ts", "app.tsx", "command-palette.tsx"]
+  "include": ["index.ts", "app.tsx", "command-palette.tsx", "rust-bench.tsx"]
 }

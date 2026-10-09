@@ -3,6 +3,7 @@ import { Alert, StyleSheet, Text, View } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { DEMO_COMMANDS } from '@sandbox/cmdk-core'
 import { CommandPalette } from './command-palette'
+import { RustBench } from './rust-bench'
 
 export default function App() {
   const [last, setLast] = useState('—')
@@ -23,6 +24,7 @@ export default function App() {
         The same machine + connect runs the terminal (OpenTUI) and React Native versions
       </Text>
       <Text style={styles.hint}>Last selected: {last}</Text>
+      <RustBench />
     </View>
   )
 }

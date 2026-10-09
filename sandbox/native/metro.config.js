@@ -1,6 +1,8 @@
 // Monorepo Metro config: watch the workspace root so Metro picks up the linked
 // @dunky.dev/* + @sandbox/* source packages, and resolve modules from both the
 // app's and the root's node_modules. Mirrors the standard Expo monorepo setup.
+// (app.json turns Expo's tsconfig-paths loader off: it needs the TypeScript JS API,
+// which TypeScript 7 no longer ships; the packages resolve by `main` anyway.)
 const { getDefaultConfig } = require('expo/metro-config')
 const path = require('node:path')
 
