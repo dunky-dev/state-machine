@@ -16,7 +16,7 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use common::{Count, CounterEvent, Log, build, counter};
-use dunky_core::{Connector, Subscription};
+use dunky_state_machine::{Connector, Subscription};
 
 /// A slot for a subscription made after the listener that will remove it.
 type Slot = Rc<RefCell<Option<Subscription>>>;

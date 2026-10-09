@@ -12,7 +12,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use dunky_benchmark::*;
-use dunky_core::Machine;
+use dunky_state_machine::Machine;
 
 /// Counts live heap bytes (the memory rows) and allocations (the frame rows).
 struct Counting;
@@ -203,7 +203,7 @@ fn frame_budget() {
 }
 
 fn main() {
-    println!("Rust engine benchmark (dunky-core, native, release build)");
+    println!("Rust engine benchmark (dunky-state-machine, native, release build)");
 
     frame_budget();
 

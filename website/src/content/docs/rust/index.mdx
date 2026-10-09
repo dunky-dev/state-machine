@@ -4,7 +4,7 @@ description: Dunky's state machines exist twice, in TypeScript and in Rust, and 
 ---
 
 Dunky's state machines are implemented **twice**: in TypeScript
-(`@dunky.dev/state-machine`) and in Rust (`dunky-core`). Neither engine runs on the
+(`@dunky.dev/state-machine`) and in Rust (`dunky-state-machine`). Neither engine runs on the
 other. Each is tuned for its own runtime, and both follow one behavior contract:
 [`packages/core/SPEC.md`](https://github.com/dunky-dev/state-machine/blob/main/packages/core/SPEC.md).
 
@@ -14,7 +14,7 @@ other. Each is tuned for its own runtime, and both follow one behavior contract:
                /                    \
               v                      v
 TypeScript engine                Rust engine
-@dunky.dev/state-machine         dunky-core
+@dunky.dev/state-machine         dunky-state-machine
 JS and every target              Rust programs, native bindings,
                                  and JS through wasm
 ```
@@ -25,25 +25,25 @@ JS and every target              Rust programs, native bindings,
   **TypeScript**. That is the default, and the fastest path in JS: the context lives in
   JS, so nothing crosses a boundary.
 - **Building in Rust** (a native app, a game, a server): write them in **Rust**, with
-  `dunky-core`. The same states, events, guards, effects, timers and computed values.
+  `dunky-state-machine`. The same states, events, guards, effects, timers and computed values.
 - **Sharing one machine between Rust and JS**: write it in Rust, and use it from
   TypeScript through wasm with [`fromWasm`](/rust/typescript) on the web, or over
   uniffi on React Native (in progress). The machine still runs on the Rust engine.
 
 ## The crates
 
-| Crate          | What it is                                                                  |
-| -------------- | --------------------------------------------------------------------------- |
-| `dunky-core`   | The Rust engine: machines, config builder, timers as commands, observers.   |
-| `dunky-macros` | `#[derive(State, Event, Context)]`, re-exported by `dunky-core`.            |
-| `dunky-wasm`   | `export_machine!`: a Rust machine as a JS class, in your own wasm module.   |
-| `dunky-uniffi` | Rust machines on React Native, a turbo module through uniffi (in progress). |
+| Crate                        | What it is                                                                  |
+| ---------------------------- | --------------------------------------------------------------------------- |
+| `dunky-state-machine`        | The Rust engine: machines, config builder, timers as commands, observers.   |
+| `dunky-state-machine-macros` | `#[derive(State, Event, Context)]`, re-exported by `dunky-state-machine`.   |
+| `dunky-state-machine-wasm`   | `export_machine!`: a Rust machine as a JS class, in your own wasm module.   |
+| `dunky-state-machine-uniffi` | Rust machines on React Native, a turbo module through uniffi (in progress). |
 
 The crates are not on crates.io yet. Use them from the repository:
 
 ```toml
 [dependencies]
-dunky-core = { git = "https://github.com/dunky-dev/state-machine" }
+dunky-state-machine = { git = "https://github.com/dunky-dev/state-machine" }
 ```
 
 ## How the two stay in sync

@@ -4,7 +4,7 @@
 mod common;
 
 use common::{Ab, AbEvent, AbEventKind, AbState, Calls, Log, ab, build};
-use dunky_core::Config;
+use dunky_state_machine::Config;
 
 #[test]
 fn is_built_stopped_and_start_boots_the_effects() {

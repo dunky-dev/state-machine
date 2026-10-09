@@ -8,7 +8,7 @@ import {
 } from '@dunky.dev/state-machine'
 
 /**
- * An instance of a class exported with `dunky_wasm::export_machine!`. Calls that run
+ * An instance of a class exported with `dunky_state_machine_wasm::export_machine!`. Calls that run
  * machine code return a status (see `OK`); the host functions run for the facade whose
  * call is in progress (`calling`).
  */
@@ -310,7 +310,7 @@ class RustMachine<
 
 /**
  * Wrap a Rust machine (an instance of a class exported with
- * `dunky_wasm::export_machine!`) in the `Machine` interface, so the connector and every
+ * `dunky_state_machine_wasm::export_machine!`) in the `Machine` interface, so the connector and every
  * target consume it like a machine of the TS engine. Its types are the class's,
  * generated from the machine's Rust types.
  */

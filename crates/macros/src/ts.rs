@@ -174,9 +174,9 @@ pub(crate) fn members<'a>(
         out.push(quote! {
             ::std::format!(
                 "{}{}: {}",
-                ::dunky_core::__private::ts_key(#name),
+                ::dunky_state_machine::__private::ts_key(#name),
                 #mark,
-                <#ty as ::dunky_core::TsType>::ts(),
+                <#ty as ::dunky_state_machine::TsType>::ts(),
             )
         });
     }
@@ -185,7 +185,7 @@ pub(crate) fn members<'a>(
 
 /// An object type from member expressions.
 pub(crate) fn object(members: &[TokenStream2]) -> TokenStream2 {
-    quote!(::dunky_core::__private::ts_object(&[#(#members),*]))
+    quote!(::dunky_state_machine::__private::ts_object(&[#(#members),*]))
 }
 
 /// The member that names a variant of a tagged union: `type: 'open'`.
@@ -193,8 +193,8 @@ pub(crate) fn tag_member(tag: &str, name: &str) -> TokenStream2 {
     quote! {
         ::std::format!(
             "{}: {}",
-            ::dunky_core::__private::ts_key(#tag),
-            ::dunky_core::__private::ts_literal(#name),
+            ::dunky_state_machine::__private::ts_key(#tag),
+            ::dunky_state_machine::__private::ts_literal(#name),
         )
     }
 }
@@ -212,11 +212,11 @@ pub(crate) fn impl_ts(input: &DeriveInput, ts: TokenStream2) -> TokenStream2 {
     let name = &input.ident;
     let mut generics = input.generics.clone();
     for param in generics.type_params_mut() {
-        param.bounds.push(syn::parse_quote!(::dunky_core::TsType));
+        param.bounds.push(syn::parse_quote!(::dunky_state_machine::TsType));
     }
     let (impl_g, ty_g, where_g) = generics.split_for_impl();
     quote! {
-        impl #impl_g ::dunky_core::TsType for #name #ty_g #where_g {
+        impl #impl_g ::dunky_state_machine::TsType for #name #ty_g #where_g {
             fn ts() -> ::std::string::String {
                 #ts
             }
@@ -236,11 +236,11 @@ pub(crate) fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
             )?),
             Fields::Named(fields) if fields.named.len() == 1 => {
                 let ty = &fields.named[0].ty;
-                quote!(<#ty as ::dunky_core::TsType>::ts())
+                quote!(<#ty as ::dunky_state_machine::TsType>::ts())
             }
             Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
                 let ty = &fields.unnamed[0].ty;
-                quote!(<#ty as ::dunky_core::TsType>::ts())
+                quote!(<#ty as ::dunky_state_machine::TsType>::ts())
             }
             Fields::Unit => quote!(::std::string::String::from("null")),
             _ => {
@@ -270,7 +270,7 @@ pub(crate) fn expand(input: DeriveInput) -> syn::Result<TokenStream2> {
                     .as_deref()
                     .or(container.rename_all_fields.as_deref());
                 variants.push(match (&container.tag, &v.fields) {
-                    (None, Fields::Unit) => quote!(::dunky_core::__private::ts_literal(#name)),
+                    (None, Fields::Unit) => quote!(::dunky_state_machine::__private::ts_literal(#name)),
                     (Some(tag), Fields::Unit) => object(&[tag_member(tag, &name)]),
                     (Some(tag), Fields::Named(fields)) => {
                         let mut all = vec![tag_member(tag, &name)];

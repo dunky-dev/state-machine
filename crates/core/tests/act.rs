@@ -12,7 +12,7 @@
 mod common;
 
 use common::{Log, build};
-use dunky_core::{Config, Context, Event, State, Types};
+use dunky_state_machine::{Config, Context, Event, State, Types};
 
 struct M;
 
@@ -108,7 +108,7 @@ fn composes_with_a_target_and_other_actions_in_order() {
     let log: Log = Log::default();
     let record = |phase: &'static str| {
         let log = log.clone();
-        move |p: &mut dunky_core::ActionParams<'_, M>| {
+        move |p: &mut dunky_state_machine::ActionParams<'_, M>| {
             log.push(format!("{phase}: hit={}", p.context().hit));
         }
     };

@@ -4,7 +4,7 @@
 
 use std::cell::Cell;
 
-use dunky_core::{ComputedKey, Config, Context, Event, Machine, Selection, State, Types};
+use dunky_state_machine::{ComputedKey, Config, Context, Event, Machine, Selection, State, Types};
 
 thread_local! {
     static SINK: Cell<u64> = const { Cell::new(0) };

@@ -1,6 +1,6 @@
 # Rust benchmark suite
 
-The Rust engine (`dunky-core`), measured natively. Release build, Apple M5 Pro; medians are
+The Rust engine (`dunky-state-machine`), measured natively. Release build, Apple M5 Pro; medians are
 the average of two runs, and the frame table's p99 and worst columns take the **higher** of
 the two runs. Absolute figures vary by machine and thermal state — **run it yourself**.
 

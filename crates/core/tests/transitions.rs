@@ -8,7 +8,7 @@
 mod common;
 
 use common::{Calls, Count, Counter, CounterEvent, CounterEventKind, CounterState, Log, build};
-use dunky_core::{Config, ConfigBuilder, Event, State, Types};
+use dunky_state_machine::{Config, ConfigBuilder, Event, State, Types};
 
 struct Door;
 

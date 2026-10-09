@@ -16,9 +16,9 @@ repository = "https://github.com/dunky-dev/state-machine"
 rust-version = "1.85"
 
 [workspace.dependencies]
-dunky-core = { path = "crates/core" }
-dunky-macros = { path = "crates/macros" }
-dunky-wasm = { path = "crates/wasm" }
+dunky-state-machine = { path = "crates/core" }
+dunky-state-machine-macros = { path = "crates/macros" }
+dunky-state-machine-wasm = { path = "crates/wasm" }
 dunky-sandbox = { path = "crates/sandbox" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

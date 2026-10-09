@@ -1,5 +1,5 @@
 [package]
-name = "dunky-core"
+name = "dunky-state-machine"
 description = "Substrate-agnostic state-machine engine — the Rust port of @dunky.dev/state-machine."
 version.workspace = true
 edition.workspace = true
@@ -10,12 +10,12 @@ rust-version.workspace = true
 [features]
 default = ["derive", "serde"]
 # #[derive(State, Event, Context)]
-derive = ["dep:dunky-macros"]
+derive = ["dep:dunky-state-machine-macros"]
 # Per-field serialization (SerializeFields) for bindings that mirror context into JS.
 serde = ["dep:serde"]
 
 [dependencies]
-dunky-macros = { workspace = true, optional = true }
+dunky-state-machine-macros = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 
 [dev-dependencies]

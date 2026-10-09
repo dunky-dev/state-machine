@@ -1,16 +1,16 @@
 ---
 title: Machines in Rust
-description: Write a Dunky machine in Rust with dunky-core.
+description: Write a Dunky machine in Rust with dunky-state-machine.
 ---
 
-`dunky-core` has the same machine model as the TS engine: flat states,
+`dunky-state-machine` has the same machine model as the TS engine: flat states,
 run-to-completion, guards, actions, effects, `after` timers, computed values, watchers
 and subscriptions. The difference is the shape: states, events and context are Rust
 types, and the config is built once with a builder.
 
 ```toml
 [dependencies]
-dunky-core = { git = "https://github.com/dunky-dev/state-machine" }
+dunky-state-machine = { git = "https://github.com/dunky-dev/state-machine" }
 ```
 
 ## Types
@@ -18,7 +18,7 @@ dunky-core = { git = "https://github.com/dunky-dev/state-machine" }
 A machine names three types, and the derives generate the glue:
 
 ```rust
-use dunky_core::{Config, Context, Event, Machine, State, Types};
+use dunky_state_machine::{Config, Context, Event, Machine, State, Types};
 
 #[derive(State, Clone, Copy, PartialEq, Eq, Debug)]
 enum DialogState { Closed, Open, Closing }
@@ -99,10 +99,10 @@ for command in dialog.take_commands() {
 }
 ```
 
-In tests, `dunky_core::testing::Clock` plays the host with virtual time:
+In tests, `dunky_state_machine::testing::Clock` plays the host with virtual time:
 
 ```rust
-let mut clock = dunky_core::testing::Clock::new(&dialog);
+let mut clock = dunky_state_machine::testing::Clock::new(&dialog);
 dialog.send(DialogEvent::Close); // -> closing, schedules exitDelay
 clock.sync();
 clock.advance(200);
