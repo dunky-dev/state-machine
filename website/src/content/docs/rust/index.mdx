@@ -28,16 +28,16 @@ JS and every target              Rust programs, native bindings,
   `dunky-state-machine`. The same states, events, guards, effects, timers and computed values.
 - **Sharing one machine between Rust and JS**: write it in Rust, and use it from
   TypeScript through wasm with [`fromWasm`](/rust/typescript) on the web, or over
-  uniffi on React Native (in progress). The machine still runs on the Rust engine.
+  JSI on React Native (in progress). The machine still runs on the Rust engine.
 
 ## The crates
 
-| Crate                        | What it is                                                                  |
-| ---------------------------- | --------------------------------------------------------------------------- |
-| `dunky-state-machine`        | The Rust engine: machines, config builder, timers as commands, observers.   |
-| `dunky-state-machine-macros` | `#[derive(State, Event, Context)]`, re-exported by `dunky-state-machine`.   |
-| `dunky-state-machine-wasm`   | `export_machine!`: a Rust machine as a JS class, in your own wasm module.   |
-| `dunky-state-machine-uniffi` | Rust machines on React Native, a turbo module through uniffi (in progress). |
+| Crate                        | What it is                                                                         |
+| ---------------------------- | ---------------------------------------------------------------------------------- |
+| `dunky-state-machine`        | The Rust engine: machines, config builder, timers as commands, observers.          |
+| `dunky-state-machine-macros` | `#[derive(State, Event, Context)]`, re-exported by `dunky-state-machine`.          |
+| `dunky-state-machine-wasm`   | `export_machine!`: a Rust machine as a JS class, in your own wasm module.          |
+| `dunky-state-machine-jsi`    | Rust machines on React Native over JSI (a uniffi turbo module today; in progress). |
 
 The crates are not on crates.io yet. Use them from the repository:
 

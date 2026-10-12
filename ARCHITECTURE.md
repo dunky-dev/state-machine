@@ -93,19 +93,19 @@ Zag, whose machines read props directly.)
 
 ## Project structure
 
-| File / location             | What it owns                                                      |
-| --------------------------- | ----------------------------------------------------------------- |
-| `packages/core/`            | State-machine engine (plain-mutation kernel)                      |
-| `packages/shared/bindings/` | Substrate-agnostic event + attr vocabulary (onPress, role, …)     |
-| `packages/shared/utils/`    | mergeProps, composeHandlers                                       |
-| `packages/<target>/`        | Hook + normalize per substrate (react, solid, native, opentui, …) |
-| `crates/core/`              | The Rust engine: the same spec, in Rust (`dunky-state-machine`)   |
-| `crates/macros/`            | `#[derive(State, Event, Context)]` for Rust machines              |
-| `crates/wasm/`              | Rust machines as JS classes (`export_machine!`)                   |
-| `packages/wasm/`            | `fromWasm`: a Rust machine behind the TS `Machine` interface      |
-| `crates/sandbox/`           | The sandbox machines in Rust, twins of `sandbox/shared` ones      |
-| `crates/uniffi/`            | Rust machines for React Native over JSI (uniffi; facade planned)  |
-| `sandbox/uniffi/`           | The turbo module uniffi-bindgen-react-native generates from it    |
+| File / location             | What it owns                                                                       |
+| --------------------------- | ---------------------------------------------------------------------------------- |
+| `packages/core/`            | State-machine engine (plain-mutation kernel)                                       |
+| `packages/shared/bindings/` | Substrate-agnostic event + attr vocabulary (onPress, role, …)                      |
+| `packages/shared/utils/`    | mergeProps, composeHandlers                                                        |
+| `packages/<target>/`        | Hook + normalize per substrate (react, solid, native, opentui, …)                  |
+| `crates/core/`              | The Rust engine: the same spec, in Rust (`dunky-state-machine`)                    |
+| `crates/core/macros/`       | `#[derive(State, Event, Context)]`; its own crate only because proc macros must be |
+| `crates/wasm/`              | Bridge: Rust machines as JS classes (`export_machine!`), for JS runtimes with wasm |
+| `packages/wasm/`            | `fromWasm`: a Rust machine behind the TS `Machine` interface                       |
+| `sandbox/rust/`             | The sandbox machines in Rust, twins of `sandbox/shared` ones                       |
+| `crates/jsi/`               | Bridge: Rust machines for React Native over JSI (uniffi today; facade planned)     |
+| `sandbox/jsi/`              | The turbo module uniffi-bindgen-react-native generates from it                     |
 
 ## The map
 
@@ -159,8 +159,8 @@ This is the target shape of the repo; the boxes marked _planned_ do not exist ye
              v                                           v
 +---------------------------+             +---------------------------+
 | TS engine                 |             | Rust engine               |
-| packages/core             |             | crates/core, crates/macros|
-| @dunky.dev/state-machine  |             | dunky-state-machine                |
+| packages/core             |             | crates/core (+ its macros)|
+| @dunky.dev/state-machine  |             | dunky-state-machine       |
 +---------------------------+             +---------------------------+
              |                                           |
              | authors                                   | authors
@@ -174,9 +174,9 @@ This is the target shape of the repo; the boxes marked _planned_ do not exist ye
              |                web: wasm32 |              | native: lib   | Rust app
              |                            v              v               |
              |              +----------------+  +----------------+       |
-             |              | crates/wasm    |  | crates/uniffi  |       |
+             |              | crates/wasm    |  | crates/jsi     |       |
              |              | export_machine!|  | push protocol  |       |
-             |              | wasm-bindgen   |  | ubrn turbo mod |       |
+             |              | wasm-bindgen   |  | uniffi today   |       |
              |              +----------------+  +----------------+       |
              |                      |                  |                 |
              |        notify(state, fields), timers, field reads         |
@@ -226,7 +226,7 @@ How to read it:
 - **A machine is authored against one engine, with its connector next to it.** TS
   machines against the TS engine; Rust machines against the Rust engine, which is the
   only place they run. The sandbox palette exists in both (`sandbox/shared`,
-  `crates/sandbox`), as a worked example of the twin rule.
+  `sandbox/rust`), as a worked example of the twin rule.
 - **The TS engine is the default in every JS runtime**, React Native included. A
   machine is written in Rust when it is wanted in Rust too (a Rust app) or shared
   across the web, React Native and Rust from one source.
@@ -234,11 +234,16 @@ How to read it:
   engine: they map names to numbers, keep a JS mirror of the context, re-read only the
   fields each notify names, and fan changes out to subscribers. `packages/wasm`
   (`fromWasm`) does it over `crates/wasm`; the React Native facade does the same over
-  `crates/uniffi`, which speaks the same push protocol (one `notify` per change, timers
+  `crates/jsi`, which speaks the same push protocol (one `notify` per change, timers
   as host calls).
-- **One binding per substrate.** `crates/wasm` for JS runtimes with wasm (web, Node,
-  Bun, so OpenTUI too). `crates/uniffi` for React Native over JSI, generated into a
-  turbo module by uniffi-bindgen-react-native (`sandbox/uniffi`).
+- **One bridge per substrate, one protocol.** `crates/wasm` for JS runtimes with wasm
+  (web, Node, Bun, so OpenTUI too). `crates/jsi` for React Native over JSI: today a
+  uniffi crate, generated into a turbo module by uniffi-bindgen-react-native
+  (`sandbox/jsi`). The contract is the push protocol (`crates/wasm/SPEC.md`), not the
+  tool: a bridge built another way sits behind the same facade. "Bridges" cross a
+  runtime boundary; "bindings" (`packages/shared/bindings`, and its Rust twin to come)
+  are the a11y and event vocabulary targets consume. The two words are kept apart on
+  purpose.
 - **Targets are engine-blind.** They take a `Machine` through `toMachine` and
   `connect`, so react, solid, native and opentui work unchanged whichever engine built
   it.

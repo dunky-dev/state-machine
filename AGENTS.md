@@ -25,13 +25,13 @@ editing files in that scope — it overrides anything here for that scope
 
 ## Scopes
 
-| Scope     | Path          | What it is                                                                                                           |
-| --------- | ------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Packages  | `packages/**` | The core machine, substrate targets (react, solid, native, opentui), and shared internals                            |
-| Benchmark | `benchmark/`  | Perf suites: `ts/` (the TS engine against competitor libraries) and `rust/` (the Rust engine)                        |
-| Sandbox   | `sandbox/`    | Per-substrate demo apps for manual verification                                                                      |
-| Website   | `website/`    | The docs site                                                                                                        |
-| Crates    | `crates/**`   | The Rust engine (`core`, `macros`), its JS binding (`wasm`), the sandbox machines in Rust, the RN binding (`uniffi`) |
+| Scope     | Path          | What it is                                                                                                         |
+| --------- | ------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Packages  | `packages/**` | The core machine, substrate targets (react, solid, native, opentui), and shared internals                          |
+| Benchmark | `benchmark/`  | Perf suites: `ts/` (the TS engine against competitor libraries) and `rust/` (the Rust engine)                      |
+| Sandbox   | `sandbox/`    | Per-substrate demo apps for manual verification, the shared TS machines (`shared/`) and their Rust twins (`rust/`) |
+| Website   | `website/`    | The docs site                                                                                                      |
+| Crates    | `crates/**`   | The Rust engine (`core`, with its proc macros in `core/macros`) and its bridges (`wasm`, `jsi`)                    |
 
 Some changes are cross-scope: a change in `core/` may need follow-up in
 the targets, sandboxes, and docs — and vice versa. Check what else your

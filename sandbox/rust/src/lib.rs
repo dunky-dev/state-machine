@@ -5,8 +5,8 @@
 //!   (computed filtering, logical navigation).
 //! - [`dialog`] — open / closing / closed with a context-driven exit delay (`after`).
 //!
-//! `crates/uniffi` runs the palette on React Native. With the `wasm` feature, both are JS
-//! classes too (`pnpm build:wasm` builds them to `crates/sandbox/pkg`): every sandbox
+//! `crates/jsi` runs the palette on React Native. With the `wasm` feature, both are JS
+//! classes too (`pnpm build:wasm` builds them to `sandbox/rust/pkg`): every sandbox
 //! runs the palette on them with `?machine=rust` (`--machine=rust` in the terminal).
 
 pub mod dialog;

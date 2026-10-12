@@ -11,7 +11,7 @@ crate-type = ["cdylib", "rlib"]
 
 [features]
 # The JS classes (export_machine!), on for the wasm build (pnpm build:wasm) only, so
-# crates reusing the machines (crates/uniffi) never link the JS exports.
+# crates reusing the machines (crates/jsi) never link the JS exports.
 wasm = ["dep:dunky-state-machine-wasm", "dep:wasm-bindgen"]
 
 [dependencies]

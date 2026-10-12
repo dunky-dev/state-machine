@@ -38,7 +38,7 @@ The Rust engine (`crates/`) is a plain Cargo workspace; run cargo at the repo ro
 | `cargo fmt` / `--check`          | `rustfmt`                                           |
 | `cargo bench -p dunky-benchmark` | The Rust engine's benchmark (`benchmark/rust`)      |
 
-`pnpm build:wasm` builds the sandbox machines written in Rust to wasm (`crates/sandbox/pkg`),
+`pnpm build:wasm` builds the sandbox machines written in Rust to wasm (`sandbox/rust/pkg`),
 with their TS types: the sandbox's `?machine=rust` mode and its Rust tests need it. It
 needs the `wasm32-unknown-unknown` target and `wasm-bindgen-cli` at the version
 `Cargo.toml` pins.

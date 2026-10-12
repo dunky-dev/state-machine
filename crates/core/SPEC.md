@@ -42,7 +42,7 @@ reporting.
 
 - **No IO, no clock, no platform.** The engine never reads time and never schedules work.
   A host does.
-- **No JS.** Bindings live in their own crates (`crates/uniffi` for React Native).
+- **No JS.** Bindings live in their own crates (`crates/jsi` for React Native).
 - **One thread.** A machine and what it shares stay on one thread. A binding that crosses
   threads enforces that itself.
 - **At most 64 context fields** per machine: each field is one bit of the change mask.
