@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build the wasm of the sandbox machines written in Rust (crates/sandbox -> its pkg/),
+# Build the wasm of the sandbox machines written in Rust (sandbox/rust -> its pkg/),
 # with their TS types: what `?machine=rust` and the sandbox's Rust tests load.
 # Needs: rustup target wasm32-unknown-unknown, wasm-bindgen-cli matching the crate
 # version (see Cargo.toml), and optionally wasm-opt (binaryen) for the size pass.
@@ -39,5 +39,5 @@ types() {
   cargo run -q -p "$crate" --example typescript "$@" >> "$dts"
 }
 
-build dunky-sandbox dunky_sandbox crates/sandbox/pkg --features wasm
-types dunky-sandbox crates/sandbox/pkg/dunky_sandbox.d.ts --features wasm
+build dunky-sandbox dunky_sandbox sandbox/rust/pkg --features wasm
+types dunky-sandbox sandbox/rust/pkg/dunky_sandbox.d.ts --features wasm

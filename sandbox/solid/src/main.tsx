@@ -8,7 +8,7 @@ import '../../shared/src/styles.css'
 const root = document.getElementById('root')
 if (!root) throw new Error('missing #root')
 
-// `?machine=rust` runs the palette written in Rust (crates/sandbox → wasm) instead
+// `?machine=rust` runs the palette written in Rust (sandbox/rust → wasm) instead
 // of the one written in TS. Build the wasm first: `pnpm build:wasm`.
 const language: Language =
   new URLSearchParams(location.search).get('machine') === 'rust' ? 'rust' : 'ts'

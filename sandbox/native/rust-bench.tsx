@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { toMachine } from '@dunky.dev/state-machine'
 import { commandPaletteMachineConfig, DEMO_COMMANDS } from '@sandbox/cmdk-core'
-import { type MachineHost, PaletteMachine } from '@sandbox/uniffi'
+import { type MachineHost, PaletteMachine } from '@sandbox/jsi'
 
 // The uniffi spike: what one event costs in Hermes on each path, side by side.
 //

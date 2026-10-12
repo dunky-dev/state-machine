@@ -6,11 +6,11 @@ ran on the Rust engine, is on the local branch `rust-engine-under-ts` (head `4e4
 ## Rust machines on React Native (JSI)
 
 Decided on 2026-10-09. The TS engine stays the default on React Native. A machine
-written in Rust (e.g. a dropdown) is consumed as wasm on the web and over uniffi on React
+written in Rust (e.g. a dropdown) is consumed as wasm on the web and over JSI on React
 Native, behind a facade that gives it the TS `Machine` interface, as `fromWasm` does.
 
-Spiked in PR #76: `crates/uniffi` runs in the Expo sandbox through
-uniffi-bindgen-react-native (`sandbox/uniffi`, a turbo module Expo autolinks into a dev
+Spiked in PR #76: `crates/jsi` runs in the Expo sandbox through
+uniffi-bindgen-react-native (`sandbox/jsi`, a turbo module Expo autolinks into a dev
 build), in push mode (`attach(host)`: a `notify(state, lo, hi)` per change and timers as
 host calls, as `crates/wasm` speaks) next to the pull mode. The sandbox app times both
 against the TS engine (`sandbox/native/rust-bench.tsx`). Hermes, Release build, iPhone 17
@@ -30,7 +30,7 @@ simulator, per event:
   dropdown sends a handful. Too slow for a hot path (many machines updated per frame,
   or field reads on every render): the facade must keep the hot path on the JS side.
 
-- [ ] The RN facade over `crates/uniffi` (`fromUniffi`, the twin of `fromWasm`): push
+- [ ] The RN facade over `crates/jsi` (`fromNative`, the twin of `fromWasm`): push
       mode, a JS context mirror re-read only on the fields a notify names, renders read
       the mirror. Reuse `RustMachine` from `packages/wasm`; only the handle differs.
 - [ ] Typed payloads instead of JSON strings: uniffi records and enums as arguments

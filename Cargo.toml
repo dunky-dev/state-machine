@@ -4,9 +4,9 @@
 # `cargo test --workspace` for the others.
 [workspace]
 resolver = "3"
-members = ["crates/core", "crates/macros", "crates/wasm", "crates/sandbox", "benchmark/rust"]
-# Built by its own pipeline (uniffi-bindgen-react-native) for iOS/Android.
-exclude = ["crates/uniffi"]
+members = ["crates/core", "crates/core/macros", "crates/wasm", "sandbox/rust", "benchmark/rust"]
+# The React Native bridge: built by its own pipeline (uniffi-bindgen-react-native today).
+exclude = ["crates/jsi"]
 
 [workspace.package]
 version = "0.1.0"
@@ -17,9 +17,9 @@ rust-version = "1.85"
 
 [workspace.dependencies]
 dunky-state-machine = { path = "crates/core" }
-dunky-state-machine-macros = { path = "crates/macros" }
+dunky-state-machine-macros = { path = "crates/core/macros" }
 dunky-state-machine-wasm = { path = "crates/wasm" }
-dunky-sandbox = { path = "crates/sandbox" }
+dunky-sandbox = { path = "sandbox/rust" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Must match the installed wasm-bindgen CLI exactly (wasm-bindgen --version).

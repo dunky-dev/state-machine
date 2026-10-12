@@ -1,5 +1,5 @@
 /**
- * The sandbox machines written in Rust (crates/sandbox), wrapped with `fromWasm`.
+ * The sandbox machines written in Rust (sandbox/rust), wrapped with `fromWasm`.
  * Build the wasm first: `pnpm build:wasm`. Load it once — `await loadRust()` in a
  * browser, `loadRustSync(bytes)` (or `./rust-node`) in Node and Bun — then build
  * machines with the factories below. Their types come from the Rust types: the build
@@ -10,7 +10,7 @@ import init, {
   DialogMachine,
   initSync,
   PaletteMachine,
-} from '../../../crates/sandbox/pkg/dunky_sandbox.js'
+} from '../../../sandbox/rust/pkg/dunky_sandbox.js'
 import type { CommandPaletteMachine } from './machine'
 import type {
   Command,

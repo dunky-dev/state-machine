@@ -132,22 +132,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "dunky-state-machine-macros"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.119",
-]
-
-[[package]]
-name = "dunky-state-machine-uniffi"
+name = "dunky-state-machine-jsi"
 version = "0.1.0"
 dependencies = [
  "dunky-sandbox",
  "dunky-state-machine",
  "serde_json",
  "uniffi",
+]
+
+[[package]]
+name = "dunky-state-machine-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]

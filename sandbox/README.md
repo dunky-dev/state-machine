@@ -48,7 +48,7 @@ All four consume the workspace packages straight from their TypeScript `src/`
 
 Both palettes run on the Rust engine. By default the sandboxes run the one written in
 TypeScript (`shared/src/machine.ts`); each web and terminal sandbox can also run its
-Rust twin (`crates/sandbox`, wrapped with `fromWasm` from `@dunky.dev/state-machine-wasm`) — same `connect()`, same markup,
+Rust twin (`sandbox/rust`, wrapped with `fromWasm` from `@dunky.dev/state-machine-wasm`) — same `connect()`, same markup,
 only the machine's source language differs:
 
 ```bash

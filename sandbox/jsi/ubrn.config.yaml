@@ -1,7 +1,7 @@
-# uniffi-bindgen-react-native: the Rust crate is crates/uniffi; the simulator build is
+# uniffi-bindgen-react-native: the Rust crate is crates/jsi; the simulator build is
 # all the sandbox needs (`pnpm ubrn:ios`).
 rust:
-  directory: ../../crates/uniffi
+  directory: ../../crates/jsi
   manifestPath: Cargo.toml
 ios:
   targets:

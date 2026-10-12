@@ -32,7 +32,7 @@ every target takes it like any other machine.
               |                             |
               |                   +---------+---------+
               |                   |                   |
-              |             wasm, uniffi           Rust apps
+              |             wasm, jsi              Rust apps
               |                   v               (iced, planned)
               |      fromWasm: the TS Machine interface
               |      over a Rust machine (packages/wasm)
@@ -94,7 +94,7 @@ elements — the left two are agnostic, the right three are per-target:
   ([`packages/core`](./packages/core)) and in Rust ([`crates/core`](./crates/core)),
   two engines on one spec. A machine written in Rust reaches TypeScript through
   wasm ([`crates/wasm`](./crates/wasm) + [`packages/wasm`](./packages/wasm)) and
-  React Native through uniffi ([`crates/uniffi`](./crates/uniffi), in progress).
+  React Native over JSI ([`crates/jsi`](./crates/jsi), uniffi today, in progress).
 - **connector** — turns machine state into agnostic _bindings_ and keeps that
   view in sync as the machine changes.
 - **normalize** — per target, translates those bindings into real props

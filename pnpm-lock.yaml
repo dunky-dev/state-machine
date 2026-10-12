@@ -238,6 +238,21 @@ importers:
         specifier: workspace:*
         version: link:../core
 
+  sandbox/jsi:
+    dependencies:
+      '@ubjs/core':
+        specifier: 0.31.0-6
+        version: 0.31.0-6
+      react:
+        specifier: '*'
+        version: 19.2.6
+      react-native:
+        specifier: '*'
+        version: 0.81.4(@babel/core@7.29.7)(@types/react@19.2.15)(react@19.2.6)
+      uniffi-bindgen-react-native:
+        specifier: 0.31.0-6
+        version: 0.31.0-6
+
   sandbox/native:
     dependencies:
       '@dunky.dev/native-state-machine':
@@ -258,9 +273,9 @@ importers:
       '@sandbox/cmdk-core':
         specifier: workspace:^
         version: link:../shared
-      '@sandbox/uniffi':
+      '@sandbox/jsi':
         specifier: workspace:^
-        version: link:../uniffi
+        version: link:../jsi
       expo:
         specifier: ^54.0.0
         version: 54.0.35(@babel/core@7.29.7)(react-native@0.81.4(@babel/core@7.29.7)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)(typescript@7.0.2)
@@ -409,21 +424,6 @@ importers:
       vite-plugin-solid:
         specifier: ^3.0.0-next.27
         version: 3.0.0-next.27(@solidjs/web@2.0.0-rc.1(solid-js@2.0.0-rc.1))(solid-js@2.0.0-rc.1)(vite@8.0.14(@types/node@24.13.2)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.4)(yaml@2.9.0))
-
-  sandbox/uniffi:
-    dependencies:
-      '@ubjs/core':
-        specifier: 0.31.0-6
-        version: 0.31.0-6
-      react:
-        specifier: '*'
-        version: 19.2.6
-      react-native:
-        specifier: '*'
-        version: 0.81.4(@babel/core@7.29.7)(@types/react@19.2.15)(react@19.2.6)
-      uniffi-bindgen-react-native:
-        specifier: 0.31.0-6
-        version: 0.31.0-6
 
   website:
     dependencies:
