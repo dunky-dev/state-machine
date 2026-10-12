@@ -212,7 +212,9 @@ pub(crate) fn impl_ts(input: &DeriveInput, ts: TokenStream2) -> TokenStream2 {
     let name = &input.ident;
     let mut generics = input.generics.clone();
     for param in generics.type_params_mut() {
-        param.bounds.push(syn::parse_quote!(::dunky_state_machine::TsType));
+        param
+            .bounds
+            .push(syn::parse_quote!(::dunky_state_machine::TsType));
     }
     let (impl_g, ty_g, where_g) = generics.split_for_impl();
     quote! {
