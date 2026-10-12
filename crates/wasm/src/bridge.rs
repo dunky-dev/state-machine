@@ -13,7 +13,7 @@
 use std::cell::{Cell, OnceCell, RefCell};
 use std::rc::Rc;
 
-use dunky_core::{Changes, Command, Machine, Types};
+use dunky_state_machine::{Changes, Command, Machine, Types};
 use wasm_bindgen::prelude::*;
 
 /// A call finished.

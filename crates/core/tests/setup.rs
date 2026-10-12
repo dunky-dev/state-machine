@@ -14,8 +14,8 @@
 mod common;
 
 use common::{Calls, Log, build};
-use dunky_core::testing::Clock;
-use dunky_core::{Config, Context, Event, State, Types};
+use dunky_state_machine::testing::Clock;
+use dunky_state_machine::{Config, Context, Event, State, Types};
 
 struct M;
 

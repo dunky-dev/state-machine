@@ -1,8 +1,8 @@
-# SPEC - `dunky-core`
+# SPEC - `dunky-state-machine`
 
 ## Overview
 
-`dunky-core` is the Rust implementation of Dunky's state machines. The TypeScript
+`dunky-state-machine` is the Rust implementation of Dunky's state machines. The TypeScript
 implementation is [`@dunky.dev/state-machine`](../../packages/core). They are two
 engines with one behavior contract,
 [`packages/core/SPEC.md`](../../packages/core/SPEC.md): flat states, run-to-completion,

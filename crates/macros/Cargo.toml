@@ -1,6 +1,6 @@
 [package]
-name = "dunky-macros"
-description = "Derive macros for dunky-core: State, Event, Context, TsType."
+name = "dunky-state-machine-macros"
+description = "Derive macros for dunky-state-machine: State, Event, Context, TsType."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

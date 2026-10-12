@@ -1,13 +1,13 @@
 [package]
-name = "dunky-wasm"
-description = "Run dunky-core machines from JavaScript: export a Rust machine to a JS class with one macro."
+name = "dunky-state-machine-wasm"
+description = "Run dunky-state-machine machines from JavaScript: export a Rust machine to a JS class with one macro."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
 [dependencies]
-dunky-core = { workspace = true }
+dunky-state-machine = { workspace = true }
 wasm-bindgen = { workspace = true }
 js-sys = { workspace = true }
 serde = { workspace = true }

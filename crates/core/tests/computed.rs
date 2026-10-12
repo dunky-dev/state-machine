@@ -14,7 +14,7 @@
 mod common;
 
 use common::{Calls, Log, build};
-use dunky_core::{
+use dunky_state_machine::{
     ComputedKey, Config, ConfigBuilder, Context, Event, Machine, State, StateEnum, Types,
 };
 

@@ -4,7 +4,7 @@
 //! wraparound, clamp) lives in context + computed, driven by logical events. A renderer
 //! never computes an index: it sends `move` / `query.set` and reads `results` / `activeId`.
 
-use dunky_core::{ComputedKey, Config, Context, Event, State, TsType, Types};
+use dunky_state_machine::{ComputedKey, Config, Context, Event, State, TsType, Types};
 use serde::{Deserialize, Serialize};
 
 #[derive(TsType, Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -248,7 +248,7 @@ pub fn demo_commands() -> Vec<Command> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use dunky_core::Machine;
+    use dunky_state_machine::Machine;
 
     fn open_palette() -> Machine<Palette> {
         let m = Machine::new(&config(demo_commands()));
@@ -292,7 +292,7 @@ mod tests {
 
     #[test]
     fn payload_events_rebuild_from_kind_and_fields_only() {
-        use dunky_core::{DeserializeEvent, EventEnum};
+        use dunky_state_machine::{DeserializeEvent, EventEnum};
         let decode = |kind: PaletteEventKind, value: serde_json::Value| {
             PaletteEvent::deserialize_payload(PaletteEvent::kind_index(kind), value)
         };

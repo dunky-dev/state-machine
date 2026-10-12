@@ -5,7 +5,7 @@
 [workspace]
 
 [package]
-name = "dunky-uniffi"
+name = "dunky-state-machine-uniffi"
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
@@ -13,13 +13,13 @@ repository = "https://github.com/dunky-dev/state-machine"
 publish = false
 
 [lib]
-name = "dunky_uniffi"
+name = "dunky_state_machine_uniffi"
 # staticlib: what ubrn links into the iOS xcframework and the Android turbo-module.
 # cdylib: what ubrn's `jsi2` flavour loads instead, keeping that path open.
 crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
-dunky-core = { path = "../core" }
+dunky-state-machine = { path = "../core" }
 dunky-sandbox = { path = "../sandbox" }
 serde_json = "1"
 # Must stay on the uniffi minor that uniffi-bindgen-react-native is built with

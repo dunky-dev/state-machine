@@ -2,7 +2,7 @@
 //! uniffi-bindgen-react-native: the sandbox palette written in Rust.
 //!
 //! Events go in by kind index; a u32 change mask comes out, and timers come out as
-//! flat commands (`dunky_core::protocol`). Values cross as JSON strings instead of JS
+//! flat commands (`dunky_state_machine::protocol`). Values cross as JSON strings instead of JS
 //! values. It still needs a TS facade over this handle (like `fromWasm` for wasm).
 
 use std::cell::RefCell;
@@ -10,16 +10,16 @@ use std::mem::ManuallyDrop;
 use std::sync::Arc;
 use std::thread::{self, ThreadId};
 
-use dunky_core::{
+use dunky_sandbox::palette::{self, Palette, PaletteEvent};
+use dunky_state_machine::{
     Command, Config, Context, DeserializeEvent, EventEnum, Machine, SerializeFields, StateEnum,
     Subscription, Types,
 };
-use dunky_sandbox::palette::{self, Palette, PaletteEvent};
 
 uniffi::setup_scaffolding!();
 
-// The change mask and the command encoding: `dunky_core::protocol`.
-use dunky_core::protocol::{FIELD_SHIFT, HIGH_FIELD, encode_commands, take_change_mask};
+// The change mask and the command encoding: `dunky_state_machine::protocol`.
+use dunky_state_machine::protocol::{FIELD_SHIFT, HIGH_FIELD, encode_commands, take_change_mask};
 
 /// Bad input from JS, thrown as an `Error` with this message.
 #[derive(Debug, uniffi::Error)]

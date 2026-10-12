@@ -18,20 +18,31 @@ checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
 name = "dunky-benchmark"
 version = "0.1.0"
 dependencies = [
- "dunky-core",
+ "dunky-state-machine",
 ]
 
 [[package]]
-name = "dunky-core"
+name = "dunky-sandbox"
 version = "0.1.0"
 dependencies = [
- "dunky-macros",
+ "dunky-state-machine",
+ "dunky-state-machine-wasm",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "dunky-state-machine"
+version = "0.1.0"
+dependencies = [
+ "dunky-state-machine-macros",
  "serde",
  "serde_json",
 ]
 
 [[package]]
-name = "dunky-macros"
+name = "dunky-state-machine-macros"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",
@@ -40,21 +51,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "dunky-sandbox"
+name = "dunky-state-machine-wasm"
 version = "0.1.0"
 dependencies = [
- "dunky-core",
- "dunky-wasm",
- "serde",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "dunky-wasm"
-version = "0.1.0"
-dependencies = [
- "dunky-core",
+ "dunky-state-machine",
  "js-sys",
  "serde",
  "serde-wasm-bindgen",

@@ -24,7 +24,7 @@ const QUERY_SET = 2
 const EXECUTE = 5
 const QUERY = 1
 const LAST_EXECUTED = 3
-// The pull mask: field `i` is bit `2 + i` (`dunky_core::protocol`).
+// The pull mask: field `i` is bit `2 + i` (`dunky_state_machine::protocol`).
 const FIELD_SHIFT = 2
 
 interface Result {

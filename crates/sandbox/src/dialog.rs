@@ -2,7 +2,7 @@
 //! before `closed`, so a renderer can animate out. Shows `after` timers running through
 //! the host's clock.
 
-use dunky_core::{Config, Context, Event, State, Types};
+use dunky_state_machine::{Config, Context, Event, State, Types};
 use serde::Deserialize;
 
 #[derive(State, Clone, Copy, PartialEq, Eq, Debug)]

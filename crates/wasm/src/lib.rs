@@ -1,4 +1,4 @@
-//! `dunky-wasm` — run `dunky-core` machines from JavaScript.
+//! `dunky-state-machine-wasm` — run `dunky-state-machine` machines from JavaScript.
 //!
 //! [`export_machine!`] turns a machine written in Rust into a JS class, in your own wasm
 //! module. `@dunky.dev/state-machine-wasm` wraps an instance with `fromWasm`, so the
@@ -19,7 +19,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use dunky_core::{
+use dunky_state_machine::{
     ComputedKey, Context, DeserializeEvent, EventEnum, Machine, SerializeFields, StateEnum,
     Subscription, Types,
 };
@@ -35,10 +35,10 @@ pub use bridge::{Bridge, ENGINE_FAILED, FAILED, HostObject, OK};
 
 #[doc(hidden)]
 pub mod __private {
-    pub use dunky_core::{ComputedKey, Config, TsType};
+    pub use dunky_state_machine::{ComputedKey, Config, TsType};
 
-    use dunky_core::__private::{ts_key, ts_object};
-    use dunky_core::{Context, Types};
+    use dunky_state_machine::__private::{ts_key, ts_object};
+    use dunky_state_machine::{Context, Types};
 
     /// The declaration that gives exported class `class` its machine's types: a
     /// `__types` member, only in the types, that `fromWasm` reads. `computed` holds the
@@ -274,12 +274,12 @@ where
 /// `@dunky.dev/state-machine`.
 ///
 /// ```ignore
-/// dunky_wasm::export_machine! {
+/// dunky_state_machine_wasm::export_machine! {
 ///     /// The command palette.
 ///     pub struct PaletteMachine(palette::Palette);
 ///     new(commands: JsValue) {
 ///         // A `Result` body throws its error from the JS constructor.
-///         dunky_wasm::from_js(commands).map(|c| Machine::new(&palette::config(c)))
+///         dunky_state_machine_wasm::from_js(commands).map(|c| Machine::new(&palette::config(c)))
 ///     }
 ///     computed { palette::RESULTS => Vec<Command>, palette::ACTIVE_ID => Option<String> }
 ///     // Optional: served too, but left out of the machine's TS types.

@@ -1,15 +1,15 @@
-# SPEC - `dunky-wasm`
+# SPEC - `dunky-state-machine-wasm`
 
 ## Overview
 
-`dunky-wasm` runs machines written in Rust ([`dunky-core`](../core/SPEC.md)) from
+`dunky-state-machine-wasm` runs machines written in Rust ([`dunky-state-machine`](../core/SPEC.md)) from
 JavaScript. `export_machine!` turns a machine type into a JS class, in the author's own
 wasm module; [`@dunky.dev/state-machine-wasm`](../../packages/wasm) wraps an instance
 with `fromWasm` in the `Machine` interface, so the connector and every target consume
 it next to the machines of the TS engine.
 
 ```
-  Rust machine (dunky-core types)
+  Rust machine (dunky-state-machine types)
         |
         |  export_machine!  (your crate, your wasm module)
         v

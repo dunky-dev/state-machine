@@ -1,7 +1,7 @@
 # @dunky.dev/state-machine-wasm
 
 Use a Dunky machine written in **Rust** from TypeScript. `fromWasm` wraps a class
-exported with `dunky_wasm::export_machine!` (see [`crates/wasm`](../../crates/wasm)) in
+exported with `dunky_state_machine_wasm::export_machine!` (see [`crates/wasm`](../../crates/wasm)) in
 the same `Machine` interface the TS engine returns, so `connect()`, `useMachine` and
 every target consume it unchanged, next to your TS machines.
 

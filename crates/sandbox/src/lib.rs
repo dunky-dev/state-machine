@@ -1,4 +1,4 @@
-//! The sandbox machines, written in Rust against `dunky-core` — the Rust twins of the TS
+//! The sandbox machines, written in Rust against `dunky-state-machine` — the Rust twins of the TS
 //! machines in `sandbox/shared/src`, following the same spec:
 //!
 //! - [`palette`] — the command palette, a faithful port of `sandbox/shared/src/machine.ts`
@@ -17,7 +17,7 @@ pub use exports::typescript;
 
 #[cfg(feature = "wasm")]
 mod exports {
-    use dunky_core::{Config, Machine};
+    use dunky_state_machine::{Config, Machine};
     use wasm_bindgen::prelude::*;
 
     use crate::{dialog, palette};
@@ -28,12 +28,12 @@ mod exports {
         static DIALOG: Config<dialog::Dialog> = dialog::config(0);
     }
 
-    dunky_wasm::export_machine! {
+    dunky_state_machine_wasm::export_machine! {
         /// The command palette.
         pub struct PaletteMachine(palette::Palette);
         new(commands: JsValue) {
             // Malformed commands throw: the host maps result indices onto its own array.
-            dunky_wasm::from_js::<Vec<palette::Command>>(commands)
+            dunky_state_machine_wasm::from_js::<Vec<palette::Command>>(commands)
                 .map(|commands| PALETTE.with(|c| Machine::with_context(c, palette::context(commands))))
         }
         computed {
@@ -46,7 +46,7 @@ mod exports {
         }
     }
 
-    dunky_wasm::export_machine! {
+    dunky_state_machine_wasm::export_machine! {
         /// A dialog whose `closing` phase lasts `exitMs`.
         pub struct DialogMachine(dialog::Dialog);
         new(exit_ms: u32) {

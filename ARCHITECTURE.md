@@ -99,7 +99,7 @@ Zag, whose machines read props directly.)
 | `packages/shared/bindings/` | Substrate-agnostic event + attr vocabulary (onPress, role, …)     |
 | `packages/shared/utils/`    | mergeProps, composeHandlers                                       |
 | `packages/<target>/`        | Hook + normalize per substrate (react, solid, native, opentui, …) |
-| `crates/core/`              | The Rust engine: the same spec, in Rust (`dunky-core`)            |
+| `crates/core/`              | The Rust engine: the same spec, in Rust (`dunky-state-machine`)   |
 | `crates/macros/`            | `#[derive(State, Event, Context)]` for Rust machines              |
 | `crates/wasm/`              | Rust machines as JS classes (`export_machine!`)                   |
 | `packages/wasm/`            | `fromWasm`: a Rust machine behind the TS `Machine` interface      |
@@ -160,7 +160,7 @@ This is the target shape of the repo; the boxes marked _planned_ do not exist ye
 +---------------------------+             +---------------------------+
 | TS engine                 |             | Rust engine               |
 | packages/core             |             | crates/core, crates/macros|
-| @dunky.dev/state-machine  |             | dunky-core                |
+| @dunky.dev/state-machine  |             | dunky-state-machine                |
 +---------------------------+             +---------------------------+
              |                                           |
              | authors                                   | authors

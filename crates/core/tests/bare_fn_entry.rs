@@ -13,7 +13,7 @@
 mod common;
 
 use common::{Log, build};
-use dunky_core::{Config, Context, Event, State, Types};
+use dunky_state_machine::{Config, Context, Event, State, Types};
 
 struct M;
 

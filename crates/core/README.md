@@ -1,4 +1,4 @@
-# dunky-core
+# dunky-state-machine
 
 Dunky's state machines in Rust: the twin of the TypeScript engine,
 [`@dunky.dev/state-machine`](../../packages/core). Both follow one behavior contract,
@@ -6,7 +6,7 @@ Dunky's state machines in Rust: the twin of the TypeScript engine,
 ported from `packages/core/tests`. Use it in Rust programs and native bindings.
 
 ```rust
-use dunky_core::{Config, Context, Event, Machine, State, Types};
+use dunky_state_machine::{Config, Context, Event, Machine, State, Types};
 
 #[derive(State, Clone, Copy, PartialEq, Eq, Debug)]
 enum DialogState { Closed, Open }

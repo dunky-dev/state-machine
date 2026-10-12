@@ -11,7 +11,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use common::{Calls, Count, Log};
-use dunky_core::{Context, Store, Subscription};
+use dunky_state_machine::{Context, Store, Subscription};
 
 #[derive(Clone, Debug, PartialEq, Context)]
 struct Pair {

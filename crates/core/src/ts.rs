@@ -1,5 +1,5 @@
 //! TypeScript types of the values a machine shows JS, so a binding can generate a Rust
-//! machine's TS types from its Rust ones. The mapping follows how `dunky-wasm` moves
+//! machine's TS types from its Rust ones. The mapping follows how `dunky-state-machine-wasm` moves
 //! values through serde: `None` is `null`, sequences are arrays, maps are `Map`s, and
 //! every number is a `number`.
 

@@ -20,7 +20,7 @@ mod common;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
 use common::{Ab, AbEvent, AbState, Count, Counter, CounterState, Log, ab, build};
-use dunky_core::{
+use dunky_state_machine::{
     ActionParams, Cleanup, Config, Context, Event, EventEnum, MACHINE_INIT, State, Types,
 };
 
