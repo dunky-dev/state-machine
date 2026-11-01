@@ -43,8 +43,15 @@ const shareOnX = `https://twitter.com/intent/tweet?text=${encodeURIComponent(sha
     <title>Dunky: a state machine built for performance</title>
     <link
       rel="icon"
-      href={`${base}logo/logo-symbol.svg`}
+      href={`${base}logo/favicon.svg`}
       type="image/svg+xml"
+    />
+    <!-- Chrome ignores prefers-color-scheme inside an SVG favicon: dark tabs get the white one -->
+    <link
+      rel="icon"
+      href={`${base}logo/favicon-white.svg`}
+      type="image/svg+xml"
+      media="(prefers-color-scheme: dark)"
     />
     <meta
       name="description"
