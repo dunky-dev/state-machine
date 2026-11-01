@@ -59,14 +59,14 @@ export default defineConfig({
       // Light/default favicon (Starlight base-prefixes this one). Chrome ignores
       // prefers-color-scheme *inside* an SVG favicon, so the dark-tab white
       // variant is supplied as a separate <link media> in `head` below.
-      favicon: '/logo/logo-symbol.svg',
+      favicon: '/logo/favicon.svg',
       head: [
         {
           tag: 'link',
           attrs: {
             rel: 'icon',
             type: 'image/svg+xml',
-            href: `${basePrefix}/logo/logo-symbol-white.svg`,
+            href: `${basePrefix}/logo/favicon-white.svg`,
             media: '(prefers-color-scheme: dark)',
           },
         },
